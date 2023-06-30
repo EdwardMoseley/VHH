@@ -1,0 +1,342 @@
+---
+title: "Pipeline Prototyping"
+output: html_document
+date: "2023-06-27"
+---
+
+# pRESTO Prototype Workflow
+
+Note that this document relies completely on Illumina MiSeq 2x250 BCR mRNA [example workflow](https://presto.readthedocs.io/en/stable/workflows/Greiff2014_Workflow.html) from pRESTO (The REpertoire Sequencing TOolkit).
+
+## Data Sources
+
+Focuses on data from: Greiff, V. et al. "Quantitative assessment of the robustness of next-generation sequencing of antibody variable gene repertoires from immunized mice." *BMC Immunol.* (2014)
+
+## Overview
+
+Here, we're going to review each step required to translate raw sequence reads to an annotated repertoir of V(D)J sequences.
+
+Overall, this is divided into:
+
+1. Paired-end assembly
+
+2. Quality control and primer annotation
+
+3. Deduplication and filtering
+
+## Read Configuration
+
+
+<center>
+![](/Users/emoseley/Desktop/Tufts/Su23-DS-288-Capstone/edwardmoseley.github.io/code/img/Greiff2014_ReadConfiguration.svg)
+
+</center>
+
+**Schematic of Illumina MiSeq 2x250 stranded paired-end reads without UMI barcodes.**
+
+**Notes (per workflow documentation):**
+
+*Each 250 base-pair read was sequenced from one end of the target cDNA, so that the two reads together cover the entire variable region of the Ig heavy chain. 
+
+* The V(D)J reading frame proceeds from the start of read 2 to the start of read 1. 
+
+* Read 1 is in the opposite orientation (reverse complement), and contains the C-region primer sequence. 
+
+* Both reads begin with a random sequences of 4 nucleotides.
+
+### FlowChart
+
+<center>
+![](/Users/emoseley/Desktop/Tufts/Su23-DS-288-Capstone/edwardmoseley.github.io/code/img/Greiff2014_Flowchart.svg)
+</center>
+
+## Installation and Environment Setup
+
+#### Immcantation
+
+* First, [immcantation v.4.4.0](https://hub.docker.com/r/immcantation/suite) was downloaded via Docker
+
+```
+docker pull immcantation/suite:4.4.0
+```
+
+* Next, the [SRA Toolkit](https://github.com/ncbi/sra-tools/wiki/01.-Downloading-SRA-Toolkit) was downloaded, and the [installation guide](https://github.com/ncbi/sra-tools/wiki/02.-Installing-SRA-Toolkit) followed.
+
+#### SRA Toolkit
+
+We need the first 25,000 sequences of sample `ERR346600`, which may downloaded using fastq-dump from the [SRA Toolkit](https://github.com/ncbi/sra-tools/wiki/01.-Downloading-SRA-Toolkit).
+
+```
+fastq-dump --split-files -X 25000 ERR346600
+```
+
+## 1) Paired-end assembly
+
+### align
+
+Each set of paired-ends mate-pairs is first assembled into a full length Ig sequence using the align subcommand of `AssemblePairs.py`:
+
+During assembly we have defined read 2 (V-region) as the head of the sequence (-1) and read 1 as the tail of the sequence (-2). The `--coord` argument defines the format of the sequence header so that AssemblePairs.py can properly identify mate-pairs; in this case, we use `--coord sra` as our headers are in the SRA/ENA format.
+
+**Our Command**
+
+```{bash, engine.opts='-l', echo = T, eval = F}
+docker run -v /Users/emoseley/Desktop/Tufts/Su23-DS-288-Capstone/edwardmoseley.github.io/code/data:/data immcantation/suite:4.4.0 \
+  AssemblePairs.py align -1 /data/ERR346600_2.fastq -2 /data/ERR346600_1.fastq \
+    --coord sra --rc tail --maxerror 0.1 --outname M1 --log /data/AP.log 
+```
+
+**Output:** 
+
+1. `M1_assemble-pass.fastq`
+
+2. `AP.log`
+
+#### ParseLog.py
+
+The `ParseLog.py` tool is then used to build a tab-delimited file of results from the `AssemblePairs.py` log file:
+
+```{bash, engine.opts='-l', echo = T, eval = F}
+docker run -v /Users/emoseley/Desktop/Tufts/Su23-DS-288-Capstone/edwardmoseley.github.io/code/data:/data immcantation/suite:4.4.0 \
+  ParseLog.py -l /data/AP.log -f ID LENGTH OVERLAP ERROR PVALUE
+```
+
+**Output:** 
+
+1. `AP_table.tab` (tsv)
+
+Which will containing the following columns:
+
+```
+Field Description
+
+ID - Sequence name
+
+LENGTH - Length of the assembled sequence
+
+OVERLAP - Length of the overlap between mate-pairs
+
+ERROR - Mismatch rate of the overlapping region
+
+P-VALUE - P-value for the assembly
+```
+
+## 2) (Quality Control Step) Filter Sequence
+
+### Removing Low-Quality Reads
+
+Quality control begins with the identification and removal of low-quality reads using the quality subcommand of the `FilterSeq.py` tool. In this example, reads with mean Phred quality scores less than 20 (`-q 20`) are removed:
+
+**Tutorial Command**
+
+```{bash, engine.opts='-l', echo = T, eval = F}
+FilterSeq.py quality -s M1_assemble-pass.fastq -q 20 --outname M1 --log FS.log
+```
+
+**TH Command**
+
+Throw out low quality reads, anything below Q30 gets tossed
+
+```{bash, engine.opts='-l', echo = T, eval = F}
+sudo docker run -v $DATA_DIR:/data:z immcantation/suite:devel \
+    FilterSeq.py quality -s $SEQ1 -q 30 -o $SEQ2 
+```
+
+**Our Command**
+
+
+```{bash, engine.opts='-l', echo = T, eval = F}
+docker run -v /Users/emoseley/Desktop/Tufts/Su23-DS-288-Capstone/edwardmoseley.github.io/code/data:/data immcantation/suite:4.4.0 \
+  FilterSeq.py quality -s /data/M1_assemble-pass.fastq -q 20 --outname M1 --log /data/FS.log
+```
+
+**Output:**
+
+1. `M1_quality-pass.fastq`
+
+2. `FS.log`
+
+#### ParseLog.py
+
+The `ParseLog.py` tool is then used to build tab-delimited file from the `FilterSeq.py` log:
+
+**Our Command**
+
+```{bash, engine.opts='-l', echo = T, eval = F}
+docker run -v /Users/emoseley/Desktop/Tufts/Su23-DS-288-Capstone/edwardmoseley.github.io/code/data:/data immcantation/suite:4.4.0 \
+  ParseLog.py -l /data/FS.log -f ID QUALITY
+```
+
+**Output:**
+
+1. `FS_table.tab`
+
+With the following variables:
+
+```
+Field Description
+
+ID - Sequence name
+
+QUALITY - Quality score
+```
+
+### Read annotation and masking of primer regions
+
+When dealing with Ig sequences, it is important to cut or mask the primers, as B cell receptors are subject to somatic hypermutation (the accumulation of point mutations in the DNA) and degenerate primer matches can look like mutations in downstream applications. The `score` subcommand of `MaskPrimers.py` is used to identify and remove the V-segment and C-region PCR primers for both reads:
+
+**Tutorial Command**
+
+```{bash, engine.opts='-l', echo = T, eval = F}
+MaskPrimers.py score -s M1_quality-pass.fastq -p Greiff2014_VPrimers.fasta \
+    --start 4 --mode mask --pf VPRIMER --outname M1-FWD --log MPV.log
+
+MaskPrimers.py score -s M1-FWD_primers-pass.fastq -p Greiff2014_CPrimers.fasta \
+    --start 4 --mode cut --revpr --pf CPRIMER --outname M1-REV --log MPC.log
+```
+
+In this data set the authors have added a random sequence of 4 bp to the start of each read before the primer sequence to increase sequence diversity and the reliability of cluster calling on the Illumina platform. As such, both primers begin at position 4 (`--start 4`), but the C-region primer begins 4 bases from the end of the assembled read. The addition of the `--revpr` argument to the second `MaskPrimers.py` step instructs the tool to reverse complement the primer sequences and check the tail of the read. 
+
+The two primer regions have also been treated differently. The V-segment primer has been masked (replaced by Ns) using the `--mode mask` argument to preserve the V(D)J length, while the C-region primer has been removed from the sequence using the `--mode cut` argument.
+
+During each iteration of the `MaskPrimers.py` tool an annotation field was added with the name of the primer, with the name of the field specified by the `--pf` argument, such that after both iterations each sequence contains an annotation of the form:
+
+**TH Command**
+
+```{bash, engine.opts='-l', echo = T, eval = F}
+#match the reverse primers and read the reverse half of the barcode
+sudo docker run -v $DATA_DIR:/data:z immcantation/suite:devel \
+    MaskPrimers.py score -s $SEQ3 -p data/$Sub0/AlpVHH.fasta --barcode \
+        --start 8 --maxerror 0.01 --mode cut --revpr --pf CPRIMER \
+        -o $SEQ4 
+
+#match the forward primers and read the forward half of the barcode
+sudo docker run -v $DATA_DIR:/data:z immcantation/suite:devel \
+    MaskPrimers.py score -s $SEQ2 -p data/$Sub0/AlpVHH.fasta --barcode \
+        --start 8 --maxerror 0.01 --mode cut --pf VPRIMER \
+        -o $SEQ3 
+
+```
+
+**Our Commands**
+
+Note that we will change the max error rate, because no sequences are passing..
+
+```{bash, engine.opts='-l', echo = T, eval = F}
+docker run -v /Users/emoseley/Desktop/Tufts/Su23-DS-288-Capstone/edwardmoseley.github.io/code/data:/data immcantation/suite:4.4.0 \
+  MaskPrimers.py score -s /data/M1_quality-pass.fastq -p /data/Greiff2014_VPrimers.fasta \
+      --start 4 --mode mask --pf VPRIMER --outname M1-FWD --log /data/MPV.log \
+      --maxerror 0.50
+```
+
+**Output:** 
+
+1. `M1-FWD_primers-pass.fastq`
+
+2. `MPV.log`
+
+```{bash, engine.opts='-l', echo = T, eval = F}
+docker run -v /Users/emoseley/Desktop/Tufts/Su23-DS-288-Capstone/edwardmoseley.github.io/code/data:/data immcantation/suite:4.4.0 \
+MaskPrimers.py score -s /data/M1-FWD_primers-pass.fastq -p /data/Greiff2014_CPrimers.fasta \
+    --start 4 --mode cut --revpr --pf CPRIMER --outname M1-REV --log /data/MPC.log \
+    --maxerror 0.50
+```
+
+**Output:**
+
+1. `M1-REV_primers-pass.fastq`
+
+2. `MPC.log`
+
+
+#### Parse Log Summary
+
+```{bash, engine.opts='-l', echo = T, eval = F}
+docker run -v /Users/emoseley/Desktop/Tufts/Su23-DS-288-Capstone/edwardmoseley.github.io/code/data:/data immcantation/suite:4.4.0 \
+  ParseLog.py -l /data/MPV.log /data/MPC.log -f ID PRIMER ERROR
+```
+
+**Output:**
+
+1. `MPC_table.tab`
+
+Capturing the following annotations:
+
+```
+Field Description
+
+ID Sequence name
+
+PRIMER Primer name
+
+ERROR Primer match error rate
+```
+
+---
+
+**Example note:**
+
+This library was prepared in a stranded manner. Meaning, the read orientation is constant for all reads; read 1 is always the C-region end of the amplicon and read 2 is always the V-segment end. If your data is unstranded (50% of the reads are forward, 50% are reversed), then you must modify the first MaskPrimers.py step to account for this by using the align subcommand instead:
+
+```
+MaskPrimers.py align -s M1*quality-pass.fastq -p Greiff2014_VPrimers.fasta \
+    --maxlen 30 --mode mask --pf VPRIMER --log MP1.log
+```
+
+This will perform a slower process of locally aligning the primers, checking the reverse compliment of each read for matches, and correcting the the output sequences to the forward orientation (V to J).
+
+## Deduplication and Filtering
+
+### Removal of duplicate sequences
+
+The last stage of the workflow involves two filtering steps to yield the final repertoire. 
+
+First, the set of unique sequences is identified using the `CollapseSeq.py` tool, allowing for up to 20 interior N-valued positions (`-n 20` and `--inner`), and requiring that all reads considered duplicates share the same C-region primer annotation (`--uf CPRIMER`). Additionally, the V-segment primer annotations of the set of duplicate reads are propagated into the annotation of each retained unique sequence (`--cf VPRIMER` and `--act set`):
+
+**Tutorial Command**
+
+```
+CollapseSeq.py -s M1-REV_primers-pass.fastq -n 20 --inner --uf CPRIMER \
+    --cf VPRIMER --act set --outname M1
+```
+
+**TH Command**
+
+```
+NOTE: TH moves directly to:
+
+#concatenate the barcodes from each end to form full unique identifiers
+sudo docker run -v $DATA_DIR:/data:z immcantation/suite:devel \
+    ParseHeaders.py collapse -s $SEQ4 -f BARCODE --act cat -o $SEQ5
+
+sudo docker run -v $DATA_DIR:/data:z immcantation/suite:devel \
+    BuildConsensus.py -s $SEQ5  --pf VPRIMER \
+         --maxerror 0.1  -o $SEQ6 -n 2 --bf BARCODE
+```
+
+**Our Command**
+
+```{bash, engine.opts='-l', echo = T, eval = F}
+docker run -v /Users/emoseley/Desktop/Tufts/Su23-DS-288-Capstone/edwardmoseley.github.io/code/data:/data immcantation/suite:4.4.0 \
+  CollapseSeq.py -s /data/M1-REV_primers-pass.fastq -n 20 --inner --uf CPRIMER \
+    --cf VPRIMER --act set --outname M1
+```
+
+### Filtering to repeated sequences
+
+CollapseSeq stores the count of duplicate reads for each sequence in the `DUPCOUNT` annotation. Following duplicate removal, the data is subset to only those unique sequence with at least two representative reads by using the `group` subcommand of `SplitSeq.py` on the count field (`-f DUPCOUNT`) and specifying a numeric threshold (`--num 2`):
+
+**Tutorial Command**
+
+```
+SplitSeq.py group -s M1_collapse-unique.fastq -f DUPCOUNT --num 2 --outname M1
+```
+
+**Our Command**
+
+```{bash, engine.opts='-l', echo = T, eval = F}
+docker run -v /Users/emoseley/Desktop/Tufts/Su23-DS-288-Capstone/edwardmoseley.github.io/code/data:/data immcantation/suite:4.4.0 \
+  SplitSeq.py group -s /data/M1_collapse-unique.fastq -f DUPCOUNT --num 2 --outname M1
+```
+
+
