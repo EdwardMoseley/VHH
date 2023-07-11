@@ -10,7 +10,7 @@
 
 
 
-<meta name="date" content="2023-06-27" />
+<meta name="date" content="2023-07-06" />
 
 <title>Pipeline Prototyping</title>
 
@@ -350,16 +350,24 @@ display: none;
 
 
 <h1 class="title toc-ignore">Pipeline Prototyping</h1>
-<h4 class="date">2023-06-27</h4>
+<h4 class="date">2023-07-06</h4>
 
 </div>
 
 
-<div id="presto-prototype-workflow" class="section level1">
-<h1>pRESTO Prototype Workflow</h1>
+<div id="objectives" class="section level3">
+<h3>Objectives:</h3>
+<p>Refactor and write documentation to generalize for future use * Part
+1: Raw Read Assembly (pRESTO) * Part 2: 02ChangeO.ipynb * Part 3: Clonal
+Threshold Calculations (Scoper) * Part 4: Reconstruct Germlines and
+Build Phylogenetic Trees * Part 5: Create an alpaca SHM Model</p>
+</div>
+<div id="part-1-presto-prototype-workflow" class="section level2">
+<h2>Part 1) pRESTO Prototype Workflow</h2>
 <p>Note that this document relies completely on Illumina MiSeq 2x250 BCR
 mRNA <a href="https://presto.readthedocs.io/en/stable/workflows/Greiff2014_Workflow.html">example
 workflow</a> from pRESTO (The REpertoire Sequencing TOolkit).</p>
+</div>
 <div id="data-sources" class="section level2">
 <h2>Data Sources</h2>
 <p>Focuses on data from: Greiff, V. et al. “Quantitative assessment of
@@ -659,7 +667,6 @@ and specifying a numeric threshold (<code>--num 2</code>):</p>
 <p><strong>Our Command</strong></p>
 <pre class="bash"><code>docker run -v /Users/emoseley/Desktop/Tufts/Su23-DS-288-Capstone/edwardmoseley.github.io/code/data:/data immcantation/suite:4.4.0 \
   SplitSeq.py group -s /data/M1_collapse-unique.fastq -f DUPCOUNT --num 2 --outname M1</code></pre>
-</div>
 </div>
 </div>
 

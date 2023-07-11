@@ -1,10 +1,19 @@
 ---
 title: "Pipeline Prototyping"
 output: html_document
-date: "2023-06-27"
+date: "2023-07-06"
 ---
 
-# pRESTO Prototype Workflow
+### Objectives:
+
+Refactor and write documentation to generalize for future use
+    * Part 1: Raw Read Assembly (pRESTO)
+    * Part 2: 02ChangeO.ipynb
+    * Part 3: Clonal Threshold Calculations (Scoper)
+    * Part 4: Reconstruct Germlines and Build Phylogenetic Trees
+    * Part 5: Create an alpaca SHM Model
+
+## Part 1) pRESTO Prototype Workflow
 
 Note that this document relies completely on Illumina MiSeq 2x250 BCR mRNA [example workflow](https://presto.readthedocs.io/en/stable/workflows/Greiff2014_Workflow.html) from pRESTO (The REpertoire Sequencing TOolkit).
 
@@ -338,5 +347,57 @@ SplitSeq.py group -s M1_collapse-unique.fastq -f DUPCOUNT --num 2 --outname M1
 docker run -v /Users/emoseley/Desktop/Tufts/Su23-DS-288-Capstone/edwardmoseley.github.io/code/data:/data immcantation/suite:4.4.0 \
   SplitSeq.py group -s /data/M1_collapse-unique.fastq -f DUPCOUNT --num 2 --outname M1
 ```
+
+### Creating the annotation table
+
+We now generate annotations:
+
+1. `DUPCOUNT` - Duplicate read count
+
+2. `CPRIMER` - Isotype
+
+3. `VPRIMER` - B-segment primer
+
+These are generated from the final repertoire data from the `SplitSeq.py` output with the `table` subcommand from `ParseHeaders.py`:
+
+```{bash, engine.opts='-l', echo = T, eval = F}
+docker run -v /Users/emoseley/Desktop/Tufts/Su23-DS-288-Capstone/edwardmoseley.github.io/code/data:/data immcantation/suite:4.4.0 \
+  ParseHeaders.py table -s /data/M1_collapse-unique.fastq -f ID DUPCOUNT CPRIMER VPRIMER
+```
+
+**Output:**
+
+1. `M1_collapse-unique_headers.tab`
+
+#### Final Results
+
+The final set of sequences, which serve as input to a V(D)J reference aligner (Eg, IMGT/HighV-QUEST or IgBLAST), and tables that can be plotted for quality control are:
+
+1. `M1_collapse-unique.fastq` - Total Unique Sequences
+
+2. `M1_atleast-2.fastq` - Unique sequences represented by at least 2 reads
+
+3. `M1_atleast-2_headers.tab` - Annotation table of the `atleast-2` file
+
+4. `AP_table.tab` - Table of the AssemblePairs log
+
+5. `FS_table.tab` - Table of the FilterSeq log
+
+6. `MPV_table.tab` - Table of the V-segment MaskPrimers log
+
+7. `MPC_table.tab` - Table of the C-region MaskPrimers log
+
+## Part 2) Change-O - Repertoire Clonal Assignment Toolkit
+
+Here, we rely on the [IgBLAST](https://changeo.readthedocs.io/en/stable/examples/igblast.html) tutorial, within the [Change-O - Repertoire clonal assignment toolkit](https://changeo.readthedocs.io/en/stable/examples/igblast.html), and we use an example data set from the [UMI barcoded MiSeq Workflow](https://presto.readthedocs.io/en/stable/workflows/Stern2014_Workflow.html). The data can be downloaded from:
+
+* [Change-O Example Files](http://clip.med.yale.edu/immcantation/examples/AIRR_Example.tar.gz)
+
+
+
+
+
+ 
+
 
 
