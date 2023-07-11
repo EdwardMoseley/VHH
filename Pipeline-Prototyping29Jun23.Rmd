@@ -8,8 +8,8 @@ date: "2023-07-06"
 
 Refactor and write documentation to generalize for future use
     * Part 1: Raw Read Assembly (pRESTO)
-    * Part 2: 02ChangeO.ipynb
-    * Part 3: Clonal Threshold Calculations (Scoper)
+    * Part 2: Change-O - Repertoire Clonal Assignment Toolkit
+    * Part 3: Spectral Clustering-Based Method for Identifying B Cell Clones (Scoper)
     * Part 4: Reconstruct Germlines and Build Phylogenetic Trees
     * Part 5: Create an alpaca SHM Model
 
@@ -393,8 +393,137 @@ Here, we rely on the [IgBLAST](https://changeo.readthedocs.io/en/stable/examples
 
 * [Change-O Example Files](http://clip.med.yale.edu/immcantation/examples/AIRR_Example.tar.gz)
 
+**TH Commands**
+
+```
+%%bash 
+
+WD=/home/troyhinkley/ncbi-igblast-1.17.1
+DATA=/home/troyhinkley/alpaca/igblast
+
+# V segment database
+$WD/bin/edit_imgt_file.pl \
+$DATA/vdj_gapped/imgt_gapped_alpaca_IGHV.fasta > $WD/internal_data/alpaca/imgt_alpaca_ig_v.fasta
 
 
+$WD/bin/makeblastdb -parse_seqids -dbtype nucl \
+    -in $WD/internal_data/alpaca/imgt_alpaca_ig_v.fasta \
+    -out $WD/internal_data/alpaca/alpaca_V
+
+
+# D segment database
+$WD/bin/edit_imgt_file.pl \
+$DATA/vdj_gapped/imgt_gapped_alpaca_IGHD.fasta > $WD/internal_data/alpaca/imgt_alpaca_ig_d.fasta
+
+$WD/bin/makeblastdb -parse_seqids -dbtype nucl \
+    -in $WD/internal_data/alpaca/imgt_alpaca_ig_d.fasta \
+    -out $WD/internal_data/alpaca/alpaca_D
+
+
+# J segment database
+$WD/bin/edit_imgt_file.pl \
+$DATA/vdj_gapped/imgt_gapped_alpaca_IGHJ.fasta > $WD/internal_data/alpaca/imgt_alpaca_ig_j.fasta
+
+
+$WD/bin/makeblastdb -parse_seqids -dbtype nucl \
+    -in $WD/internal_data/alpaca/imgt_alpaca_ig_j.fasta \
+    -out $WD/internal_data/alpaca/alpaca_J
+
+
+cp -R $DATA/internal_data/alpaca/. $WD/database 
+cp -R $DATA/internal_data/alpaca/. $DATA/database
+#cp -R $DATA/internal_data/alpaca/. $WD/internal_data/alpaca
+```
+
+```
+%%bash
+#for Sample in {10_S1,11_S2,12_S3,13_S4,14_S5,15_S6,16_S7,17_S8,18_S9,19_S10,20_S11,21_S12,22_S13,23_S14,24_S15,25_S16}; do \
+#for Sample in {A-S1,B-S3,C-S5,D-S7,E-S9,F-S11,D-S2,A-S4,B-S6,E-S8,F-S10}; do \
+#for Sample in {SSA-S1,SA-S1}; do \
+
+#for Sample in {A2A_S1,L2A_S2,PDA_S3,GblockA_S4,NegA_S5,A2G1_S6,L2G1_S7,PD1G1_S8,PD2G1_S9,GblockG1_S10,GloveG1_S11,A2G2_S12,L2G2_S13,PD1G2_S14,GblockG2_S15}; do \
+for Sample in {25_S16,PhageDisplay,Alpaca,Gblock,Alex,Lara}; do \
+
+#ID=A2G1
+#Index=6
+
+#Sample="$ID"_S"$Index"
+#Sample=10_S1
+
+
+WD=/home/troyhinkley/ncbi-igblast-1.17.1
+DATA=/home/troyhinkley/alpaca/igblast
+SEQ="$Sample"_atleast-2.fasta
+DATA_DIR=/home/troyhinkley/alpaca/EVD68
+
+IN=catout
+OUT=catout
+
+cd $WD
+
+bin/igblastn \
+    -germline_db_V database/alpaca_V \
+    -germline_db_D database/alpaca_D \
+    -germline_db_J database/alpaca_J \
+    -auxiliary_data optional_file/alpaca_gl.aux \
+    -domain_system imgt -ig_seqtype Ig -organism alpaca \
+    -outfmt '7 std qseq sseq btop' \
+    -query $DATA_DIR/$IN/$SEQ \
+    -out $DATA_DIR/$OUT/$Sample.fmt7
+
+sudo docker run -v $DATA_DIR:/data:z immcantation/suite:devel \
+     MakeDb.py igblast \
+    -i data/$OUT/$Sample.fmt7 \
+    -s data/$IN/$SEQ \
+    -r data/igblast/vdj_gapped/imgt_gapped_alpaca_IGHV.fasta /data/igblast/vdj_gapped/imgt_gapped_alpaca_IGHD.fasta /data/igblast/vdj_gapped/imgt_gapped_alpaca_IGHJ.fasta \
+    --outdir /data/$OUT \
+    --failed \
+    --log /data/log.txt \
+    --format airr \
+    --extended   
+
+sudo docker run -v $DATA_DIR:/data:z immcantation/suite:devel \
+    ParseDb.py select -d data/$OUT/"$Sample"_db-pass.tsv \
+    -f productive -u T --regex --outname $Sample
+
+sudo docker run -v $DATA_DIR:/data:z immcantation/suite:devel \
+    ParseDb.py select -d data/$OUT/"$Sample"_parse-select.tsv \
+    -f v_call -u IGHV --regex -o data/$OUT/$Sample-RepOut.tsv
+
+done
+```
+
+## Part 3) SCOPer - Spectral Clustering-Based Method for Identifying B Cell Clones
+
+[SCOPer](https://scoper.readthedocs.io/en/stable/) provides a computational framework for the identification of B cell clonal relationships from Adaptive Immune Receptor Repertoire sequencing (AIRR-Seq) data. It includes methods for assigning clonal identifiers using sequence identity, hierarchical clustering, and spectral clustering.
+
+### Installation and Environment Setup
+
+We install SCOPer in R via its [CRAN Repository](https://cran.rstudio.com/web/packages/scoper/)
+
+```{r, echo = T, eval = F}
+# this just says: if loading the package returns false, install it (else load the package)
+if (!require("scoper")) install.packages("scoper")
+```
+
+Note that this may not work without explicitly installing `Biostrings`, which can be installed using [Bioconductor](https://bioconductor.org/packages/release/bioc/html/Biostrings.html) with the commands below:
+
+```{r, echo = T, eval = F}
+if (!require("BiocManager")) install.packages("BiocManager")
+
+# Now we use Bioconductor
+BiocManager::install("Biostrings")
+```
+
+We learn that we will need [GenomicAlignments](https://bioconductor.org/packages/release/bioc/html/GenomicAlignments.html), as well:
+
+```{r, echo=T, eval = F}
+BiocManager::install("GenomicAlignments")
+```
+
+## Part 4) Create Germlines
+
+## Part 5) Infer SHM
 
 
  

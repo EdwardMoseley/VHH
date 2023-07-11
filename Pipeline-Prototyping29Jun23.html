@@ -668,6 +668,57 @@ and specifying a numeric threshold (<code>--num 2</code>):</p>
 <pre class="bash"><code>docker run -v /Users/emoseley/Desktop/Tufts/Su23-DS-288-Capstone/edwardmoseley.github.io/code/data:/data immcantation/suite:4.4.0 \
   SplitSeq.py group -s /data/M1_collapse-unique.fastq -f DUPCOUNT --num 2 --outname M1</code></pre>
 </div>
+<div id="creating-the-annotation-table" class="section level3">
+<h3>Creating the annotation table</h3>
+<p>We now generate annotations:</p>
+<ol style="list-style-type: decimal">
+<li><p><code>DUPCOUNT</code> - Duplicate read count</p></li>
+<li><p><code>CPRIMER</code> - Isotype</p></li>
+<li><p><code>VPRIMER</code> - B-segment primer</p></li>
+</ol>
+<p>These are generated from the final repertoire data from the
+<code>SplitSeq.py</code> output with the <code>table</code> subcommand
+from <code>ParseHeaders.py</code>:</p>
+<pre class="bash"><code>docker run -v /Users/emoseley/Desktop/Tufts/Su23-DS-288-Capstone/edwardmoseley.github.io/code/data:/data immcantation/suite:4.4.0 \
+  ParseHeaders.py table -s /data/M1_collapse-unique.fastq -f ID DUPCOUNT CPRIMER VPRIMER</code></pre>
+<p><strong>Output:</strong></p>
+<ol style="list-style-type: decimal">
+<li><code>M1_collapse-unique_headers.tab</code></li>
+</ol>
+<div id="final-results" class="section level4">
+<h4>Final Results</h4>
+<p>The final set of sequences, which serve as input to a V(D)J reference
+aligner (Eg, IMGT/HighV-QUEST or IgBLAST), and tables that can be
+plotted for quality control are:</p>
+<ol style="list-style-type: decimal">
+<li><p><code>M1_collapse-unique.fastq</code> - Total Unique
+Sequences</p></li>
+<li><p><code>M1_atleast-2.fastq</code> - Unique sequences represented by
+at least 2 reads</p></li>
+<li><p><code>M1_atleast-2_headers.tab</code> - Annotation table of the
+<code>atleast-2</code> file</p></li>
+<li><p><code>AP_table.tab</code> - Table of the AssemblePairs
+log</p></li>
+<li><p><code>FS_table.tab</code> - Table of the FilterSeq log</p></li>
+<li><p><code>MPV_table.tab</code> - Table of the V-segment MaskPrimers
+log</p></li>
+<li><p><code>MPC_table.tab</code> - Table of the C-region MaskPrimers
+log</p></li>
+</ol>
+</div>
+</div>
+</div>
+<div id="part-2-change-o---repertoire-clonal-assignment-toolkit" class="section level2">
+<h2>Part 2) Change-O - Repertoire Clonal Assignment Toolkit</h2>
+<p>Here, we rely on the <a href="https://changeo.readthedocs.io/en/stable/examples/igblast.html">IgBLAST</a>
+tutorial, within the <a href="https://changeo.readthedocs.io/en/stable/examples/igblast.html">Change-O
+- Repertoire clonal assignment toolkit</a>, and we use an example data
+set from the <a href="https://presto.readthedocs.io/en/stable/workflows/Stern2014_Workflow.html">UMI
+barcoded MiSeq Workflow</a>. The data can be downloaded from:</p>
+<ul>
+<li><a href="http://clip.med.yale.edu/immcantation/examples/AIRR_Example.tar.gz">Change-O
+Example Files</a></li>
+</ul>
 </div>
 
 
