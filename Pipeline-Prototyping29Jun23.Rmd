@@ -7,21 +7,25 @@ date: "2023-07-06"
 ### Objectives:
 
 Refactor and write documentation to generalize for future use
-    * Part 1: Raw Read Assembly (pRESTO)
-    * Part 2: Change-O - Repertoire Clonal Assignment Toolkit
-    * Part 3: Spectral Clustering-Based Method for Identifying B Cell Clones (Scoper)
-    * Part 4: Reconstruct Germlines and Build Phylogenetic Trees
-    * Part 5: Create an alpaca SHM Model
+    * Part 1: (BASH) Raw Read Assembly (pRESTO)
+    * Part 2: (BASH) Change-O - Repertoire Clonal Assignment Toolkit
+    * Part 3: (R) Spectral Clustering-Based Method for Identifying B Cell Clones (Scoper)
+    * Part 4: (BASH) Reconstruct Germlines and Build Phylogenetic Trees
+    * Part 5: (R) Create an alpaca SHM Model
 
-## Part 1) pRESTO Prototype Workflow
+<br>
+<br>
+<br>
+
+# Part 1) pRESTO Prototype Workflow
 
 Note that this document relies completely on Illumina MiSeq 2x250 BCR mRNA [example workflow](https://presto.readthedocs.io/en/stable/workflows/Greiff2014_Workflow.html) from pRESTO (The REpertoire Sequencing TOolkit).
 
-## Data Sources
+### Data Sources
 
 Focuses on data from: Greiff, V. et al. "Quantitative assessment of the robustness of next-generation sequencing of antibody variable gene repertoires from immunized mice." *BMC Immunol.* (2014)
 
-## Overview
+### Overview
 
 Here, we're going to review each step required to translate raw sequence reads to an annotated repertoir of V(D)J sequences.
 
@@ -33,7 +37,7 @@ Overall, this is divided into:
 
 3. Deduplication and filtering
 
-## Read Configuration
+#### Read Configuration
 
 
 <center>
@@ -53,13 +57,13 @@ Overall, this is divided into:
 
 * Both reads begin with a random sequences of 4 nucleotides.
 
-### FlowChart
+#### FlowChart
 
 <center>
 ![](/Users/emoseley/Desktop/Tufts/Su23-DS-288-Capstone/edwardmoseley.github.io/code/img/Greiff2014_Flowchart.svg)
 </center>
 
-## Installation and Environment Setup
+### Installation and Environment Setup
 
 #### Immcantation
 
@@ -294,7 +298,7 @@ MaskPrimers.py align -s M1*quality-pass.fastq -p Greiff2014_VPrimers.fasta \
 
 This will perform a slower process of locally aligning the primers, checking the reverse compliment of each read for matches, and correcting the the output sequences to the forward orientation (V to J).
 
-## Deduplication and Filtering
+## 3) Deduplication and Filtering
 
 ### Removal of duplicate sequences
 
@@ -387,7 +391,11 @@ The final set of sequences, which serve as input to a V(D)J reference aligner (E
 
 7. `MPC_table.tab` - Table of the C-region MaskPrimers log
 
-## Part 2) Change-O - Repertoire Clonal Assignment Toolkit
+<br>
+<br>
+<br>
+
+# Part 2) Change-O - Repertoire Clonal Assignment Toolkit
 
 Here, we rely on the [IgBLAST](https://changeo.readthedocs.io/en/stable/examples/igblast.html) tutorial, within the [Change-O - Repertoire clonal assignment toolkit](https://changeo.readthedocs.io/en/stable/examples/igblast.html), and we use an example data set from the [UMI barcoded MiSeq Workflow](https://presto.readthedocs.io/en/stable/workflows/Stern2014_Workflow.html). The data can be downloaded from:
 
@@ -493,9 +501,33 @@ sudo docker run -v $DATA_DIR:/data:z immcantation/suite:devel \
 done
 ```
 
-## Part 3) SCOPer - Spectral Clustering-Based Method for Identifying B Cell Clones
+#### Part 2 Notes: 
 
-[SCOPer](https://scoper.readthedocs.io/en/stable/) provides a computational framework for the identification of B cell clonal relationships from Adaptive Immune Receptor Repertoire sequencing (AIRR-Seq) data. It includes methods for assigning clonal identifiers using sequence identity, hierarchical clustering, and spectral clustering.
+1. It appears that this step is related to creating an International Immunogenetics Information System ([IMGT](https://imgt.org/)) database. Note that IMGT provides reference directories for normal and pathological Immunoglobulin (Ig) and T-Cell Receptors (TR or TCRs).
+
+2. For helpful information, see: [Parsing IMGT Output](https://changeo.readthedocs.io/en/stable/examples/imgt.html).
+
+**This part has been skipped for now**
+
+<br>
+<br>
+<br>
+
+# Part 3) SCOPer - Spectral Clustering-Based Method for Identifying B Cell Clones
+
+[SCOPer](https://scoper.readthedocs.io/en/stable/) provides a computational framework for the identification of B cell clonal relationships from Adaptive Immune Receptor Repertoire sequencing (AIRR-Seq) data. 
+
+SCOPer includes methods for:
+
+1. Assigning clonal identifiers using sequence identity
+
+2. Hierarchical clustering
+
+3. Spectral clustering
+
+A key step in the quantitative analysis of AIRR-Seq data is the identification of B cell clones (that is, sequences derived from a common ancestor) using computational approaches.
+
+`scoper` provides computational tools for the identification of B cell clones from AIRR-Seq data among immunoglobulin/B cell receptor sequences which share the same V gene, J gene, and junction length. With `scoper`, we can infer clonal relationships with predefined clustering thresholds, or an adaptive threshold.
 
 ### Installation and Environment Setup
 
@@ -521,12 +553,238 @@ We learn that we will need [GenomicAlignments](https://bioconductor.org/packages
 BiocManager::install("GenomicAlignments")
 ```
 
+### Clonal Partitioning
+
+**Note:** As with previous sections, this relies heavily on the Immcantation documentation. In this case, we use the [SCOPer Vignette](https://scoper.readthedocs.io/en/stable/vignettes/Scoper-Vignette/).
+
+### Goals of Analysis
+
+Goal: Partition (cluster) sequences into clonally related lineages. Each lineage is a group of sequences that came from the same original naive cell.
+
+Summary of the key steps:
+
+1. etermine clonal clustering threshold: sequences which are under this cut-off are clonally related. 
+
+2. Assign clonal groups: add an annotation (clone_id) that can be used to identify a group of sequences that came from the same original naive cell.
+
+3. Reconstruct germline sequences: figure out the germline sequence of the common ancestor, before mutations are introduced during clonal expansion and SMH. 
+
+4. Analize clonal diversity: number and size of clones? any expanded clones?
+
+<center>
+![](/Users/emoseley/Desktop/Tufts/Su23-DS-288-Capstone/edwardmoseley.github.io/code/img/clonalexpansion.png)
+</center>
+
+
+### Example Data
+
+We rely on a subset of Ig sequencing data from Larserson and Vigneault, et al., *PNAS* (2014), which includes sequences from multiple time-points before and after the subject received an immunization.
+
+To identify clones, we require the following columns in the table:
+
+* `junction`
+
+* `c_call`
+
+* `j_call`
+
+* `sequence_alignment`
+
+* `germline_alignment_d_mask`
+
+The example data can be accessed in R by loading the package, and then accessing the dataframe:
+
+```{r, echo = T, eval = F}
+library(scoper)
+
+# Look at the top-6 entries
+head(scoper::ExampleDb)
+```
+
+### Hierarchical Clones
+
+Most current studies uses a more sophisticated definition for clonal relationships. These studies leverage the high diversity of the junction region as a fingerprint to identify each B cell clone. Since it is unlikely that two separate recombination events would lead to identical junctions, sequences with junction regions that are similar enough are determined to share a common B cell ancestor (i.e., be clonally related) rather than to have arisen independently. Hierarchical clustering is a widely used distance-based method for identify clonally related sequences. An implementation of the hierarchical clustering approach is provided via the `hierachicalClones` function.
+
+It is important to determine an appropriate threshold for trimming the hierarchical clustering into B cell clones before using this method. The ideal threshold for separating clonal groups is the value that separates the two modes of the nearest-neighbor distance distribution. The nearest-neighbor distance distribution can be generated by using the `distToNearest` function in the shazam R package. The threshold itself can be found using the` findThreshold` function in the same package. The resulting distribution should be bimodal, with the first mode representing sequences with clonal relatives in the dataset and the second mode representing singletons. For further details regarding inferring an appropriate threshold for the hierarchical clustering method, see the [Distance to Nearest Neighbor](https://shazam.readthedocs.io/en/stable/vignettes/DistToNearest-Vignette) vignette in the shazam package. 
+
+* Technical details can be found in: Gupta NT, et al. (2017). Hierarchical clustering can identify B cell clones with high confidence in Ig repertoire sequencing data. *The Journal of Immunology*
+
+Note that identifying clonal groups using `hierachicalClones` is nearly the same as the approach using the `identicalClones` function, with the additional requirement of a distance threshold.
+
+The results `data.frame`, summary plots, and summary table are available. This will show the minimum inter (between) and maximum intra (within) clonal distances along with an effective threshold, which is an explanatory value calculated to represent the cut-off separating the inter and intra clonal distances. The effective threshold may differ from clustering threshold provided as input to hierarchicalClones.
+
+```{r, echo = T, eval = T}
+# Define our database as the example database
+DB <- scoper::ExampleDb
+
+# Note that distToNearest is from shazam
+db1 <- shazam::distToNearest(DB, model="ham", normalize="len",
+                             vCallColumn="v_call", jCallColumn = "j_call",
+                             sequenceColumn = "junction")
+
+# Calculate threshold
+threshold <- shazam::findThreshold(db1$dist_nearest, 
+                                   method = "gmm", model="gamma-norm",
+                                   cutoff="intersect")
+# Round off
+thr <- round(threshold@threshold, 3)
+
+# Clonal assignment using hierarchical clustering
+results <- scoper::hierarchicalClones(DB, method="nt", threshold=thr)
+
+# Graph
+scoper::plotCloneSummary(results, binwidth=0.02, title=paste("Sample","Clonal Threshold", thr))
+# Note that the plotted threshold line is not identical to the calculated threshold line
+```
+
+### Clone Identification by Spectral Clustering
+
+While the hierarchical clustering method groups sequences using a fixed distance supervised threshold, the spectral clustering-based model uses an adaptive unsupervised threshold to tune the required level of similarity among sequences in different local neighborhoods. It can be used as an alternative if the nearest-neighbor distance distribution is unimodal, meaning that `findThreshold` wasn’t able to find the threshold at which to cut the hierarchy.
+
+There are two available spectral clustering methods provided by the spectralClones function:
+
+1. `method="novj"`: Infers clonal relationships using an adaptive threshold that indicates the level of similarity among junction sequences in a local neighborhood
+
+2. `method="vj"`: Infers clonal relationships not only based on the junction region homology, but also taking into account the mutation profiles in the V and J segments
+
+It is not mandatory, but a fixed threshold can also be provided to `spectralClone`s (threshold argument) which will enforce an upper-limit cut-off. When specifying the threshold argument, any sequence with distances above the threshold value from all sequences will become a singleton. The threshold can be defined as discussed above using nearest-neighbor distance distribution methods provided in the shazam. If `method="vj"`, the threshold will be applied on the distances calculated combining junction region homology and V/J mutation profiles.
+
+Technical details can be found in:
+
+* Nouri N and Kleinstein SH (2018). A spectral clustering-based method for identifying clones from high-throughput B cell repertoire sequencing data. *Bioinformatics*
+
+* Nouri N and Kleinstein SH (2020). Somatic hypermutation analysis for improved identification of B cell clonal families from next-generation sequencing data, *PLoS Comput Biol*
+
+```{r, echo = T, eval = T}
+# Define our database as the example database
+DB <- scoper::ExampleDb
+
+# This is the method TH's code used
+results <- scoper::spectralClones(DB, method="vj", nproc=16, cdr3=TRUE, iter_max=200, nstart = 50)
+
+# Plot
+scoper::plotCloneSummary(results, binwidth=0.02, title=paste("Sample","Clonal Threshold"))
+```
+
+**Note that we can save these data with:**
+
+```{r, echo = T, eval = F}
+# Convert results to data.frame
+results <- as.data.frame(results)
+
+# Write to YAML or JSON
+# the default behavior references the output file string's extension
+# airr::write_airr(results, file = "~/file/path")
+```
+
+<br>
+<br>
+<br>
+
 ## Part 4) Create Germlines
+
+Note that a helpful reference is here:
+
+* [Introduction to B cell repertoire analysis using the Immcantation framework](https://immcantation.readthedocs.io/en/stable/tutorials/intro-lab.html)
+
+```
+DATA_DIR=$(pwd)
+#for Sample in {A-S1,B-S3,C-S5,D-S7,E-S9,F-S11,D-S2,A-S4,B-S6,E-S8,F-S10}; do \
+#for Sample in {A-S1,B-S3,C-S5,D-S7,E-S9,F-S11}; do \
+#for Sample in {SA-S1,SSA-S1} ; do \
+#for Sample in {10_S1,11_S2,12_S3,13_S4,14_S5,15_S6,16_S7,17_S8,18_S9,19_S10,20_S11,21_S12,22_S13,23_S14,24_S15,25_S16}; do \
+#for Sample in {A2A_S1,L2A_S2,PDA_S3,GblockA_S4,A2G1_S6,L2G1_S7,PD1G1_S8,PD2G1_S9,GblockG1_S10,GloveG1_S11,A2G2_S12,L2G2_S13,PD1G2_S14,GblockG2_S15}; do \
+#for Sample in {NegA_S5,A2G1_S6,L2G1_S7}; do \
+
+Sample=GblockA_S4
+
+Sub0=vdj_gapped
+Sub1=EVD68/spectralclones
+Sub2=EVD68/fullgerm1
+
+IN=data/$Sub1/$Sample-clones.tsv
+DB0=data/$Sub1/$Sample-0.tsv
+DB1=data/$Sub1/$Sample-1.tsv
+DB2=data/$Sub1/$Sample-2.tsv
+DB3=data/$Sub1/$Sample-3.tsv
+OUT=data/$Sub2/$Sample-fullgerm.tsv
+
+sudo docker run -v $DATA_DIR:/data:z immcantation/suite:devel \
+    CreateGermlines.py -d $IN -g full dmask \
+        -r data/$Sub0 -o $DB0 --cloned --cf clone_id
+
+sudo docker run -v $DATA_DIR:/data:z immcantation/suite:devel \
+    ParseDb.py add -d $DB0  -f sample -u $Sample -o $DB1
+
+sudo docker run -v $DATA_DIR:/data:z immcantation/suite:devel \
+    ParseDb.py sort -d $DB1  -f duplicate_count --num --descend -o $DB2
+
+sudo docker run -v $DATA_DIR:/data:z immcantation/suite:devel \
+    ParseDb.py index -d $DB2 -o $OUT -f index
+
+#sudo docker run -v $DATA_DIR:/data:z immcantation/suite:devel \
+#    ParseDb.py drop -d $DB3 -o $OUT -f sequence_id
+
+rm $(pwd)/$Sub1/$Sample-0.tsv
+rm $(pwd)/$Sub1/$Sample-1.tsv
+rm $(pwd)/$Sub1/$Sample-2.tsv
+rm $(pwd)/$Sub1/$Sample-3.tsv
+
+#done
+```
+
+<br>
+<br>
+<br>
 
 ## Part 5) Infer SHM
 
+Note that this part relies heavily on:
 
- 
+* [SHazaM Targeting Vignette](https://shazam.readthedocs.io/en/stable/vignettes/Targeting-Vignette/)
 
+### SHazaM
 
+[SHazaM](https://shazam.readthedocs.io/en/stable/) ([CRAN Documentation](https://cran.r-project.org/web/packages/shazam/shazam.pdf)) is part of the Immcantation analysis framework for Adaptive Immune Receptor Repertoire sequencing (AIRR-seq) and provides tools for advanced analysis of somatic hypermutation (SHM) in immunoglobulin (Ig) sequences. Shazam focuses on the following
+analysis topics:
 
+1. **Quantification of mutational load** -- SHazaM includes methods for determine the rate of observed and expected mutations under various criteria. Mutational profiling criteria include rates under SHM targeting models, mutations specific to CDR and FWR regions, and physicochemical property dependent substitution rates.
+
+2. **Statistical models of SHM targeting patterns** - Models of SHM may be divided into two independent components: (a) a mutability model that defines where mutations occur and (b) a nucleotide substitution model that defines the resulting mutation. Collectively these two components define an SHM targeting model. SHazaM provides empirically derived SHM 5-mer context mutation models for both humans and mice, as well tools to build SHM targeting models from data.
+
+3. **Analysis of selection pressure using BASELINe** - The Bayesian Estimation of Antigen-driven Selection in Ig Sequences (BASELINe) method is a novel method for quantifying antigen-driven selection in high-throughput Ig sequence data. BASELINe uses SHM targeting models can be used to estimate the null distribution of expected mutation frequencies, and provide measures of selection pressure informed by known AID targeting biases.
+
+4. **Model-dependent distance calculations** - SHazaM provides methods to compute evolutionary distances between sequences or set of sequences based on SHM targeting models. This information is particularly useful in understanding and defining clonal relationships.
+
+### SHM Targeting Models
+
+The targeting model is the background likelihood of a particular mutation, based on the surrounding sequence context as well as the mutation itself. The model is inferred from observed mutations in the data. The model can then be transformed into a distance function to compare Ig sequences of a given dataset based on the likelihood of the observed mutations. This is done via the following steps:
+
+1. Infer a substitution model, which is the likelihood of a base mutating to each other base given the microsequence context.
+
+2. Infer a mutability model, which is likelihood of a given base being mutated given the microsequence context and substitution model.
+
+3. Visualize the mutability model to identify hot and cold spots.
+
+4. Calculate a nucleotide distance matrix based on the underlying SHM models.
+
+### Example Data
+
+A small example AIRR Rearrangement database is included in the `alakazam` package. Inferring a targeting model requires the following fields (columns) to be present in the table:
+
+* `sequence_id`
+
+* `sequence_alignment`
+
+* `germline_alignment_d_mask`
+
+* `v_call`
+
+```{r, echo = T, eval = F}
+# Load example data
+library(shazam)
+data(ExampleDb, package="alakazam")
+
+# Subset to IGHG for faster usage demonstration
+db <- subset(ExampleDb, c_call == "IGHG")
+```
