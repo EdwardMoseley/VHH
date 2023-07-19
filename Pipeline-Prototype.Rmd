@@ -86,7 +86,6 @@ Overall, this is divided into:
 * The V(D)J reading frame proceeds from the start of read 2 to the start of read 1. 
 
 * Read 1 is in the opposite orientation (reverse complement), and contains the C-region primer sequence. 
-
 * Both reads begin with a random sequences of 4 nucleotides.
 
 #### FlowChart
@@ -121,34 +120,79 @@ fastq-dump --split-files -X 25000 ERR346600
 
 Each set of paired-ends mate-pairs is first assembled into a full length Ig sequence using the align subcommand of `AssemblePairs.py`:
 
-During assembly we have defined read 2 (V-region) as the head of the sequence (-1) and read 1 as the tail of the sequence (-2). The `--coord` argument defines the format of the sequence header so that AssemblePairs.py can properly identify mate-pairs; in this case, we use `--coord sra` as our headers are in the SRA/ENA format.
+During assembly we have defined read 2 (V-region) as the head of the sequence (-1) and read 1 as the tail of the sequence (-2). The `--coord` argument defines the format of the sequence header so that `AssemblePairs.py` can properly identify mate-pairs; in this case, we use `--coord illumina` as our headers are in the Illumina format.
 
-**Our Command**
+**Our Alpaca Command**
+
+Assemble Paired End Reads
 
 ```{bash, engine.opts='-l', echo = T, eval = F}
-docker run -v /Users/emoseley/Desktop/Tufts/Su23-DS-288-Capstone/edwardmoseley.github.io/code/data:/data immcantation/suite:4.4.0 \
-  AssemblePairs.py align -1 /data/ERR346600_2.fastq -2 /data/ERR346600_1.fastq \
-    --coord sra --rc tail --maxerror 0.1 --outname M1 --log /data/AP.log 
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+  AssemblePairs.py align -1 /data/A2A_S1_L001_R2_001.fastq -2 /data/A2A_S1_L001_R1_001.fastq \
+    --coord illumina --rc tail --maxerror 0.1 --outname ALPACA1 --log /data/ALPACA_AP.log 
 ```
 
-**Output:** 
+#### Output
 
-1. `M1_assemble-pass.fastq`
+```
+       START> AssemblePairs
+     COMMAND> align
+       FILE1> A2A_S1_L001_R2_001.fastq
+       FILE2> A2A_S1_L001_R1_001.fastq
+  COORD_TYPE> illumina
+       ALPHA> 1e-05
+   MAX_ERROR> 0.1
+     MIN_LEN> 8
+     MAX_LEN> 1000
+SCAN_REVERSE> False
+       NPROC> 6
 
-2. `AP.log`
+PROGRESS> 19:12:25 |####################| 100% (2,378,908) 135.0 min
+
+OUTPUT> ALPACA1_assemble-pass.fastq
+ PAIRS> 2378908
+  PASS> 2099952
+  FAIL> 278956
+   END> AssemblePairs
+```
+
+1. `ALPACA1_assemble-pass.fastq`
+
+2. `ALPACA_AP.log`
+
+```{r, echo = T, eval = F}
+# Note that the log file is also in FASTQ format, so we need ShortRead from Bioconductor
+# BiocManager::install("ShortRead")
+library(ShortRead)
+
+tmp <- ShortRead::readFastq("~/VHH/data/ALPACA1_assemble-pass.fastq")
+```
 
 #### ParseLog.py
 
 The `ParseLog.py` tool is then used to build a tab-delimited file of results from the `AssemblePairs.py` log file:
 
 ```{bash, engine.opts='-l', echo = T, eval = F}
-docker run -v /Users/emoseley/Desktop/Tufts/Su23-DS-288-Capstone/edwardmoseley.github.io/code/data:/data immcantation/suite:4.4.0 \
-  ParseLog.py -l /data/AP.log -f ID LENGTH OVERLAP ERROR PVALUE
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+  ParseLog.py -l /data/ALPACA_AP.log -f ID LENGTH OVERLAP ERROR PVALUE
 ```
 
 **Output:** 
 
-1. `AP_table.tab` (tsv)
+```
+START> ParseLog
+ FILE> ALPACA_AP.log
+
+PROGRESS> 21:20:38 (2378908) 1.6 min
+
+ OUTPUT> ALPACA_AP_table.tab
+RECORDS> 2378908
+   PASS> 2378908
+   FAIL> 0
+    END> ParseLog
+```
+
+1. `ALPACA_AP_table.tab` (tsv)
 
 Which will containing the following columns:
 
@@ -166,50 +210,74 @@ ERROR - Mismatch rate of the overlapping region
 P-VALUE - P-value for the assembly
 ```
 
+#### Check Log
+
+```{r, echo = T, eval = F}
+# Read the tsv file
+tmp <- read.csv("~/VHH/data/ALPACA_AP_table.tab", header = T, stringsAsFactors = F, sep = '\t')
+
+# Look at top-most entries
+head(tmp)
+```
+
 ## 2) (Quality Control Step) Filter Sequence
 
 ### Removing Low-Quality Reads
 
-Quality control begins with the identification and removal of low-quality reads using the quality subcommand of the `FilterSeq.py` tool. In this example, reads with mean Phred quality scores less than 20 (`-q 20`) are removed:
+Quality control begins with the identification and removal of low-quality reads using the quality subcommand of the `FilterSeq.py` tool. Here, reads with mean [Phred](https://en.wikipedia.org/wiki/Phred_quality_score) quality scores less than 30 (`-q 30`) are removed:
 
-**Tutorial Command**
-
-```{bash, engine.opts='-l', echo = T, eval = F}
-FilterSeq.py quality -s M1_assemble-pass.fastq -q 20 --outname M1 --log FS.log
-```
-
-**TH Command**
-
-Throw out low quality reads, anything below Q30 gets tossed
+**Our Alpaca Command**
 
 ```{bash, engine.opts='-l', echo = T, eval = F}
-sudo docker run -v $DATA_DIR:/data:z immcantation/suite:devel \
-    FilterSeq.py quality -s $SEQ1 -q 30 -o $SEQ2 
-```
-
-**Our Command**
-
-
-```{bash, engine.opts='-l', echo = T, eval = F}
-docker run -v /Users/emoseley/Desktop/Tufts/Su23-DS-288-Capstone/edwardmoseley.github.io/code/data:/data immcantation/suite:4.4.0 \
-  FilterSeq.py quality -s /data/M1_assemble-pass.fastq -q 20 --outname M1 --log /data/FS.log
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+  FilterSeq.py quality -s /data/ALPACA1_assemble-pass.fastq -q 30 --outname ALPACA1 --log /data/ALPACA1_FS.log
 ```
 
 **Output:**
 
-1. `M1_quality-pass.fastq`
+```
+START> ParseLog
+ FILE> ALPACA_AP.log
 
-2. `FS.log`
+PROGRESS> 21:20:38 (2378908) 1.6 min
+
+ OUTPUT> ALPACA_AP_table.tab
+RECORDS> 2378908
+   PASS> 2378908
+   FAIL> 0
+    END> ParseLog
+
+(base) emoseley@MacBook-Pro-5 data % docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+  FilterSeq.py quality -s /data/ALPACA1_assemble-pass.fastq -q 30 --outname ALPACA1 --log /data/ALPACA1_FS.log
+   START> FilterSeq
+ COMMAND> quality
+    FILE> ALPACA1_assemble-pass.fastq
+   INNER> False
+MIN_QUAL> 30.0
+   NPROC> 6
+
+PROGRESS> 22:40:20 |####################| 100% (2,099,952) 16.0 min
+
+   OUTPUT> ALPACA1_quality-pass.fastq
+SEQUENCES> 2099952
+     PASS> 1746609
+     FAIL> 353343
+      END> FilterSeq
+```
+
+1. `ALPACA1_quality-pass.fastq`
+
+2. `ALPACA1_FS.log`
 
 #### ParseLog.py
 
 The `ParseLog.py` tool is then used to build tab-delimited file from the `FilterSeq.py` log:
 
-**Our Command**
+**Our Alpaca Command**
 
 ```{bash, engine.opts='-l', echo = T, eval = F}
-docker run -v /Users/emoseley/Desktop/Tufts/Su23-DS-288-Capstone/edwardmoseley.github.io/code/data:/data immcantation/suite:4.4.0 \
-  ParseLog.py -l /data/FS.log -f ID QUALITY
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+  ParseLog.py -l /data/ALPACA1_FS.log -f ID QUALITY
 ```
 
 **Output:**
@@ -225,6 +293,25 @@ ID - Sequence name
 
 QUALITY - Quality score
 ```
+
+#### Check Log
+
+```{r, echo = T, eval = F}
+# Read the tsv file
+tmp <- read.csv("~/VHH/data/ALPACA1_FS_table.tab", header = T, stringsAsFactors = F, sep = '\t')
+
+# Look at top-most entries
+head(tmp)
+```
+
+
+
+
+
+
+
+
+
 
 ### Read annotation and masking of primer regions
 
@@ -263,47 +350,100 @@ sudo docker run -v $DATA_DIR:/data:z immcantation/suite:devel \
 
 ```
 
-**Our Commands**
-
-Note that we will change the max error rate, because no sequences are passing..
+**Our Alpaca Commands (1)**
 
 ```{bash, engine.opts='-l', echo = T, eval = F}
-docker run -v /Users/emoseley/Desktop/Tufts/Su23-DS-288-Capstone/edwardmoseley.github.io/code/data:/data immcantation/suite:4.4.0 \
-  MaskPrimers.py score -s /data/M1_quality-pass.fastq -p /data/Greiff2014_VPrimers.fasta \
-      --start 4 --mode mask --pf VPRIMER --outname M1-FWD --log /data/MPV.log \
-      --maxerror 0.50
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+MaskPrimers.py score -s /data/ALPACA1_quality-pass.fastq -p /data/AlpVHH.fasta --barcode \
+      --start 8 --mode cut --pf VPRIMER --outname ALPACA1-FWD --log /data/ALPACA1-FWD-MPV.log \
+      --maxerror 0.01
 ```
 
-**Output:** 
+**Output (1):** 
 
-1. `M1-FWD_primers-pass.fastq`
+```
+        START> MaskPrimers
+      COMMAND> score
+     SEQ_FILE> ALPACA1_quality-pass.fastq
+  PRIMER_FILE> AlpVHH.fasta
+         MODE> cut
+    MAX_ERROR> 0.01
+    START_POS> 8
+   REV_PRIMER> False
+      BARCODE> True
+BARCODE_FIELD> BARCODE
+ PRIMER_FIELD> VPRIMER
+        NPROC> 6
 
-2. `MPV.log`
+PROGRESS> 23:40:34 |####################| 100% (1,746,609) 16.5 min
+
+   OUTPUT> ALPACA1-FWD_primers-pass.fastq
+SEQUENCES> 1746609
+     PASS> 1408485
+     FAIL> 338124
+      END> MaskPrimers
+```
+
+1. `ALPACA1-FWD_primers-pass.fastq`
+
+2. `ALPACA1-FWD-MPV.log`
+
+**Our Alpaca Commands (2)**
+
+**Note: this says "MPV" but should be "MPC"**
+
+Note that this uses as input the output of the previous `MaskPrimers.score` call.
 
 ```{bash, engine.opts='-l', echo = T, eval = F}
-docker run -v /Users/emoseley/Desktop/Tufts/Su23-DS-288-Capstone/edwardmoseley.github.io/code/data:/data immcantation/suite:4.4.0 \
-MaskPrimers.py score -s /data/M1-FWD_primers-pass.fastq -p /data/Greiff2014_CPrimers.fasta \
-    --start 4 --mode cut --revpr --pf CPRIMER --outname M1-REV --log /data/MPC.log \
-    --maxerror 0.50
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+MaskPrimers.py score -s /data/ALPACA1-FWD_primers-pass.fastq -p /data/AlpVHH.fasta --barcode \
+      --start 8 --mode cut --revpr --pf CPRIMER --outname ALPACA1-REV --log /data/ALPACA1-REV-MPV.log \
+      --maxerror 0.01
+```
+
+**Output (2):**
+
+```
+        START> MaskPrimers
+      COMMAND> score
+     SEQ_FILE> ALPACA1-FWD_primers-pass.fastq
+  PRIMER_FILE> AlpVHH.fasta
+         MODE> cut
+    MAX_ERROR> 0.01
+    START_POS> 8
+   REV_PRIMER> True
+      BARCODE> True
+BARCODE_FIELD> BARCODE
+ PRIMER_FIELD> CPRIMER
+        NPROC> 6
+
+PROGRESS> 00:33:22 |####################| 100% (1,408,485) 16.1 min
+
+   OUTPUT> ALPACA1-REV_primers-pass.fastq
+SEQUENCES> 1408485
+     PASS> 1320220
+     FAIL> 88265
+      END> MaskPrimers
 ```
 
 **Output:**
 
 1. `M1-REV_primers-pass.fastq`
 
-2. `MPC.log`
-
+2. `ALPACA1-REV-MPC.log`
 
 #### Parse Log Summary
 
 ```{bash, engine.opts='-l', echo = T, eval = F}
-docker run -v /Users/emoseley/Desktop/Tufts/Su23-DS-288-Capstone/edwardmoseley.github.io/code/data:/data immcantation/suite:4.4.0 \
-  ParseLog.py -l /data/MPV.log /data/MPC.log -f ID PRIMER ERROR
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+  ParseLog.py -l /data/ALPACA1-FWD-MPV.log /data/ALPACA1-REV-MPC.log -f ID PRIMER ERROR
 ```
 
 **Output:**
 
-1. `MPC_table.tab`
+1. `ALPACA1-REV-MPC_table.tab`
+
+2. `ALPACA1-FWD-MPV_table.tab`
 
 Capturing the following annotations:
 
@@ -316,6 +456,31 @@ PRIMER Primer name
 
 ERROR Primer match error rate
 ```
+
+#### Check Log
+
+```{r, echo = T, eval = F}
+# Read the tsv file
+tmpV <- read.csv("~/VHH/data/ALPACA1-FWD-MPV_table.tab", header = T, stringsAsFactors = F, sep = '\t')
+
+# Look at top-most entries
+head(tmpV)
+
+tmpC <- read.csv("~/VHH/data/ALPACA1-REV-MPC_table.tab", header = T, stringsAsFactors = F, sep = '\t')
+
+head(tmpC)
+```
+
+
+
+
+
+
+
+
+
+
+
 
 ---
 
