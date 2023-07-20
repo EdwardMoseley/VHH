@@ -8,7 +8,7 @@ This document is meant to re-build an [Immcantation](https://immcantation.readth
 
 ### Data Sources (Per TH, June 13 2023)
 
-* Pre-immune repertoires are the ones that do not include a G in their file name.
+* Pre-immune repertoires are the ones that **do not** include a `G` in their file name.
 
 * Files prefixed with `A` reference the alpaca Alexander.
 
@@ -70,7 +70,6 @@ Overall, this is divided into:
 3. Deduplication and filtering
 
 #### Read Configuration
-
 
 <center>
 ![](/Users/emoseley/Desktop/Tufts/Su23-DS-288-Capstone/edwardmoseley.github.io/code/img/Greiff2014_ReadConfiguration.svg)
@@ -333,23 +332,6 @@ The two primer regions have also been treated differently. The V-segment primer 
 
 During each iteration of the `MaskPrimers.py` tool an annotation field was added with the name of the primer, with the name of the field specified by the `--pf` argument, such that after both iterations each sequence contains an annotation of the form:
 
-**TH Command**
-
-```{bash, engine.opts='-l', echo = T, eval = F}
-#match the reverse primers and read the reverse half of the barcode
-sudo docker run -v $DATA_DIR:/data:z immcantation/suite:devel \
-    MaskPrimers.py score -s $SEQ3 -p data/$Sub0/AlpVHH.fasta --barcode \
-        --start 8 --maxerror 0.01 --mode cut --revpr --pf CPRIMER \
-        -o $SEQ4 
-
-#match the forward primers and read the forward half of the barcode
-sudo docker run -v $DATA_DIR:/data:z immcantation/suite:devel \
-    MaskPrimers.py score -s $SEQ2 -p data/$Sub0/AlpVHH.fasta --barcode \
-        --start 8 --maxerror 0.01 --mode cut --pf VPRIMER \
-        -o $SEQ3 
-
-```
-
 **Our Alpaca Commands (1)**
 
 ```{bash, engine.opts='-l', echo = T, eval = F}
@@ -471,122 +453,71 @@ tmpC <- read.csv("~/VHH/data/ALPACA1-REV-MPC_table.tab", header = T, stringsAsFa
 head(tmpC)
 ```
 
+### ParseHeaders
 
+**Our Alpaca Command**
 
-
-
-
-
-
-
-
-
-
----
-
-**Example note:**
-
-This library was prepared in a stranded manner. Meaning, the read orientation is constant for all reads; read 1 is always the C-region end of the amplicon and read 2 is always the V-segment end. If your data is unstranded (50% of the reads are forward, 50% are reversed), then you must modify the first MaskPrimers.py step to account for this by using the align subcommand instead:
-
-```
-MaskPrimers.py align -s M1*quality-pass.fastq -p Greiff2014_VPrimers.fasta \
-    --maxlen 30 --mode mask --pf VPRIMER --log MP1.log
+```{bash, engine.opts = '-l', eval = F, echo = T}
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+  ParseHeaders.py collapse -s /data/ALPACA1-REV_primers-pass.fastq -f BARCODE --act cat
 ```
 
-This will perform a slower process of locally aligning the primers, checking the reverse compliment of each read for matches, and correcting the the output sequences to the forward orientation (V to J).
-
-## 3) Deduplication and Filtering
-
-### Removal of duplicate sequences
-
-The last stage of the workflow involves two filtering steps to yield the final repertoire. 
-
-First, the set of unique sequences is identified using the `CollapseSeq.py` tool, allowing for up to 20 interior N-valued positions (`-n 20` and `--inner`), and requiring that all reads considered duplicates share the same C-region primer annotation (`--uf CPRIMER`). Additionally, the V-segment primer annotations of the set of duplicate reads are propagated into the annotation of each retained unique sequence (`--cf VPRIMER` and `--act set`):
-
-**Tutorial Command**
+**Output**
 
 ```
-CollapseSeq.py -s M1-REV_primers-pass.fastq -n 20 --inner --uf CPRIMER \
-    --cf VPRIMER --act set --outname M1
+  START> ParseHeaders
+COMMAND> collapse
+   FILE> ALPACA1-REV_primers-pass.fastq
+ACTIONS> cat
+ FIELDS> BARCODE
+
+PROGRESS> 17:04:17 |####################| 100% (1,320,220) 4.8 min
+
+   OUTPUT> ALPACA1-REV_primers-pass_reheader.fastq
+SEQUENCES> 1320220
+      END> ParseHeaders
 ```
 
-**TH Command**
+### Build Consensus Sequences
+
+
+**Our Alpaca Command**
 
 ```
-NOTE: TH moves directly to:
-
-#concatenate the barcodes from each end to form full unique identifiers
-sudo docker run -v $DATA_DIR:/data:z immcantation/suite:devel \
-    ParseHeaders.py collapse -s $SEQ4 -f BARCODE --act cat -o $SEQ5
-
-sudo docker run -v $DATA_DIR:/data:z immcantation/suite:devel \
-    BuildConsensus.py -s $SEQ5  --pf VPRIMER \
-         --maxerror 0.1  -o $SEQ6 -n 2 --bf BARCODE
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+    BuildConsensus.py -s /data/ALPACA1-REV_primers-pass_reheader.fastq  --pf VPRIMER \
+         --maxerror 0.1  -o /data/ALPACA1-BC1.fastq -n 2 --bf BARCODE
 ```
 
-**Our Command**
-
-```{bash, engine.opts='-l', echo = T, eval = F}
-docker run -v /Users/emoseley/Desktop/Tufts/Su23-DS-288-Capstone/edwardmoseley.github.io/code/data:/data immcantation/suite:4.4.0 \
-  CollapseSeq.py -s /data/M1-REV_primers-pass.fastq -n 20 --inner --uf CPRIMER \
-    --cf VPRIMER --act set --outname M1
-```
-
-### Filtering to repeated sequences
-
-CollapseSeq stores the count of duplicate reads for each sequence in the `DUPCOUNT` annotation. Following duplicate removal, the data is subset to only those unique sequence with at least two representative reads by using the `group` subcommand of `SplitSeq.py` on the count field (`-f DUPCOUNT`) and specifying a numeric threshold (`--num 2`):
-
-**Tutorial Command**
+**Output**
 
 ```
-SplitSeq.py group -s M1_collapse-unique.fastq -f DUPCOUNT --num 2 --outname M1
+           START> BuildConsensus
+            FILE> ALPACA1-REV_primers-pass_reheader.fastq
+   BARCODE_FIELD> BARCODE
+       MIN_COUNT> 2
+   MIN_FREQUENCY> 0.6
+     MIN_QUALITY> 0
+         MAX_GAP> None
+    PRIMER_FIELD> VPRIMER
+PRIMER_FREQUENCY> None
+       MAX_ERROR> 0.1
+   MAX_DIVERSITY> None
+       DEPENDENT> False
+     COPY_FIELDS> None
+    COPY_ACTIONS> None
+           NPROC> 6
+
+PROGRESS> 17:30:17 |####################| 100% (1,319,721) 5.7 min
+
+   OUTPUT> ALPACA1-BC1.fastq
+SEQUENCES> 1320220
+     SETS> 1319721
+     PASS> 390
+     FAIL> 1319331
+      END> BuildConsensus
 ```
 
-**Our Command**
-
-```{bash, engine.opts='-l', echo = T, eval = F}
-docker run -v /Users/emoseley/Desktop/Tufts/Su23-DS-288-Capstone/edwardmoseley.github.io/code/data:/data immcantation/suite:4.4.0 \
-  SplitSeq.py group -s /data/M1_collapse-unique.fastq -f DUPCOUNT --num 2 --outname M1
-```
-
-### Creating the annotation table
-
-We now generate annotations:
-
-1. `DUPCOUNT` - Duplicate read count
-
-2. `CPRIMER` - Isotype
-
-3. `VPRIMER` - B-segment primer
-
-These are generated from the final repertoire data from the `SplitSeq.py` output with the `table` subcommand from `ParseHeaders.py`:
-
-```{bash, engine.opts='-l', echo = T, eval = F}
-docker run -v /Users/emoseley/Desktop/Tufts/Su23-DS-288-Capstone/edwardmoseley.github.io/code/data:/data immcantation/suite:4.4.0 \
-  ParseHeaders.py table -s /data/M1_collapse-unique.fastq -f ID DUPCOUNT CPRIMER VPRIMER
-```
-
-**Output:**
-
-1. `M1_collapse-unique_headers.tab`
-
-#### Final Results
-
-The final set of sequences, which serve as input to a V(D)J reference aligner (Eg, IMGT/HighV-QUEST or IgBLAST), and tables that can be plotted for quality control are:
-
-1. `M1_collapse-unique.fastq` - Total Unique Sequences
-
-2. `M1_atleast-2.fastq` - Unique sequences represented by at least 2 reads
-
-3. `M1_atleast-2_headers.tab` - Annotation table of the `atleast-2` file
-
-4. `AP_table.tab` - Table of the AssemblePairs log
-
-5. `FS_table.tab` - Table of the FilterSeq log
-
-6. `MPV_table.tab` - Table of the V-segment MaskPrimers log
-
-7. `MPC_table.tab` - Table of the C-region MaskPrimers log
 
 <br>
 <br>
@@ -597,6 +528,33 @@ The final set of sequences, which serve as input to a V(D)J reference aligner (E
 Here, we rely on the [IgBLAST](https://changeo.readthedocs.io/en/stable/examples/igblast.html) tutorial, within the [Change-O - Repertoire clonal assignment toolkit](https://changeo.readthedocs.io/en/stable/examples/igblast.html), and we use an example data set from the [UMI barcoded MiSeq Workflow](https://presto.readthedocs.io/en/stable/workflows/Stern2014_Workflow.html). The data can be downloaded from:
 
 * [Change-O Example Files](http://clip.med.yale.edu/immcantation/examples/AIRR_Example.tar.gz)
+
+---
+
+Note:
+
+```
+/Users/emoseley/Desktop/Tufts/Cowen Lab/alpaca/rawseqdata/igblast/vdj_gapped/imgt_gapped_alpaca_IGHV.fasta
+```
+
+```
+/Users/emoseley/Desktop/Tufts/Cowen Lab/alpaca/rawseqdata/igblast/ncbi-igblast-1.17.1/bin/
+
+> blastdbcmd
+> edit_imgt_file.pl
+> igblastn
+> igblastn
+> makeblastdb
+```
+
+
+**Our path:**
+
+```
+'/Users/emoseley/Desktop/Tufts/Cowen Lab/alpaca/rawseqdata/igblast/ncbi-igblast-1.17.1/bin/makeblastdb'
+```
+
+
 
 **TH Commands**
 
