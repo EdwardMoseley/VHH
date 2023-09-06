@@ -566,6 +566,9 @@ so we will need to download MacOS versions for local installation.
   * [NCBI IgBLAST Documentation](https://ncbi.github.io/igblast/)
     * [IgBLAST Setup](https://ncbi.github.io/igblast/cook/How-to-set-up.html)
 
+
+**Downloaded:**
+
 ```
 ncbi-igblast-1.21.0-x64-macosx.tar.gz     2023-04-14 14:04   35M  
 ncbi-igblast-1.21.0-x64-macosx.tar.gz.md5 2023-04-14 14:04   72   
@@ -703,8 +706,92 @@ cp -R $DATA/internal_data/alpaca/. $DATA/database
 
 ```
 cp -R /Users/emoseley/ncbi-igblast-1.21.0/internal_data/alpaca/. /Users/emoseley/ncbi-igblast-1.21.0/database
+```
+
+## IgBLAST General Setup Take: Two
+
+1. We rely on the `scripts` from the [immcantation repository](https://bitbucket.org/kleinstein/immcantation/src/master/scripts)
+  * Note that they are linux-specific
 
 ```
+1. Open the .zshrc file in home directory
+
+2. Add:
+
+# For adding scripts to install IgBLAST
+# We add this command to the last line of .zshrc
+
+export PATH="$PATH:/Users/emoseley/immcantation/scripts"
+
+3. Save the .zshrc file
+
+4. run `source .zshrc` on the command line
+```
+
+2. We then use the following commands (which are given to us, but are linux specific)
+
+```
+# Download and extract IgBLAST
+VERSION="1.17.0"
+wget ftp://ftp.ncbi.nih.gov/blast/executables/igblast/release/${VERSION}/ncbi-igblast-${VERSION}-x64-macosx.tar.gz
+tar -zxf ncbi-igblast-${VERSION}-x64-macosx.tar.gz
+cp ncbi-igblast-${VERSION}/bin/* /usr/local/bin
+# Download reference databases and setup IGDATA directory
+fetch_igblastdb.sh -o ~/share/igblast
+cp -r ncbi-igblast-${VERSION}/internal_data ~/share/igblast
+cp -r ncbi-igblast-${VERSION}/optional_file ~/share/igblast
+# Build IgBLAST database from IMGT reference sequences
+fetch_imgtdb.sh -o ~/share/germlines/imgt
+imgt2igblast.sh -i ~/share/germlines/imgt -o ~/share/igblast
+```
+
+## IgBLAST General Setup Take: Three
+
+1. Download `.dmg` installer for macosx from [Index of /blast/executables/igblast/release/1.17.1](https://ftp.ncbi.nih.gov/blast/executables/igblast/release/1.17.1/)
+
+```
+ncbi-igblast-1.17.1-x64-macosx.tar.gz     2021-02-26 12:47   32M  
+ncbi-igblast-1.17.1-x64-macosx.tar.gz.md5 2021-02-26 12:47   72  
+```
+
+2. We unzip the `.tar.gz` file, then we open `.zshrc`
+  * Here we are adding `/Users/emoseley/ncbi-igblast-1.17.1/bin` to the `$PATH`
+  
+```
+# Adding to the final line of .zshrc
+export PATH="$PATH:/Users/emoseley/ncbi-igblast-1.17.1/bin"
+```
+
+3. Then we call `source .zshrc`
+
+4. Note that we get the error that these programs come from an unspecified developer, so we need to navigate to the `ncbi-igblast-1.17.1/bin`, hold `control`, and double-click each to override once
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #### Using Database
 
@@ -784,7 +871,7 @@ igblastn \
     -auxiliary_data /Users/emoseley/ncbi-igblast-1.21.0/optional_file/alpaca_gl.aux \
     -domain_system imgt -ig_seqtype Ig -organism alpaca \
     -outfmt '7 std qseq sseq btop' \
-    -query /Users/emoseley/VHH/data/ALPACA1-BC1.fastq \
+    -query /Users/emoseley/VHH/data/ALPACA1-BC1.fasta \
     -out /Users/emoseley/VHH/data/igblast-out/ALPACA1-BC1.fmt7
 ```
 
@@ -792,78 +879,6 @@ igblastn \
 ```
 WORKER: T1 BATCH # 0 CEXCEPTION: Domain annotation data file could not be found in [internal_data] directory
 ```
-
-**TH Processing Commands**
-
-
-```
-%%bash
-#for Sample in {10_S1,11_S2,12_S3,13_S4,14_S5,15_S6,16_S7,17_S8,18_S9,19_S10,20_S11,21_S12,22_S13,23_S14,24_S15,25_S16}; do \
-#for Sample in {A-S1,B-S3,C-S5,D-S7,E-S9,F-S11,D-S2,A-S4,B-S6,E-S8,F-S10}; do \
-#for Sample in {SSA-S1,SA-S1}; do \
-
-#for Sample in {A2A_S1,L2A_S2,PDA_S3,GblockA_S4,NegA_S5,A2G1_S6,L2G1_S7,PD1G1_S8,PD2G1_S9,GblockG1_S10,GloveG1_S11,A2G2_S12,L2G2_S13,PD1G2_S14,GblockG2_S15}; do \
-for Sample in {25_S16,PhageDisplay,Alpaca,Gblock,Alex,Lara}; do \
-
-#ID=A2G1
-#Index=6
-
-#Sample="$ID"_S"$Index"
-#Sample=10_S1
-
-
-WD=/home/troyhinkley/ncbi-igblast-1.17.1
-DATA=/home/troyhinkley/alpaca/igblast
-SEQ="$Sample"_atleast-2.fasta
-DATA_DIR=/home/troyhinkley/alpaca/EVD68
-
-IN=catout
-OUT=catout
-
-cd $WD
-
-bin/igblastn \
-    -germline_db_V database/alpaca_V \
-    -germline_db_D database/alpaca_D \
-    -germline_db_J database/alpaca_J \
-    -auxiliary_data optional_file/alpaca_gl.aux \
-    -domain_system imgt -ig_seqtype Ig -organism alpaca \
-    -outfmt '7 std qseq sseq btop' \
-    -query $DATA_DIR/$IN/$SEQ \
-    -out $DATA_DIR/$OUT/$Sample.fmt7
-
-sudo docker run -v $DATA_DIR:/data:z immcantation/suite:devel \
-     MakeDb.py igblast \
-    -i data/$OUT/$Sample.fmt7 \
-    -s data/$IN/$SEQ \
-    -r data/igblast/vdj_gapped/imgt_gapped_alpaca_IGHV.fasta /data/igblast/vdj_gapped/imgt_gapped_alpaca_IGHD.fasta /data/igblast/vdj_gapped/imgt_gapped_alpaca_IGHJ.fasta \
-    --outdir /data/$OUT \
-    --failed \
-    --log /data/log.txt \
-    --format airr \
-    --extended   
-
-sudo docker run -v $DATA_DIR:/data:z immcantation/suite:devel \
-    ParseDb.py select -d data/$OUT/"$Sample"_db-pass.tsv \
-    -f productive -u T --regex --outname $Sample
-
-sudo docker run -v $DATA_DIR:/data:z immcantation/suite:devel \
-    ParseDb.py select -d data/$OUT/"$Sample"_parse-select.tsv \
-    -f v_call -u IGHV --regex -o data/$OUT/$Sample-RepOut.tsv
-
-done
-```
-
-
-
-
-
-
-
-
-
-
-
 
 #### Part 2 Notes: 
 
@@ -994,26 +1009,54 @@ docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
   -f productive -u F --regex --outname ALPACA1-BC1-HUM_db-pass
 ```
 
+**Output:**
+
+```
+  START> ParseDb
+COMMAND> select
+   FILE> ALPACA1-BC1-HUM_db-pass.tsv
+ FIELDS> productive
+ VALUES> F
+  REGEX> True
+
+PROGRESS> 15:42:17 |####################| 100% (321) 0.0 min
+
+   OUTPUT> ALPACA1-BC1-HUM_db-pass_parse-select.tsv
+  RECORDS> 321
+ SELECTED> 321
+DISCARDED> 0
+      END> ParseDb
+```
+
 #### IGHV
 
 _Our Command:_
 
 ```{bash, engine.opts = '-l', eval = F, echo = T}
 docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
-  ParseDb.py select -d /data/ALPACA1-BC1-HUM_db-pass.tsv \
-  -f productive -u T --regex --outname ALPACA1-BC1-HUM_db-pass
+  ParseDb.py select -d /data/ALPACA1-BC1-HUM_db-pass_parse-select.tsv \
+  -f v_call -u IGHV --regex -o /data/ALPACA1-BC1-HUM_db-pass_parse-select-RepOut.tsv
 ```
 
-_Our Modified Command:_
 
-**Changed** `-f productive -u F`
+**Output:**
 
-```{bash, engine.opts = '-l', eval = F, echo = T}
-docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
-  ParseDb.py select -d /data/ALPACA1-BC1-HUM_db-pass.tsv \
-  -f productive -u F --regex --outname ALPACA1-BC1-HUM_db-pass
 ```
+  START> ParseDb
+COMMAND> select
+   FILE> ALPACA1-BC1-HUM_db-pass_parse-select.tsv
+ FIELDS> v_call
+ VALUES> IGHV
+  REGEX> True
 
+PROGRESS> 15:49:55 |####################| 100% (321) 0.0 min
+
+   OUTPUT> ALPACA1-BC1-HUM_db-pass_parse-select-RepOut.tsv
+  RECORDS> 321
+ SELECTED> 321
+DISCARDED> 0
+      END> ParseDb
+```
 
 <br>
 <br>
@@ -1086,6 +1129,164 @@ Summary of the key steps:
 Here, we are using `ALPACA1-BC1-HUM.fmt7` while we struggle with the auxiliary alpaca database with `igBLAST`.
 
 `/Users/emoseley/VHH/data/igblast-out/ALPACA1-BC1-HUM.fmt7`
+
+
+**TH Command**
+
+```{r, echo = T, eval = F}
+library(scoper)
+library(dplyr)
+library(airr)
+library(ggplot2)
+library(shazam)
+
+WORK_DIR <- file.path("/home","troyhinkley","alpaca","EVD68","catout")
+setwd(WORK_DIR)
+
+
+SampleIN <- paste(Sample,"-RepOut.tsv",sep="")
+SampleOUT <- paste(Sample,"-clones.tsv",sep="")
+Sub <- "clones/"
+PlotOUT <- paste(Sub,Sample,"-Clonal Threshold.pdf",sep="")
+
+DB <- read_airr(file.path(SampleIN))
+
+db1 <- distToNearest(DB, model="ham", normalize="len", 
+                    vCallColumn="v_call", jCallColumn = "j_call",
+                    sequenceColumn = "junction")
+
+#threshold <- findThreshold(db1$dist_nearest, method = "density")
+threshold <- findThreshold(db1$dist_nearest, method = "gmm", model="gamma-norm", cutoff="intersect")
+thr <- round(threshold@threshold, 3)
+
+results <- hierarchicalClones(DB, method="nt", threshold=thr)
+
+results1 <- as.data.frame(results)
+#glimpse(results1)
+plotCloneSummary(results, binwidth=0.02, title=paste(Sample,"Clonal Threshold",thr))
+
+ggsave(file=PlotOUT)
+
+write_airr(results1, file.path(Sub,SampleOUT))
+```
+
+**Our Command**
+
+#### Libraries
+
+```{r}
+library(scoper)
+library(shazam)
+```
+
+```{bash}
+gzip /Users/emoseley/VHH/data/ALPACA1-BC1-HUM_db-pass_parse-select-RepOut.tsv
+```
+
+**Output (because airr is not reading .tsv files...):**
+  * `/Users/emoseley/VHH/data/ALPACA1-BC1-HUM_db-pass_parse-select-RepOut.gz.tsv`
+
+```{r}
+# Define working directory
+# WORK_DIR <- file.path("/home","troyhinkley","alpaca","EVD68","catout")
+# setwd(WORK_DIR)
+
+
+# Sample names
+# SampleIN <- paste(Sample,"-RepOut.tsv",sep="")
+# SampleOUT <- paste(Sample,"-clones.tsv",sep="")
+
+# Subdirectory name
+# Sub <- "clones/"
+
+# Name of 
+# PlotOUT <- paste(Sub,Sample,"-Clonal Threshold.pdf",sep="")
+
+
+
+## ###
+## Ned Code
+## ###
+
+
+
+# Define sample name
+sample_name <- "/Users/emoseley/VHH/data/ALPACA1-BC1-HUM_db-pass_parse-select-RepOut.tsv"
+
+# Read in the data
+DB <- alakazam::readChangeoDb(sample_name)
+
+# For the sake of argument, because DB$junction is empty, let it equal something else..
+# DB$junction <- 
+
+
+# Load Sample
+# DB <- airr::read_airr(sample_name)
+
+## ###
+
+# Load sample
+DB <- read_airr(file.path(SampleIN))
+
+# Hamming distance
+db1 <- distToNearest(DB, model="ham", normalize="len", 
+                    vCallColumn="v_call", jCallColumn = "j_call",
+                    sequenceColumn = "junction")
+
+#threshold <- findThreshold(db1$dist_nearest, method = "density")
+threshold <- findThreshold(db1$dist_nearest, method = "gmm", model="gamma-norm", cutoff="intersect")
+
+# Round threshold to 3 decimal places
+thr <- round(threshold@threshold, 3)
+
+results <- hierarchicalClones(DB, method="nt", threshold=thr)
+
+results1 <- as.data.frame(results)
+
+#glimpse(results1)
+
+plotCloneSummary(results, binwidth=0.02, title=paste(Sample,"Clonal Threshold",thr))
+
+ggsave(file=PlotOUT)
+
+write_airr(results1, file.path(Sub,SampleOUT))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
