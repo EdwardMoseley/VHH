@@ -1,0 +1,967 @@
+---
+title: '[VHH Project] IMGT Database'
+output: html_document
+date: "2023-10-04"
+---
+
+## Mac Retry
+
+#### Required Files:
+
+**From Troy Hinckley:**
+
+```
+alpaca_gl.aux
+alpaca_new.ndm.imgt
+imgt_alpaca_ig_d.fasta
+imgt_alpaca_ig_j.fasta
+imgt_alpaca_ig_v.fasta
+```
+
+Note path:
+
+```
+export PATH="/Users/emoseley/anaconda3/bin:/Users/emoseley/anaconda3/condabin:/Users/emoseley/google-cloud-sdk/bin:/Library/Frameworks/Python.framework/Versions/3.11/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/Library/PostgreSQL/15/bin"
+```
+
+### Downloading IgBLAST
+
+We rely on the following documentation: [Using IgBlast with Python](https://github.com/xinyu-dev/igblast/blob/master/Using%20IgBlast.ipynb).
+
+We are downloading: `ncbi-igblast-1.21.0-x64-macosx.tar.gz` from [Index of /blast/executables/igblast/release/LATEST](https://ftp.ncbi.nih.gov/blast/executables/igblast/release/LATEST/).
+
+Note that we are not downloading the `.dmg`.
+
+We unzip the tar file, and we create a `database` directory in the `igblast` folder, so its contents look something like:
+
+```
+----igblast
+  --bin
+  --internal_data
+  --optional_file
+  --ChangeLog
+  --LICENSE
+  --ncbi_pakacage_info
+  --README
+  --database
+```
+
+We then create `alpaca`, and `alpaca_clean` within the `database` directory
+
+```
+----igblast
+  --bin
+  --internal_data
+  --optional_file
+  --ChangeLog
+  --LICENSE
+  --ncbi_pakacage_info
+  --README
+  ----database
+    --alpaca
+    --alpaca_clean
+```
+
+
+```
+### Downloading IMGT Germline Sequences
+
+We download reference sequences from: [IMGT reference directory in FASTA format (IG and TR)](https://www.imgt.org/vquest/refseqh.html#VQUEST).
+
+We will download (for alpaca, _Vicugna pacos_):
+
+1. https://www.imgt.org/download/V-QUEST/IMGT_V-QUEST_reference_directory/Vicugna_pacos/IG/IGHV.fasta
+2. https://www.imgt.org/download/V-QUEST/IMGT_V-QUEST_reference_directory/Vicugna_pacos/IG/IGHD.fasta
+3. https://www.imgt.org/download/V-QUEST/IMGT_V-QUEST_reference_directory/Vicugna_pacos/IG/IGHJ.fasta
+
+
+wget https://www.imgt.org/download/V-QUEST/IMGT_V-QUEST_reference_directory/Vicugna_pacos/IG/IGHV.fasta
+wget https://www.imgt.org/download/V-QUEST/IMGT_V-QUEST_reference_directory/Vicugna_pacos/IG/IGHD.fasta
+wget https://www.imgt.org/download/V-QUEST/IMGT_V-QUEST_reference_directory/Vicugna_pacos/IG/IGHJ.fasta
+
+### Placing data into database
+
+We're going to append the data to new files (that do not have extensions):
+
+
+cat IGHV.fasta >> /Users/emoseley/ncbi-igblast-1.17.1/database/alpaca/IG_DNA/IGHV
+cat IGHJ.fasta >> /Users/emoseley/ncbi-igblast-1.17.1/database/alpaca/IG_DNA/IGHJ
+cat IGHD.fasta >> /Users/emoseley/ncbi-igblast-1.17.1/database/alpaca/IG_DNA/IGHD
+
+
+### Cleaning IMGT germline sequence files
+
+First, we `cd` to `/Users/emoseley/ncbi-igblast-1.17.1/`
+
+
+# Note: This was a first try using data downloaded from IMGT
+bin/edit_imgt_file.pl database/alpaca/IG_DNA/IGHV > database/alpaca_clean/IG_DNA/IGHV_clean
+bin/edit_imgt_file.pl database/alpaca/IG_DNA/IGHJ > database/alpaca_clean/IG_DNA/IGHJ_clean
+bin/edit_imgt_file.pl database/alpaca/IG_DNA/IGHD > database/alpaca_clean/IG_DNA/IGHD_clean
+```
+
+# Using germline sequences received from Troy
+
+```
+# Process V segment sequences with edit_imgt_file
+bin/edit_imgt_file.pl database/alpaca/IG_DNA/imgt_gapped_alpaca_IGHV > database/alpaca_vhh_clean/alpaca_V
+# Process D segment sequences with edit_imgt_file
+bin/edit_imgt_file.pl database/alpaca/IG_DNA/imgt_gapped_alpaca_IGHD > database/alpaca_vhh_clean/alpaca_D
+# Process J segment sequences with edit_imgt_file
+bin/edit_imgt_file.pl database/alpaca/IG_DNA/imgt_gapped_alpaca_IGHJ > database/alpaca_vhh_clean/alpaca_J
+```
+
+## Make Database
+
+To parse the IGHV/D/J protein germline sequences, open a terminal at the igblast folder. Then type
+
+```
+bin/makeblastdb -parse_seqids -dbtype nucl -in database/alpaca_vhh_clean/alpaca_V
+bin/makeblastdb -parse_seqids -dbtype nucl -in database/alpaca_vhh_clean/alpaca_D
+bin/makeblastdb -parse_seqids -dbtype nucl -in database/alpaca_vhh_clean/alpaca_J
+```
+
+**Output:**
+
+```
+Building a new DB, current time: 10/10/2023 12:53:57
+New DB name:   /Users/emoseley/ncbi-igblast-1.17.1/database/alpaca_vhh_clean/alpaca_V
+New DB title:  database/alpaca_vhh_clean/alpaca_V
+Sequence type: Nucleotide
+Keep MBits: T
+Maximum file size: 1000000000B
+Adding sequences from FASTA; added 84 sequences in 0.00240207 seconds.
+
+Building a new DB, current time: 10/10/2023 12:53:57
+New DB name:   /Users/emoseley/ncbi-igblast-1.17.1/database/alpaca_vhh_clean/alpaca_D
+New DB title:  database/alpaca_vhh_clean/alpaca_D
+Sequence type: Nucleotide
+Keep MBits: T
+Maximum file size: 1000000000B
+Adding sequences from FASTA; added 8 sequences in 0.000921965 seconds.
+
+Building a new DB, current time: 10/10/2023 12:53:58
+New DB name:   /Users/emoseley/ncbi-igblast-1.17.1/database/alpaca_vhh_clean/alpaca_J
+New DB title:  database/alpaca_vhh_clean/alpaca_J
+Sequence type: Nucleotide
+Keep MBits: T
+Maximum file size: 1000000000B
+Adding sequences from FASTA; added 7 sequences in 0.00118208 seconds.
+```
+
+**Resulting Files:** 
+
+```
+-rw-r--r--   1 emoseley  staff    265 Oct 10 12:52 alpaca_D
+-rw-r--r--   1 emoseley  staff  32768 Oct 10 12:53 alpaca_D.ndb
+-rw-r--r--   1 emoseley  staff    376 Oct 10 12:53 alpaca_D.nhr
+-rw-r--r--   1 emoseley  staff    220 Oct 10 12:53 alpaca_D.nin
+-rw-r--r--   1 emoseley  staff     64 Oct 10 12:53 alpaca_D.nog
+-rw-r--r--   1 emoseley  staff    144 Oct 10 12:53 alpaca_D.nos
+-rw-r--r--   1 emoseley  staff    104 Oct 10 12:53 alpaca_D.not
+-rw-r--r--   1 emoseley  staff     49 Oct 10 12:53 alpaca_D.nsq
+-rw-r--r--   1 emoseley  staff  16384 Oct 10 12:53 alpaca_D.ntf
+-rw-r--r--   1 emoseley  staff     36 Oct 10 12:53 alpaca_D.nto
+-rw-r--r--   1 emoseley  staff    427 Oct 10 12:52 alpaca_J
+-rw-r--r--   1 emoseley  staff  32768 Oct 10 12:53 alpaca_J.ndb
+-rw-r--r--   1 emoseley  staff    329 Oct 10 12:53 alpaca_J.nhr
+-rw-r--r--   1 emoseley  staff    208 Oct 10 12:53 alpaca_J.nin
+-rw-r--r--   1 emoseley  staff     60 Oct 10 12:53 alpaca_J.nog
+-rw-r--r--   1 emoseley  staff    127 Oct 10 12:53 alpaca_J.nos
+-rw-r--r--   1 emoseley  staff     92 Oct 10 12:53 alpaca_J.not
+-rw-r--r--   1 emoseley  staff     94 Oct 10 12:53 alpaca_J.nsq
+-rw-r--r--   1 emoseley  staff  16384 Oct 10 12:53 alpaca_J.ntf
+-rw-r--r--   1 emoseley  staff     32 Oct 10 12:53 alpaca_J.nto
+-rw-r--r--   1 emoseley  staff  25811 Oct 10 12:52 alpaca_V
+-rw-r--r--   1 emoseley  staff  32768 Oct 10 12:53 alpaca_V.ndb
+-rw-r--r--   1 emoseley  staff   4173 Oct 10 12:53 alpaca_V.nhr
+-rw-r--r--   1 emoseley  staff   1132 Oct 10 12:53 alpaca_V.nin
+-rw-r--r--   1 emoseley  staff    368 Oct 10 12:53 alpaca_V.nog
+-rw-r--r--   1 emoseley  staff   1661 Oct 10 12:53 alpaca_V.nos
+-rw-r--r--   1 emoseley  staff   1016 Oct 10 12:53 alpaca_V.not
+-rw-r--r--   1 emoseley  staff   6139 Oct 10 12:53 alpaca_V.nsq
+-rw-r--r--   1 emoseley  staff  16384 Oct 10 12:53 alpaca_V.ntf
+-rw-r--r--   1 emoseley  staff    340 Oct 10 12:53 alpaca_V.nto
+```
+
+## Other notes on setting up IgBlast
+
+* The `internal_data` directory contains data internal to igblast program only and users should NEVER add, delete, move, copy or edit any files in this directory. 
+
+* `Igblastn` program expects the `internal_data` directory under current directory (i.e., where you run igblast program) or a path pointed to by `IGDATA` environmental variable (avoid using space in your path name for Windows system). 
+  * Note that this directory does NOT contain any germline gene databases you should search (see above for how you can obtain a germline gene database).
+
+* The `optional_file` directory contains files that indicate germline J gene coding frame start position (position is 0-based), the J gene type, and the CDR3 end position for each sequence in the germline J sequence database (Fields are tab-delimited). 
+
+* The supplied annotation information is only for NCBI or IMGT germline gene sequence database (including gene names as well as the sequences). If you search your own database and if it contains different sequences or sequence identifiers, then you need to edit the corresponding file accordingly (Enter -1 if the frame information is unknown) or you won’t get proper frame status or CDR3 information (other results will still be shown correctly). 
+  * You need to use `-auxiliary_data` option to specify your file. You can directly supply a path to this file or put it under a path pointed to by IGDATA environmental variable.
+
+## Procedure to set up IgBLAST for custom organism
+
+IgBLAST internally only supports organisms including human, mouse, rat, rabbit and rhesus_monkey. However, starting with version 1.16.0, IgBLAST supports custom organism, although you need to prepare additional files as follows. Additionally, starting with version 1.20.0 of igblastn, you can also use the custom FWR/CDR annotation function for custom organism (see procedure to use custom FWR/CDR annotation below).
+
+1. Make the germline V gene annotation file for your own organism. The purpose of this file is to provide information such as CDR/FWR regions for your germline V genes (see `internal_data/human/human.ndm.imgt` for an example). This file must be put under the `internal_data/my_organism` folder (for example `internal_data/sheep`). 
+  * For annotations using the IMGT numbering system, the file must be named `my_organism.ndm.imgt` for igblastn (for example `sheep.ndm.imgt`) or `my_organism.pdm.imgt` for igblastp (for example `sheep.pdm.imgt`). 
+  * If you use the Kabat numbering system, the file must be named `my_organism.pdm.kabat` or `my_organism.pdm.kabat`. Note that you do not need to make annotations for all alleles of a V gene. You only need to annotate one allele.
+
+2. Make a blast sequence database for germline V genes that correspond to what you have annotated above. This database needs to be named `my_organism_V` (for example `sheep_V`). Make sure you use the `-parse_seqids` flag when using `makeblastdb`. The blast database files need to be put under `internal_data/my_organism` folder (for example `internal_data/sheep`). 
+  * Note that this database is intended only as internal data for IgBLAST and does not need to be updated unless there is a new germline V gene (not new allele). Typically, the germline V gene database you want to search (i.e., specified by -germline_db_V parameter) is a different one (for example, the one that contains all alleles).
+
+3. If you also want CDR3/FWR4 information, you need to supply a file that has information such as CDR3 stop for germline J genes (see `optional_file/human_gl.aux` for an example). This file can have any name and can be put anywhere as long as you supply it to the `-auxiliary_data` parameter when running IgBLAST (for example `-auxiliary_data my_folder/my_file`).
+
+To run IgBLAST for your organism, please make sure you specify the `-organism my_organism` parameter.
+
+
+
+
+## Parse your sequence
+
+Details of different parameters and options can be found using:
+
+```
+bin/iglbastp -help
+bin/igblastn -help
+```
+
+### Assign path to environment variable `IGDATA`
+
+This will help to solve the issue of `[internal_data] cannot be found`. 
+
+The `IGDATA` should:
+
+1. point to the `bin` folder, not the `internal_data` folder.
+
+2. use the full path (e.g. in mac `/Users/emoseley/ncbi-igblast-1.17.1/bin`) and NOT a relative path
+
+3. The path should not contain any spaces (change your directory name if it does). You might as well avoid _ and - in any of the folder names as well.
+
+4. Use the export option to assign the environment variable. If you use conda, don't create environment variable inside a specific conda enviroment or modify the envs state file. Directly use the export option described below.
+
+**Method:** Open a terminal at the `igblast` folder. Then type
+
+```
+export IGDATA=/Users/emoseley/ncbi-igblast-1.17.1/bin
+```
+
+(Replace the file path with your file path)
+
+## Sequence of Attempts
+
+#### First Try
+
+```
+bin/igblastn \
+    -germline_db_V database/alpaca_vhh_clean/alpaca_V \
+    -germline_db_D database/alpaca_vhh_clean/alpaca_D \
+    -germline_db_J database/alpaca_vhh_clean/alpaca_J \
+    -domain_system imgt -ig_seqtype Ig -organism alpaca \
+    -auxiliary_data optional_file/alpaca_gl.aux \
+    -outfmt '7 std qseq sseq btop' \
+    -query /Users/emoseley/VHH/data/ALPACA1-BC1.fasta \
+    -out /Users/emoseley/Desktop/ALPACA1-BC1.fmt7
+```
+
+**Error:** 
+
+```
+BLAST query/options error: Germline annotation database /Users/emoseley/ncbi-igblast-1.17.1/internal_data/alpaca/alpaca_V could not be found in [internal_data] directory
+```
+
+#### Second Try
+
+**Attempt to fix:** Copy all data from `database/alpaca_vhh_clean` to `internal_data/alpaca`.
+
+```
+cp -a database/alpaca_vhh_clean/. internal_data/alpaca
+```
+
+**Create a Small Sample Data Set**
+
+```
+head -n 6 /Users/emoseley/VHH/data/ALPACA1-BC1.fasta > ALPACA1-sample.fasta
+```
+
+
+**Command:**
+
+```
+bin/igblastn \
+    -germline_db_V database/alpaca_vhh_clean/alpaca_V \
+    -germline_db_D database/alpaca_vhh_clean/alpaca_D \
+    -germline_db_J database/alpaca_vhh_clean/alpaca_J \
+    -domain_system imgt -ig_seqtype Ig -organism alpaca \
+    -auxiliary_data optional_file/alpaca_gl.aux \
+    -outfmt '7 std qseq sseq btop' \
+    -query /Users/emoseley/VHH/data/ALPACA1-BC1.fasta \
+    -out /Users/emoseley/Desktop/ALPACA1-BC1.fmt7
+```
+
+**Returns:**
+
+```
+WORKER: T1 BATCH # 0 CEXCEPTION: Domain annotation data file could not be found in [internal_data] directory
+WORKER: T2 BATCH # 1 CEXCEPTION: Domain annotation data file could not be found in [internal_data] directory
+WORKER: T4 BATCH # 2 CEXCEPTION: Domain annotation data file could not be found in [internal_data] directory
+WORKER: T5 BATCH # 3 CEXCEPTION: Domain annotation data file could not be found in [internal_data] directory
+```
+
+Note that the `Domain annotation data file` refers to the `.imgt` file, and ours was named `alpaca_new.ndm.imgt`. However, because we use the `-organism alpaca` flag, it is looking for `alpaca.ndm.imgt`.
+
+So we change the `./internal_data/alpaca` directory to have the following contents:
+
+```
+-rwxr-xr-x@  1 emoseley  staff   4.8K Jun 20 12:45 alpaca.ndm.imgt
+-rw-r--r--   1 emoseley  staff   265B Oct 10 12:52 alpaca_D
+-rw-r--r--   1 emoseley  staff    32K Oct 10 12:53 alpaca_D.ndb
+-rw-r--r--   1 emoseley  staff   376B Oct 10 12:53 alpaca_D.nhr
+-rw-r--r--   1 emoseley  staff   220B Oct 10 12:53 alpaca_D.nin
+-rw-r--r--   1 emoseley  staff    64B Oct 10 12:53 alpaca_D.nog
+-rw-r--r--   1 emoseley  staff   144B Oct 10 12:53 alpaca_D.nos
+-rw-r--r--   1 emoseley  staff   104B Oct 10 12:53 alpaca_D.not
+-rw-r--r--   1 emoseley  staff    49B Oct 10 12:53 alpaca_D.nsq
+-rw-r--r--   1 emoseley  staff    16K Oct 10 12:53 alpaca_D.ntf
+-rw-r--r--   1 emoseley  staff    36B Oct 10 12:53 alpaca_D.nto
+-rw-r--r--   1 emoseley  staff   427B Oct 10 12:52 alpaca_J
+-rw-r--r--   1 emoseley  staff    32K Oct 10 12:53 alpaca_J.ndb
+-rw-r--r--   1 emoseley  staff   329B Oct 10 12:53 alpaca_J.nhr
+-rw-r--r--   1 emoseley  staff   208B Oct 10 12:53 alpaca_J.nin
+-rw-r--r--   1 emoseley  staff    60B Oct 10 12:53 alpaca_J.nog
+-rw-r--r--   1 emoseley  staff   127B Oct 10 12:53 alpaca_J.nos
+-rw-r--r--   1 emoseley  staff    92B Oct 10 12:53 alpaca_J.not
+-rw-r--r--   1 emoseley  staff    94B Oct 10 12:53 alpaca_J.nsq
+-rw-r--r--   1 emoseley  staff    16K Oct 10 12:53 alpaca_J.ntf
+-rw-r--r--   1 emoseley  staff    32B Oct 10 12:53 alpaca_J.nto
+-rw-r--r--@  1 emoseley  staff    25K Oct 10 12:52 alpaca_V
+-rw-r--r--   1 emoseley  staff    32K Oct 10 12:53 alpaca_V.ndb
+-rw-r--r--   1 emoseley  staff   4.1K Oct 10 12:53 alpaca_V.nhr
+-rw-r--r--   1 emoseley  staff   1.1K Oct 10 12:53 alpaca_V.nin
+-rw-r--r--   1 emoseley  staff   368B Oct 10 12:53 alpaca_V.nog
+-rw-r--r--   1 emoseley  staff   1.6K Oct 10 12:53 alpaca_V.nos
+-rw-r--r--   1 emoseley  staff   1.0K Oct 10 12:53 alpaca_V.not
+-rw-r--r--   1 emoseley  staff   6.0K Oct 10 12:53 alpaca_V.nsq
+-rw-r--r--   1 emoseley  staff    16K Oct 10 12:53 alpaca_V.ntf
+-rw-r--r--   1 emoseley  staff   340B Oct 10 12:53 alpaca_V.nto
+```
+
+**Result:** The command runs without error:
+
+
+```{bash, echo = T, eval = F}
+bin/igblastn \
+    -germline_db_V database/alpaca_vhh_clean/alpaca_V \
+    -germline_db_D database/alpaca_vhh_clean/alpaca_D \
+    -germline_db_J database/alpaca_vhh_clean/alpaca_J \
+    -domain_system imgt -ig_seqtype Ig -organism alpaca \
+    -auxiliary_data optional_file/alpaca_gl.aux \
+    -outfmt '7 std qseq sseq btop' \
+    -query /Users/emoseley/VHH/data/ALPACA1-BC1.fasta \
+    -out /Users/emoseley/Desktop/ALPACA1-BC1.fmt7
+```
+
+## 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+===
+
+===
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#### Quickstart (Everything Already Installed)
+
+```{bash, echo = T, eval = F}
+gcloud compute ssh --zone "us-central1-a" "instance-1" --project "alpaca-vhh"
+```
+
+```{bash, echo = T, eval = F}
+# Remove previous directory if it's got things in it
+# rm -r vhh-data
+# mkdir vhh-data
+
+gcsfuse vhh-data "$HOME/vhh-data" 
+# Move to the vhh-data folder
+cd ~/vhh-data
+```
+
+
+
+# Begin Document
+
+Here, we will use Google Cloud Platform to create a virtual machine to use for our IMGT Database.
+
+## GCP Setup
+
+1. Create a Project
+2. Create a Storage Bucket
+  * Upload necessary data to bucket
+3. Crete a VM with a fixed external IP (for connecting to Jupyter Notebook)
+
+## Startup
+
+1. Turn on GCP VM in the Cloud Console, SSH in:
+
+```{bash, echo = T, eval = F}
+gcloud compute ssh --zone "us-central1-a" "instance-1" --project "alpaca-vhh"
+```
+
+2. Install GCFuse
+
+```{bash, echo = T, eval = F}
+# Add the Cloud Storage FUSE distribution URL as a package source:
+export GCSFUSE_REPO=gcsfuse-`lsb_release -c -s`
+echo "deb https://packages.cloud.google.com/apt $GCSFUSE_REPO main" | sudo tee /etc/apt/sources.list.d/gcsfuse.list
+# Import the Google Cloud APT repository public key:
+curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+# Update the list of available packages:
+sudo apt-get update
+# Install Cloud Storage FUSE and its dependency FUSE:
+sudo apt-get install fuse gcsfuse
+# (When prompted, press Enter to confirm.)
+# Confirm that Cloud Storage FUSE has been installed:
+gcsfuse -v
+```
+
+3. Mount the storage bucket
+
+```{bash, echo = T, eval = F}
+# Generate Application Default Credentials using the gcloud auth application-default login command:
+# (FUSE automatically loads credentials)
+gcloud auth application-default login
+# Create a directory to mount the storage bucket to:
+mkdir "$HOME/vhh-data"
+# Mount your storage bucket using the gcsfuse command:
+gcsfuse vhh-data "$HOME/vhh-data"
+# Move to the vhh-data folder
+cd ~/vhh-data
+```
+
+3. Follow commands to set project id (just in case), and mount storage bucket
+
+```{bash, echo = T, eval = F}
+gcsfuse vhh-data ~/vhh-data
+```
+
+**Note:** To check project: `gcloud config get-value project`
+
+## IMGT Setup
+
+Here, we rely heavily on the [Change-O: Using IgBLAST](https://changeo.readthedocs.io/en/stable/examples/igblast.html) immcantation page after having downloaded `/scripts` from the [Immcantation repository](https://bitbucket.org/kleinstein/immcantation/src/master/scripts).
+
+#### Download IgBLAST
+
+Here, we are downloading: `ncbi-igblast-1.21.0-x64-macosx.tar.gz`
+
+```{}
+#https://ftp.ncbi.nih.gov/blast/executables/igblast/release/LATEST/
+
+wget https://ftp.ncbi.nih.gov/blast/executables/igblast/release/LATEST/ncbi-igblast-1.21.0-x64-linux.tar.gz
+```
+
+After installing, create a folder called `database` inside the `ncbi-igblast-1.17.1` folder
+
+
+
+
+
+
+
+
+
+
+
+The scripts we will download are:
+
+```{bash, echo = T, eval = F}
+# Using this, we have the hash of the commit after immcantation/raw/
+# wget https://bitbucket.org/kleinstein/immcantation/raw/c54b5759102243b883e3a96e8fa0c6795a20bc1a/scripts/fetch_igblastdb.sh
+
+mkdir scripts
+cd scripts/
+
+# We replace it with the HEAD of the repo for the most-recent version
+wget https://bitbucket.org/kleinstein/immcantation/raw/HEAD/scripts/fetch_igblastdb.sh
+wget https://bitbucket.org/kleinstein/immcantation/raw/HEAD/scripts/fetch_imgtdb.sh
+wget https://bitbucket.org/kleinstein/immcantation/raw/HEAD/scripts/clean_imgtdb.py
+wget https://bitbucket.org/kleinstein/immcantation/raw/HEAD/scripts/imgt2igblast.sh
+
+# We have to ensure that we can use these scripts, so we modify their permissions
+
+
+# Add to path
+export PATH="$HOME/vhh-data/scripts:$PATH"
+# Note that this is only temporary for our current session(?double-check that)
+```
+
+For more detailed information, we rely on the NCBI's: [How to Setup](https://ncbi.github.io/igblast/cook/How-to-set-up.html) Document.
+
+
+
+
+
+
+
+
+```{bash, echo = T, eval = F}
+# Download and extract IgBLAST
+VERSION="1.17.0"
+wget ftp://ftp.ncbi.nih.gov/blast/executables/igblast/release/${VERSION}/ncbi-igblast-${VERSION}-x64-linux.tar.gz
+tar -zxf ncbi-igblast-${VERSION}-x64-linux.tar.gz
+cp ncbi-igblast-${VERSION}/bin/* ~/bin
+# Download reference databases and setup IGDATA directory
+fetch_igblastdb.sh -o ~/share/igblast
+cp -r ncbi-igblast-${VERSION}/internal_data ~/share/igblast
+cp -r ncbi-igblast-${VERSION}/optional_file ~/share/igblast
+# Build IgBLAST database from IMGT reference sequences
+fetch_imgtdb.sh -o ~/share/germlines/imgt
+imgt2igblast.sh -i ~/share/germlines/imgt -o ~/share/igblast
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# NOTES
+
+# Part 2) Change-O - Repertoire Clonal Assignment Toolkit
+
+Here, we rely on the [IgBLAST](https://changeo.readthedocs.io/en/stable/examples/igblast.html) tutorial, within the [Change-O - Repertoire clonal assignment toolkit](https://changeo.readthedocs.io/en/stable/examples/igblast.html), and we use an example data set from the [UMI barcoded MiSeq Workflow](https://presto.readthedocs.io/en/stable/workflows/Stern2014_Workflow.html). The data can be downloaded from:
+
+* [Change-O Example Files](http://clip.med.yale.edu/immcantation/examples/AIRR_Example.tar.gz)
+
+Note that [BLAST (Basic Local Alignment Search Tool)](https://blast.ncbi.nlm.nih.gov/Blast.cgi) _"finds regions of similarity between biological sequences. The program compares nucleotide or protein sequences to sequence databases and calculates the statistical significance."_
+
+---
+
+```
+~/Desktop/Tufts/Cowen Lab/alpaca/rawseqdata/igblast/ncbi-igblast-1.17.1/bin/
+
+> blastdbcmd
+> edit_imgt_file.pl
+> igblastn
+> makeblastdb
+```
+
+A quick check demonstrates that these files are linux executables (which were probably run on the Tufts machines)
+
+```
+#(base) emoseley@MacBook-Pro-5 ~ % file -e elf /usr/local/bin/makeblastdb
+#/usr/local/bin/makeblastdb: ELF 64-bit LSB executable, x86-64, version 1 (GNU/Linux)
+```
+
+so we will need to download MacOS versions for local installation.
+
+## IgBLAST General Setup
+
+1. Download IgBlast program from [latest releases](https://ftp.ncbi.nih.gov/blast/executables/igblast/release/LATEST/)
+  * [NCBI IgBLAST Documentation](https://ncbi.github.io/igblast/)
+    * [IgBLAST Setup](https://ncbi.github.io/igblast/cook/How-to-set-up.html)
+
+
+**Downloaded:**
+
+```
+ncbi-igblast-1.21.0-x64-macosx.tar.gz     2023-04-14 14:04   35M  
+ncbi-igblast-1.21.0-x64-macosx.tar.gz.md5 2023-04-14 14:04   72   
+```
+
+2. Install and add to path
+
+```
+# 1. Open the .zshrc file in your home directory (for example, /Users/your-user-name/.zshrc) in a text editor.
+
+2. Add 
+# For adding NCBI's IgBLAST to the path (last line in .zshrc)
+export PATH="$PATH:/Users/emoseley/ncbi-igblast-1.21.0/bin"
+
+3. Save the open .zshrc file.
+4. Run source .zshrc
+```
+
+3. Get blast database for germline V, D, and J gene sequences.
+
+**Copy/Pasted:** 
+
+* IgBlast allows you to search any germline databases of your choice (using `-germline_db_V`, `-germline_db_J` and `-germline_db_D` options).
+
+* The NCBI mouse germline gene databases (i.e., mouse_gl_V, etc.) are supplied on our ftp site (https://ftp.ncbi.nih.gov/blast/executables/igblast/release/database/. Also see https://www.ncbi.nlm.nih.gov/igblast/ about database details).
+
+* To search IMGT germline sequences, you need to download them from IMGT web site (http://www.imgt.org/vquest/refseqh.html#VQUEST ). 
+  * You need to download all V, D and J sequences for whatever organisms you are interested in. 
+  * Combine all V, all D and all J sequences, respectively, into separate files (i.e., one file for all V sequences, one for all D sequences and one file all for J sequences). 
+  * After you have downloaded the sequences, invoke our utility tool `edit_imgt_file.pl` (in the bin directory in the IgBlast release package) to process these sequences (i.e., to change the long IMGT definition lines to germline gene names only).
+  * For example: `bin/edit_imgt_file.pl imgt_file > my_seq_file`
+
+* Then you can use NCBI’s makeblastdb tool (also in the bin directory ) to make the blast database from the above output file. 
+  * For example: `bin/makeblastdb -parse_seqids -dbtype nucl -in my_seq_file`
+
+* Now you can use my_seq_file as blast database file for IgBlast.
+
+### IMGT database setup
+
+Here, we are using the following files that have already been generated by TH previously:
+
+1. $V$ - `imgt_gapped_alpaca_IGHV.fasta`
+
+2. $D$ - `imgt_gapped_alpaca_IGHD.fasta`
+
+3. $J$ - `imgt_gapped_alpaca_IGHJ.fasta`
+
+#### V-segment BLAST db
+
+```{bash, echo = T, eval = F, engine.opts = '-l'}
+# Process V segment sequences with edit_imgt_file
+edit_imgt_file.pl \
+/Users/emoseley/VHH/data/imgt-data/imgt_gapped_alpaca_IGHV.fasta > /Users/emoseley/ncbi-igblast-1.21.0/internal_data/alpaca/imgt_alpaca_ig_v.fasta
+
+makeblastdb -parse_seqids -dbtype nucl \
+    -in /Users/emoseley/ncbi-igblast-1.21.0/internal_data/alpaca/imgt_alpaca_ig_v.fasta \
+    -out /Users/emoseley/ncbi-igblast-1.21.0/internal_data/alpaca/alpaca_V
+```
+
+**Note output:**
+
+```
+Building a new DB, current time: 08/15/2023 18:32:49
+New DB name:   /Users/emoseley/ncbi-igblast-1.21.0/internal_data/alpaca/alpaca_V
+New DB title:  /Users/emoseley/ncbi-igblast-1.21.0/internal_data/alpaca/imgt_alpaca_ig_v.fasta
+Sequence type: Nucleotide
+Keep MBits: T
+Maximum file size: 3000000000B
+Adding sequences from FASTA; added 84 sequences in 0.00227809 seconds.
+```
+
+#### D-segment BLAST db
+
+```{bash, echo = T, eval = F, engine.opts = '-l'}
+# Process D segment sequences with edit_imgt_file
+edit_imgt_file.pl \
+/Users/emoseley/VHH/data/imgt-data/imgt_gapped_alpaca_IGHD.fasta > /Users/emoseley/ncbi-igblast-1.21.0/internal_data/alpaca/imgt_alpaca_ig_d.fasta
+
+makeblastdb -parse_seqids -dbtype nucl \
+    -in /Users/emoseley/ncbi-igblast-1.21.0/internal_data/alpaca/imgt_alpaca_ig_d.fasta \
+    -out /Users/emoseley/ncbi-igblast-1.21.0/internal_data/alpaca/alpaca_D
+```
+
+**Note output:**
+
+```
+Building a new DB, current time: 08/16/2023 10:58:06
+New DB name:   /Users/emoseley/ncbi-igblast-1.21.0/internal_data/alpaca/alpaca_D
+New DB title:  /Users/emoseley/ncbi-igblast-1.21.0/internal_data/alpaca/imgt_alpaca_ig_d.fasta
+Sequence type: Nucleotide
+Keep MBits: T
+Maximum file size: 3000000000B
+Adding sequences from FASTA; added 8 sequences in 0.00334096 seconds.
+```
+
+#### J-segment BLAST db
+
+```{bash, echo = T, eval = F, engine.opts = '-l'}
+# Process J segment sequences with edit_imgt_file
+edit_imgt_file.pl \
+/Users/emoseley/VHH/data/imgt-data/imgt_gapped_alpaca_IGHJ.fasta > /Users/emoseley/ncbi-igblast-1.21.0/internal_data/alpaca/imgt_alpaca_ig_j.fasta
+
+makeblastdb -parse_seqids -dbtype nucl \
+    -in /Users/emoseley/ncbi-igblast-1.21.0/internal_data/alpaca/imgt_alpaca_ig_j.fasta \
+    -out /Users/emoseley/ncbi-igblast-1.21.0/internal_data/alpaca/alpaca_J
+```
+
+**Note output:**
+
+```
+Building a new DB, current time: 08/16/2023 11:09:41
+New DB name:   /Users/emoseley/ncbi-igblast-1.21.0/internal_data/alpaca/alpaca_J
+New DB title:  /Users/emoseley/ncbi-igblast-1.21.0/internal_data/alpaca/imgt_alpaca_ig_j.fasta
+Sequence type: Nucleotide
+Keep MBits: T
+Maximum file size: 3000000000B
+Adding sequences from FASTA; added 7 sequences in 0.00333309 seconds.
+```
+
+**TH Database Setup Commands**
+
+```
+%%bash 
+
+WD=/home/troyhinkley/ncbi-igblast-1.17.1
+DATA=/home/troyhinkley/alpaca/igblast
+
+
+cp -R $DATA/internal_data/alpaca/. $WD/database 
+cp -R $DATA/internal_data/alpaca/. $DATA/database
+#cp -R $DATA/internal_data/alpaca/. $WD/internal_data/alpaca
+```
+
+**EM tried this:**
+
+```
+cp -R /Users/emoseley/ncbi-igblast-1.21.0/internal_data/alpaca/. /Users/emoseley/ncbi-igblast-1.21.0/database
+```
+
+## IgBLAST General Setup Take: Two
+
+1. We rely on the `scripts` from the [immcantation repository](https://bitbucket.org/kleinstein/immcantation/src/master/scripts)
+  * Note that they are linux-specific
+
+```
+1. Open the .zshrc file in home directory
+
+2. Add:
+
+# For adding scripts to install IgBLAST
+# We add this command to the last line of .zshrc
+
+export PATH="$PATH:/Users/emoseley/immcantation/scripts"
+
+3. Save the .zshrc file
+
+4. run `source .zshrc` on the command line
+```
+
+2. We then use the following commands (which are given to us, but are linux specific)
+
+```
+# Download and extract IgBLAST
+VERSION="1.17.0"
+wget ftp://ftp.ncbi.nih.gov/blast/executables/igblast/release/${VERSION}/ncbi-igblast-${VERSION}-x64-macosx.tar.gz
+tar -zxf ncbi-igblast-${VERSION}-x64-macosx.tar.gz
+cp ncbi-igblast-${VERSION}/bin/* /usr/local/bin
+# Download reference databases and setup IGDATA directory
+fetch_igblastdb.sh -o ~/share/igblast
+cp -r ncbi-igblast-${VERSION}/internal_data ~/share/igblast
+cp -r ncbi-igblast-${VERSION}/optional_file ~/share/igblast
+# Build IgBLAST database from IMGT reference sequences
+fetch_imgtdb.sh -o ~/share/germlines/imgt
+imgt2igblast.sh -i ~/share/germlines/imgt -o ~/share/igblast
+```
+
+## IgBLAST General Setup Take: Three
+
+1. Download `.dmg` installer for macosx from [Index of /blast/executables/igblast/release/1.17.1](https://ftp.ncbi.nih.gov/blast/executables/igblast/release/1.17.1/)
+
+```
+ncbi-igblast-1.17.1-x64-macosx.tar.gz     2021-02-26 12:47   32M  
+ncbi-igblast-1.17.1-x64-macosx.tar.gz.md5 2021-02-26 12:47   72  
+```
+
+2. We unzip the `.tar.gz` file, then we open `.zshrc`
+  * Here we are adding `/Users/emoseley/ncbi-igblast-1.17.1/bin` to the `$PATH`
+  
+```
+# Adding to the final line of .zshrc
+export PATH="$PATH:/Users/emoseley/ncbi-igblast-1.17.1/bin"
+```
+
+3. Then we call `source .zshrc`
+
+4. Note that we get the error that these programs come from an unspecified developer, so we need to navigate to the `ncbi-igblast-1.17.1/bin`, hold `control`, and double-click each to override once
+
+#### Using Database
+
+It looks like `igblastn` requires `.fasta` files, so we will convert our file into that format.
+
+```{r}
+# load the fast q
+tmp <- ShortRead::readFastq("~/VHH/data/ALPACA1-BC1.fastq")
+
+# write as fasta
+ShortRead::writeFasta(tmp, file = "~/VHH/data/ALPACA1-BC1.fasta")
+```
+
+Before using the database (and after much trouble-shooting), we make sure we are in the appropriate directory:
+
+```{bash, echo = T, eval = F}
+cd ~/ncbi-igblast-1.21.0
+```
+
+Then we call `iglbastn`
+
+```{bash, echo = T, eval = F}
+igblastn \
+    -germline_db_V /Users/emoseley/ncbi-igblast-1.21.0/bin/internal_data/alpaca/alpaca_V \
+    -germline_db_D /Users/emoseley/ncbi-igblast-1.21.0/bin/internal_data/alpaca/alpaca_D \
+    -germline_db_J /Users/emoseley/ncbi-igblast-1.21.0/bin/internal_data/alpaca/alpaca_J \
+    -auxiliary_data /Users/emoseley/ncbi-igblast-1.21.0/bin/optional_file/alpaca_gl \
+    -domain_system imgt -ig_seqtype Ig -organism alpaca \
+    -outfmt '7 std qseq sseq btop' \
+    -query /Users/emoseley/VHH/data/ALPACA1-BC1.fasta \
+    -out /Users/emoseley/VHH/data/igblast-out/ALPACA1-BC1.fmt7
+```
+
+**Output:**
+
+```
+WORKER: T4 BATCH # 0 CEXCEPTION: Domain annotation data file could not be found in [internal_data] directory
+WORKER: T3 BATCH # 1 CEXCEPTION: Domain annotation data file could not be found in [internal_data] directory
+WORKER: T5 BATCH # 2 CEXCEPTION: Domain annotation data file could not be found in [internal_data] directory
+WORKER: T1 BATCH # 3 CEXCEPTION: Domain annotation data file could not be found in [internal_data] directory
+```
+
+
+Note that `-outfmt '7 std qseq sseq btop'` has the following characteristics:
+
+```
+*** Formatting options
+ -outfmt <String>
+   alignment view options:
+     7 = Tabular with comment lines
+     
+   Options 7 can be additionally configured to produce
+   a custom format specified by space delimited format specifiers.
+   The supported format specifiers are:
+
+   	      send means End of alignment in subject
+   	      qseq means Aligned part of query sequence
+   	      sseq means Aligned part of subject sequence
+   	      btop means Blast traceback operations (BTOP)
+   	      ...
+   	      ...
+   	      ...
+   	      
+   When not provided, the default value is:
+   'qseqid sseqid pident length mismatch gapopen gaps qstart qend sstart send
+   evalue bitscore', which is equivalent to the keyword 'std'
+   Default = `3'
+```
+
+#### Relying on database already generated by TH
+
+```{bash, echo = T, eval = F}
+igblastn \
+    -germline_db_V /Users/emoseley/ncbi-igblast-1.21.0/database/alpaca_V \
+    -germline_db_D /Users/emoseley/ncbi-igblast-1.21.0/database/alpaca_D \
+    -germline_db_J /Users/emoseley/ncbi-igblast-1.21.0/database/alpaca_J \
+    -auxiliary_data /Users/emoseley/ncbi-igblast-1.21.0/optional_file/alpaca_gl.aux \
+    -domain_system imgt -ig_seqtype Ig -organism alpaca \
+    -outfmt '7 std qseq sseq btop' \
+    -query /Users/emoseley/VHH/data/ALPACA1-BC1.fasta \
+    -out /Users/emoseley/VHH/data/igblast-out/ALPACA1-BC1.fmt7
+```
+
+```
+WORKER: T1 BATCH # 0 CEXCEPTION: Domain annotation data file could not be found in [internal_data] directory
+```
+
+#### Part 2 Notes: 
+
+1. It appears that this step is related to creating an International Immunogenetics Information System ([IMGT](https://imgt.org/)) database. Note that IMGT provides reference directories for normal and pathological Immunoglobulin (Ig) and T-Cell Receptors (TR or TCRs).
+
+2. For helpful information, see: [Parsing IMGT Output](https://changeo.readthedocs.io/en/stable/examples/imgt.html).
+
+3. Helpful information on [MakeDB.py](https://changeo.readthedocs.io/en/stable/tools/MakeDb.html)
+
+## Workaround: Use Human database for Now
+
+```{bash, echo = T, eval = F}
+igblastn \
+    -germline_db_V /Users/emoseley/ncbi-igblast-1.21.0/bin/internal_data/alpaca/alpaca_V \
+    -germline_db_D /Users/emoseley/ncbi-igblast-1.21.0/bin/internal_data/alpaca/alpaca_D \
+    -germline_db_J /Users/emoseley/ncbi-igblast-1.21.0/bin/internal_data/alpaca/alpaca_J \
+    -auxiliary_data /Users/emoseley/ncbi-igblast-1.21.0/bin/optional_file/alpaca_gl \
+    -domain_system imgt -ig_seqtype Ig -organism human \
+    -outfmt '7 std qseq sseq btop' \
+    -query /Users/emoseley/VHH/data/ALPACA1-BC1.fasta \
+    -out /Users/emoseley/VHH/data/igblast-out/ALPACA1-BC1-HUM.fmt7
+```
+
+```
+Warning: Auxilary data file could not be found
+Warning: Auxilary data file could not be found
+Warning: Auxilary data file could not be found
+Warning: Auxilary data file could not be found
+Warning: Auxilary data file could not be found
+Warning: Auxilary data file could not be found
+Warning: Auxilary data file could not be found
+Warning: Auxilary data file could not be found
+Warning: Auxilary data file could not be found
+Warning: Auxilary data file could not be found
+Warning: Auxilary data file could not be found
+Warning: Auxilary data file could not be found
+Warning: Auxilary data file could not be found
+```
+
+`/Users/emoseley/VHH/data/igblast-out/ALPACA1-BC1-HUM.fmt7`
+
+# Current Step

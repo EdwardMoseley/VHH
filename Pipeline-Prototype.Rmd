@@ -102,7 +102,8 @@ Overall, this is divided into:
 
 * The V(D)J reading frame proceeds from the start of read 2 to the start of read 1. 
 
-* Read 1 is in the opposite orientation (reverse complement), and contains the C-region primer sequence. 
+* Read 1 is in the opposite orientation (reverse complement), and contains the C-region primer sequence.
+
 * Both reads begin with a random sequences of 4 nucleotides.
 
 #### FlowChart
@@ -747,7 +748,7 @@ imgt2igblast.sh -i ~/share/germlines/imgt -o ~/share/igblast
 
 ## IgBLAST General Setup Take: Three
 
-1. Download `.dmg` installer for macosx from [Index of /blast/executables/igblast/release/1.17.1](https://ftp.ncbi.nih.gov/blast/executables/igblast/release/1.17.1/)
+1. Download installer for Macosx from [Index of /blast/executables/igblast/release/1.17.1](https://ftp.ncbi.nih.gov/blast/executables/igblast/release/1.17.1/)
 
 ```
 ncbi-igblast-1.17.1-x64-macosx.tar.gz     2021-02-26 12:47   32M  
@@ -765,33 +766,6 @@ export PATH="$PATH:/Users/emoseley/ncbi-igblast-1.17.1/bin"
 3. Then we call `source .zshrc`
 
 4. Note that we get the error that these programs come from an unspecified developer, so we need to navigate to the `ncbi-igblast-1.17.1/bin`, hold `control`, and double-click each to override once
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 #### Using Database
 
@@ -814,15 +788,15 @@ cd ~/ncbi-igblast-1.21.0
 Then we call `iglbastn`
 
 ```{bash, echo = T, eval = F}
-igblastn \
-    -germline_db_V /Users/emoseley/ncbi-igblast-1.21.0/bin/internal_data/alpaca/alpaca_V \
-    -germline_db_D /Users/emoseley/ncbi-igblast-1.21.0/bin/internal_data/alpaca/alpaca_D \
-    -germline_db_J /Users/emoseley/ncbi-igblast-1.21.0/bin/internal_data/alpaca/alpaca_J \
-    -auxiliary_data /Users/emoseley/ncbi-igblast-1.21.0/bin/optional_file/alpaca_gl \
+bin/igblastn \
+    -germline_db_V database/alpaca_vhh_clean/alpaca_V \
+    -germline_db_D database/alpaca_vhh_clean/alpaca_D \
+    -germline_db_J database/alpaca_vhh_clean/alpaca_J \
     -domain_system imgt -ig_seqtype Ig -organism alpaca \
+    -auxiliary_data optional_file/alpaca_gl.aux \
     -outfmt '7 std qseq sseq btop' \
     -query /Users/emoseley/VHH/data/ALPACA1-BC1.fasta \
-    -out /Users/emoseley/VHH/data/igblast-out/ALPACA1-BC1.fmt7
+    -out /Users/emoseley/Desktop/ALPACA1-BC1.fmt7
 ```
 
 **Output:**
@@ -875,7 +849,6 @@ igblastn \
     -out /Users/emoseley/VHH/data/igblast-out/ALPACA1-BC1.fmt7
 ```
 
-
 ```
 WORKER: T1 BATCH # 0 CEXCEPTION: Domain annotation data file could not be found in [internal_data] directory
 ```
@@ -888,37 +861,22 @@ WORKER: T1 BATCH # 0 CEXCEPTION: Domain annotation data file could not be found 
 
 3. Helpful information on [MakeDB.py](https://changeo.readthedocs.io/en/stable/tools/MakeDb.html)
 
-## Workaround: Use Human database for Now
+## WORKING - Use NCBI v1.17.1
 
 ```{bash, echo = T, eval = F}
-igblastn \
-    -germline_db_V /Users/emoseley/ncbi-igblast-1.21.0/bin/internal_data/alpaca/alpaca_V \
-    -germline_db_D /Users/emoseley/ncbi-igblast-1.21.0/bin/internal_data/alpaca/alpaca_D \
-    -germline_db_J /Users/emoseley/ncbi-igblast-1.21.0/bin/internal_data/alpaca/alpaca_J \
-    -auxiliary_data /Users/emoseley/ncbi-igblast-1.21.0/bin/optional_file/alpaca_gl \
-    -domain_system imgt -ig_seqtype Ig -organism human \
+cd ~/ncbi-igblast-1.17.1
+
+bin/igblastn \
+    -germline_db_V database/alpaca_vhh_clean/alpaca_V \
+    -germline_db_D database/alpaca_vhh_clean/alpaca_D \
+    -germline_db_J database/alpaca_vhh_clean/alpaca_J \
+    -domain_system imgt -ig_seqtype Ig -organism alpaca \
+    -auxiliary_data optional_file/alpaca_gl.aux \
     -outfmt '7 std qseq sseq btop' \
     -query /Users/emoseley/VHH/data/ALPACA1-BC1.fasta \
-    -out /Users/emoseley/VHH/data/igblast-out/ALPACA1-BC1-HUM.fmt7
+    -out /Users/emoseley/VHH/data/igblast-out/ALPACA1-BC1.fmt7
 ```
 
-```
-Warning: Auxilary data file could not be found
-Warning: Auxilary data file could not be found
-Warning: Auxilary data file could not be found
-Warning: Auxilary data file could not be found
-Warning: Auxilary data file could not be found
-Warning: Auxilary data file could not be found
-Warning: Auxilary data file could not be found
-Warning: Auxilary data file could not be found
-Warning: Auxilary data file could not be found
-Warning: Auxilary data file could not be found
-Warning: Auxilary data file could not be found
-Warning: Auxilary data file could not be found
-Warning: Auxilary data file could not be found
-```
-
-`/Users/emoseley/VHH/data/igblast-out/ALPACA1-BC1-HUM.fmt7`
 
 # Current Step
 
@@ -927,7 +885,7 @@ Warning: Auxilary data file could not be found
 *Note:*
 
 ```
-# WD = /Users/emoseley/ncbi-igblast-1.21.0
+# WD = /Users/emoseley/ncbi-igblast-1.17.0
 # DATA = /Users/emoseley/VHH/data/
 # SEQ = (one with "atleast-2", which we name "Build Consensus" (BC)) /data/ALPACA1-BC1.fastq
 # DATA_DIR = 
@@ -946,37 +904,44 @@ If specified, include incomplete V(D)J alignments in the pass file instead of th
 ```{bash, engine.opts = '-l', eval = F, echo = T}
 docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
   MakeDb.py igblast \
-  -i /data/igblast-out/ALPACA1-BC1-HUM.fmt7 \
-  -s /data/ALPACA1-BC1.fastq \
+  -i /data/igblast-out/ALPACA1-BC1.fmt7 \
+  -s /data/ALPACA1-BC1.fasta \
   -r /data/imgt-data/imgt_gapped_alpaca_IGHV.fasta /data/imgt-data/imgt_gapped_alpaca_IGHD.fasta  /data/imgt-data/imgt_gapped_alpaca_IGHJ.fasta\
   --outdir /data/ \
   --failed \
-  --log /data/ALPACA-BC1-HUM-MDB-IGHV.txt \
+  --log /data/ALPACA-BC1-IMGT-MDB-log.txt \
   --format airr \
-  --extended \
-  --partial
+  --extended 
 ```
+
+Note: including `--partial \` as an argument allows more sequences to pass (even though they may be unproductive).
 
 ```
          START> MakeDB
        COMMAND> igblast
-  ALIGNER_FILE> ALPACA1-BC1-HUM.fmt7
-      SEQ_FILE> ALPACA1-BC1.fastq
+  ALIGNER_FILE> ALPACA1-BC1.fmt7
+      SEQ_FILE> ALPACA1-BC1.fasta
        ASIS_ID> False
     ASIS_CALLS> False
-      VALIDATE> partial
+      VALIDATE> strict
       EXTENDED> True
 INFER_JUNCTION> False
 
-PROGRESS> 15:58:57 |Done                | 0.0 min
+PROGRESS> 19:59:06 |Done                | 0.0 min
 
-PROGRESS> 15:59:11 |####################| 100% (390) 0.2 min
+PROGRESS> 19:59:21 |####################| 100% (390) 0.2 min
 
-OUTPUT> ALPACA1-BC1-HUM_db-pass.tsv
-  PASS> 321
-  FAIL> 69
+OUTPUT> ALPACA1-BC1_db-pass.tsv
+  PASS> 142
+  FAIL> 248
    END> MakeDb
 ```
+
+
+
+
+
+
 
 
 ```{bash, engine.opts = '-l', eval = F, echo = T}
@@ -1058,6 +1023,15 @@ DISCARDED> 0
       END> ParseDb
 ```
 
+# Take 4
+
+1. `console.cloud.google.com`
+
+2. Create VM instance
+
+3. Create permanent External IP address attached to VM instance
+
+
 <br>
 <br>
 <br>
@@ -1112,7 +1086,7 @@ Goal: Partition (cluster) sequences into clonally related lineages. Each lineage
 
 Summary of the key steps:
 
-1. etermine clonal clustering threshold: sequences which are under this cut-off are clonally related. 
+1. Determine clonal clustering threshold: sequences which are under this cut-off are clonally related. 
 
 2. Assign clonal groups: add an annotation (clone_id) that can be used to identify a group of sequences that came from the same original naive cell.
 
@@ -1251,48 +1225,6 @@ ggsave(file=PlotOUT)
 
 write_airr(results1, file.path(Sub,SampleOUT))
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 ### Example Data
 
