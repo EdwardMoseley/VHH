@@ -2,7 +2,7 @@
 ## Immcantation Pipeline
 ## Edward Moseley, Cowen Lab
 ## Tufts University
-## 18Sep23
+## 11Oct23
 ## ###
 
 ## ###
@@ -27,11 +27,15 @@
 ## Note use: Rscript main.R [sample_name.fastq]
 
 
+# Make small sample files (terminal)
+# head -n 5000 A2A_S1_L001_R1_001.fastq > A2Asample_S1_L001_R1_001.fastq
+# head -n 5000 A2A_S1_L001_R2_001.fastq > A2Asample_S1_L001_R2_001.fastq
+# They were then edited to 
 
 # Parse arguments into
 # args = commandArgs(trailingOnly=TRUE)
 
-args <- c("A2A_S1_L001_R1_001.fastq", "A2A_S1_L001_R2_001.fastq")
+args <- c("A2Asample_S1_L001_R1_001.fastq", "A2Asample_S1_L001_R2_001.fastq")
 
 # test if there is at least one argument: if not, return an error
 if (length(args)==0) {
@@ -43,37 +47,350 @@ if (length(args)==0) {
 
 
 ## Command line argument structure
-docker_prefix <- "docker run -v"
-directory <- "/Users/emoseley/VHH/data:/data"
+docker_prefix <- " docker run -v"
+directory <- " /Users/emoseley/VHH/data:/data "
+immcantation <- " immcantation/suite:4.4.0 "
 data_mount <- "/data/"
-immcantation <- "immcantation/suite:4.4.0"
 
 # Input file metadata
 metadata <- strsplit(file_R1, '_')[[1]]
 
 # Create ID for file data
-id <- paste(metadata[1], metadata[2], sep = '_')
+id <- paste(metadata[1], metadata[2], 'Proc', sep = '_')
 
-## Initial data for command structure
-program <- "AssemblePairs.py"
 
+## ###
+## (1) Paired-End Assembly (Takes a long time).
+## ###
+
+# Logfile name
 logfile <- paste(data_mount, id, '_AP.log', sep = '')
 
-arguments <- paste("--coord illumina --rc tail --maxerror 0.1 --outname ",
+# Initial data for command structure
+program <- " AssemblePairs.py "
+
+# Arguments
+arguments <- paste(" --coord illumina --rc tail --maxerror 0.1 --outname ",
                    id, " --log ", logfile, sep = '')
 
-## Paired-End Assembly (Takes a long time).
-command <- paste(docker_prefix, directory, immcantation, program, 'align -1', data_mount, args[2],
-                 '-2 ', data_mount, args[1], arguments, sep = ' ')
+# Formulate command from components
+command <- paste(docker_prefix, 
+                 directory, 
+                 immcantation, 
+                 program, 
+                 'align -1 ', 
+                 data_mount, 
+                 args[2],
+                 ' -2 ', 
+                 data_mount, 
+                 args[1], 
+                 arguments, sep = '')
 
-#system_command <- "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
-#AssemblePairs.py align -1 /data/A2A_S1_L001_R2_001.fastq -2 /data/A2A_S1_L001_R1_001.fastq \
-#--coord illumina --rc tail --maxerror 0.1 --outname ALPACA1 --log /data/ALPACA_AP.log"
+# Run command and pull output
+output <- system(command)
 
+#START> AssemblePairs
+#COMMAND> align
+#FILE1> A2Asample_S1_L001_R2_001.fastq
+#FILE2> A2Asample_S1_L001_R1_001.fastq
+#COORD_TYPE> illumina
+#ALPHA> 1e-05
+#MAX_ERROR> 0.1
+#MIN_LEN> 8
+#MAX_LEN> 1000
+#SCAN_REVERSE> False
+#NPROC> 6
+
+#PROGRESS> 15:28:38 |####################| 100% (1,250) 0.1 min
+  
+#OUTPUT> A2Asample_S1_Proc_assemble-pass.fastq
+#PAIRS> 1250
+#PASS> 660
+#FAIL> 590
+#END> AssemblePairs
 
 # Parse log
 
-system_command <- paste(docker_prefix, directory, immcantation, "ParseLog.py -l", logfile, 
+program <- "ParseLog.py -l"
+
+command <- paste(docker_prefix, directory, immcantation, program, logfile, 
                         '-f ID LENGTH OVERLAP ERROR PVALUE', sep = ' ')
 
-system(system_command)
+system(command)
+
+#START> ParseLog
+#FILE> A2Asample_S1_Proc_AP.log
+
+#PROGRESS> 15:29:52 (1250) 0.0 min
+
+#OUTPUT> A2Asample_S1_Proc_AP_table.tab
+#RECORDS> 1250
+#PASS> 1250
+#FAIL> 0
+#END> ParseLog
+
+## ###
+## 2) (Quality Control Step) Filter Sequence
+## ###
+
+### Removing Low-Quality Reads
+program <- "FilterSeq.py quality -s "
+infile <- paste(data_mount, id, '_assemble-pass.fastq', sep = '')
+arguments <- " -q 30 --outname "
+logfile <- paste(' --log ', data_mount, id, '_FS.log', sep = '')
+
+
+command <- paste(docker_prefix, 
+                 directory, 
+                 immcantation, 
+                 program, 
+                 infile,
+                 arguments,
+                 id,
+                 logfile,
+                 sep = '')
+
+system(command)
+
+#START> FilterSeq
+#COMMAND> quality
+#FILE> A2Asample_S1_Proc_assemble-pass.fastq
+#INNER> False
+#MIN_QUAL> 30.0
+#NPROC> 6
+
+#PROGRESS> 15:52:36 |####################| 100% (660) 0.0 min
+  
+#OUTPUT> A2Asample_S1_Proc_quality-pass.fastq
+#SEQUENCES> 660
+#PASS> 541
+#FAIL> 119
+#END> FilterSeq
+
+# Parse log
+program <- "ParseLog.py -l "
+
+logfile <- paste(data_mount, id, '_FS.log -f ID QUALITY', sep = '')
+
+command <- paste(docker_prefix, 
+                 directory,
+                 immcantation,
+                 program, logfile, sep = ' ')
+
+system(command)
+
+#START> ParseLog
+#FILE> A2Asample_S1_Proc_FS.log
+#
+#PROGRESS> 16:03:35 (660) 0.0 min
+#
+#OUTPUT> A2Asample_S1_Proc_FS_table.tab
+#RECORDS> 660
+#PASS> 660
+#FAIL> 0
+#END> ParseLog
+
+## ###
+## Masking of primer regions
+## ###
+
+program <- "MaskPrimers.py score -s "
+infile <- paste(data_mount, id, '_quality-pass.fastq', sep = '')
+barcode <- " -p /data/AlpVHH.fasta --barcode --start 8 --mode cut --pf VPRIMER --maxerror 0.01"
+outname <- paste(' --outname ', id, '-FWD', sep = '')
+logfile <- paste(' --log ', data_mount, id, '-FWD-MPV.log ', sep = '')
+
+command <- paste(docker_prefix,
+                 directory,
+                 immcantation,
+                 program,
+                 infile,
+                 barcode,
+                 outname,
+                 logfile, sep = '')
+
+
+system(command)
+
+#START> MaskPrimers
+#COMMAND> score
+#SEQ_FILE> A2Asample_S1_Proc_quality-pass.fastq
+#PRIMER_FILE> AlpVHH.fasta
+#MODE> cut
+#MAX_ERROR> 0.01
+#START_POS> 8
+#REV_PRIMER> False
+#BARCODE> True
+#BARCODE_FIELD> BARCODE
+#PRIMER_FIELD> VPRIMER
+#NPROC> 6
+
+#PROGRESS> 16:27:24 |####################| 100% (541) 0.0 min
+  
+#OUTPUT> A2Asample_S1_Proc-FWD_primers-pass.fastq
+#SEQUENCES> 541
+#PASS> 410
+#FAIL> 131
+#END> MaskPrimers
+
+## Second one
+program <- "MaskPrimers.py score -s "
+infile <- paste(data_mount, id, '_quality-pass.fastq', sep = '')
+barcode <- " -p /data/AlpVHH.fasta --barcode --start 8 --mode cut --revpr --pf CPRIMER --maxerror 0.01"
+outname <- paste(' --outname ', id, '-REV', sep = '')
+logfile <- paste(' --log ', data_mount, id, '-REV-MPC.log ', sep = '')
+
+command <- paste(docker_prefix,
+                 directory,
+                 immcantation,
+                 program,
+                 infile,
+                 barcode,
+                 outname,
+                 logfile, sep = '')
+
+system(command)
+
+#START> MaskPrimers
+#COMMAND> score
+#SEQ_FILE> A2Asample_S1_Proc_quality-pass.fastq
+#PRIMER_FILE> AlpVHH.fasta
+#MODE> cut
+#MAX_ERROR> 0.01
+#START_POS> 8
+#REV_PRIMER> True
+#BARCODE> True
+#BARCODE_FIELD> BARCODE
+#PRIMER_FIELD> CPRIMER
+#NPROC> 6
+
+#PROGRESS> 16:30:13 |####################| 100% (541) 0.0 min
+  
+#OUTPUT> A2Asample_S1_Proc-REV_primers-pass.fastq
+#SEQUENCES> 541
+#PASS> 407
+#FAIL> 134
+#END> MaskPrimers
+
+## Parse Log
+program <- "ParseLog.py -l "
+
+command <- paste(docker_prefix,
+                 directory,
+                 immcantation,
+                 program,
+                 paste(data_mount, id, '-FWD-MPV.log ', sep = ''), 
+                 paste(data_mount, id, '-REV-MPC.log -f ID PRIMER ERROR', sep = ''), sep = '')
+
+
+system(command)
+
+#START> ParseLog
+#FILE> A2Asample_S1_Proc-FWD-MPV.log
+
+#PROGRESS> 16:36:55 (541) 0.0 min
+
+#OUTPUT> A2Asample_S1_Proc-FWD-MPV_table.tab
+#RECORDS> 541
+#PASS> 541
+#FAIL> 0
+#END> ParseLog
+
+#START> ParseLog
+#FILE> A2Asample_S1_Proc-REV-MPC.log
+
+#PROGRESS> 16:36:55 (541) 0.0 min
+
+#OUTPUT> A2Asample_S1_Proc-REV-MPC_table.tab
+#RECORDS> 541
+#PASS> 541
+#FAIL> 0
+#END> ParseLog
+
+## ###
+## (4) Parse Headers
+## ###
+
+
+program <- "ParseHeaders.py collapse -s "
+# Arguments includes input file data
+arguments <- paste(data_mount, id, '-REV_primers-pass.fastq -f BARCODE --act cat', sep = '')
+
+
+command <- paste(docker_prefix, 
+                 directory, 
+                 immcantation, 
+                 program, 
+                 arguments, sep = '')
+
+system(command)
+
+
+#START> ParseHeaders
+#COMMAND> collapse
+#FILE> A2Asample_S1_Proc-REV_primers-pass.fastq
+#ACTIONS> cat
+#FIELDS> BARCODE
+
+#PROGRESS> 16:45:43 |####################| 100% (407) 0.0 min
+  
+#OUTPUT> A2Asample_S1_Proc-REV_primers-pass_reheader.fastq
+#SEQUENCES> 407
+#END> ParseHeaders
+
+## ###
+## (5) Build Consensus Sequences
+## ###
+
+program <- "BuildConsensus.py -s "
+infile <- paste(data_mount, id, '-REV_primers-pass_reheader.fastq', sep = '')
+arguments <- " --pf VPRIMER --maxerror 0.1 -n 2 --bf BARCODE -o "
+outfile <- paste(data_mount, id, '-BC1.fastq', sep = '')
+
+command <- paste(docker_prefix, 
+                 directory, 
+                 immcantation,
+                 program,
+                 infile,
+                 arguments,
+                 outfile, sep = '')
+
+system(command)
+
+
+#START> BuildConsensus
+#FILE> A2Asample_S1_Proc-REV_primers-pass_reheader.fastq
+#BARCODE_FIELD> BARCODE
+#MIN_COUNT> 2
+#MIN_FREQUENCY> 0.6
+#MIN_QUALITY> 0
+#MAX_GAP> None
+#PRIMER_FIELD> VPRIMER
+#PRIMER_FREQUENCY> None
+#MAX_ERROR> 0.1
+#MAX_DIVERSITY> None
+#DEPENDENT> False
+#COPY_FIELDS> None
+#COPY_ACTIONS> None
+#NPROC> 6
+
+#ERROR> Processing sequence set with ID: ACGACCTT
+
+#docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+#BuildConsensus.py -s /data/A2Asample_S1_Proc-REV_primers-pass_reheader.fastq --pf VPRIMER \
+#--maxerror 0.1  -o /data/A2Asample_S1_Proc-BC1.fastq -n 2 --bf BARCODE
+
+## ###
+## IMGT Database (Gene Annotation)
+## ###
+
+#### Using Database
+
+
+#It looks like `igblastn` requires `.fasta` files, so we will convert our file into that format.
+
+# load the fastq
+# tmp <- ShortRead::readFastq("~/VHH/data/ALPACA1-BC1.fastq")
+
+# write as fasta
+# ShortRead::writeFasta(tmp, file = "~/VHH/data/ALPACA1-BC1.fasta")
