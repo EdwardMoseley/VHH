@@ -561,12 +561,13 @@ A quick check demonstrates that these files are linux executables (which were pr
 
 so we will need to download MacOS versions for local installation.
 
+# (UPDATE THIS PART)
+
 ## IgBLAST General Setup
 
 1. Download IgBlast program from [latest releases](https://ftp.ncbi.nih.gov/blast/executables/igblast/release/LATEST/)
   * [NCBI IgBLAST Documentation](https://ncbi.github.io/igblast/)
     * [IgBLAST Setup](https://ncbi.github.io/igblast/cook/How-to-set-up.html)
-
 
 **Downloaded:**
 
@@ -677,74 +678,7 @@ makeblastdb -parse_seqids -dbtype nucl \
     -out /Users/emoseley/ncbi-igblast-1.21.0/internal_data/alpaca/alpaca_J
 ```
 
-**Note output:**
 
-```
-Building a new DB, current time: 08/16/2023 11:09:41
-New DB name:   /Users/emoseley/ncbi-igblast-1.21.0/internal_data/alpaca/alpaca_J
-New DB title:  /Users/emoseley/ncbi-igblast-1.21.0/internal_data/alpaca/imgt_alpaca_ig_j.fasta
-Sequence type: Nucleotide
-Keep MBits: T
-Maximum file size: 3000000000B
-Adding sequences from FASTA; added 7 sequences in 0.00333309 seconds.
-```
-
-**TH Database Setup Commands**
-
-```
-%%bash 
-
-WD=/home/troyhinkley/ncbi-igblast-1.17.1
-DATA=/home/troyhinkley/alpaca/igblast
-
-
-cp -R $DATA/internal_data/alpaca/. $WD/database 
-cp -R $DATA/internal_data/alpaca/. $DATA/database
-#cp -R $DATA/internal_data/alpaca/. $WD/internal_data/alpaca
-```
-
-**EM tried this:**
-
-```
-cp -R /Users/emoseley/ncbi-igblast-1.21.0/internal_data/alpaca/. /Users/emoseley/ncbi-igblast-1.21.0/database
-```
-
-## IgBLAST General Setup Take: Two
-
-1. We rely on the `scripts` from the [immcantation repository](https://bitbucket.org/kleinstein/immcantation/src/master/scripts)
-  * Note that they are linux-specific
-
-```
-1. Open the .zshrc file in home directory
-
-2. Add:
-
-# For adding scripts to install IgBLAST
-# We add this command to the last line of .zshrc
-
-export PATH="$PATH:/Users/emoseley/immcantation/scripts"
-
-3. Save the .zshrc file
-
-4. run `source .zshrc` on the command line
-```
-
-2. We then use the following commands (which are given to us, but are linux specific)
-
-```
-# Download and extract IgBLAST
-VERSION="1.17.0"
-wget ftp://ftp.ncbi.nih.gov/blast/executables/igblast/release/${VERSION}/ncbi-igblast-${VERSION}-x64-macosx.tar.gz
-tar -zxf ncbi-igblast-${VERSION}-x64-macosx.tar.gz
-cp ncbi-igblast-${VERSION}/bin/* /usr/local/bin
-# Download reference databases and setup IGDATA directory
-fetch_igblastdb.sh -o ~/share/igblast
-cp -r ncbi-igblast-${VERSION}/internal_data ~/share/igblast
-cp -r ncbi-igblast-${VERSION}/optional_file ~/share/igblast
-# Build IgBLAST database from IMGT reference sequences
-fetch_imgtdb.sh -o ~/share/germlines/imgt
-imgt2igblast.sh -i ~/share/germlines/imgt -o ~/share/igblast
-```
 
 ## IgBLAST General Setup Take: Three
 
@@ -779,79 +713,7 @@ tmp <- ShortRead::readFastq("~/VHH/data/ALPACA1-BC1.fastq")
 ShortRead::writeFasta(tmp, file = "~/VHH/data/ALPACA1-BC1.fasta")
 ```
 
-Before using the database (and after much trouble-shooting), we make sure we are in the appropriate directory:
-
-```{bash, echo = T, eval = F}
-cd ~/ncbi-igblast-1.21.0
-```
-
-Then we call `iglbastn`
-
-```{bash, echo = T, eval = F}
-bin/igblastn \
-    -germline_db_V database/alpaca_vhh_clean/alpaca_V \
-    -germline_db_D database/alpaca_vhh_clean/alpaca_D \
-    -germline_db_J database/alpaca_vhh_clean/alpaca_J \
-    -domain_system imgt -ig_seqtype Ig -organism alpaca \
-    -auxiliary_data optional_file/alpaca_gl.aux \
-    -outfmt '7 std qseq sseq btop' \
-    -query /Users/emoseley/VHH/data/ALPACA1-BC1.fasta \
-    -out /Users/emoseley/Desktop/ALPACA1-BC1.fmt7
-```
-
-**Output:**
-
-```
-WORKER: T4 BATCH # 0 CEXCEPTION: Domain annotation data file could not be found in [internal_data] directory
-WORKER: T3 BATCH # 1 CEXCEPTION: Domain annotation data file could not be found in [internal_data] directory
-WORKER: T5 BATCH # 2 CEXCEPTION: Domain annotation data file could not be found in [internal_data] directory
-WORKER: T1 BATCH # 3 CEXCEPTION: Domain annotation data file could not be found in [internal_data] directory
-```
-
-
-Note that `-outfmt '7 std qseq sseq btop'` has the following characteristics:
-
-```
-*** Formatting options
- -outfmt <String>
-   alignment view options:
-     7 = Tabular with comment lines
-     
-   Options 7 can be additionally configured to produce
-   a custom format specified by space delimited format specifiers.
-   The supported format specifiers are:
-
-   	      send means End of alignment in subject
-   	      qseq means Aligned part of query sequence
-   	      sseq means Aligned part of subject sequence
-   	      btop means Blast traceback operations (BTOP)
-   	      ...
-   	      ...
-   	      ...
-   	      
-   When not provided, the default value is:
-   'qseqid sseqid pident length mismatch gapopen gaps qstart qend sstart send
-   evalue bitscore', which is equivalent to the keyword 'std'
-   Default = `3'
-```
-
-#### Relying on database already generated by TH
-
-```{bash, echo = T, eval = F}
-igblastn \
-    -germline_db_V /Users/emoseley/ncbi-igblast-1.21.0/database/alpaca_V \
-    -germline_db_D /Users/emoseley/ncbi-igblast-1.21.0/database/alpaca_D \
-    -germline_db_J /Users/emoseley/ncbi-igblast-1.21.0/database/alpaca_J \
-    -auxiliary_data /Users/emoseley/ncbi-igblast-1.21.0/optional_file/alpaca_gl.aux \
-    -domain_system imgt -ig_seqtype Ig -organism alpaca \
-    -outfmt '7 std qseq sseq btop' \
-    -query /Users/emoseley/VHH/data/ALPACA1-BC1.fasta \
-    -out /Users/emoseley/VHH/data/igblast-out/ALPACA1-BC1.fmt7
-```
-
-```
-WORKER: T1 BATCH # 0 CEXCEPTION: Domain annotation data file could not be found in [internal_data] directory
-```
+Before using the database (and after much trouble-shooting), we make sure we are in the appropriate directory...
 
 #### Part 2 Notes: 
 
@@ -893,14 +755,6 @@ bin/igblastn \
 # OUT = catout
 ```
 
-_Note:_
-
-```
---partial
-If specified, include incomplete V(D)J alignments in the pass file instead of the fail file. An incomplete alignment is defined as a record that is missing a V gene assignment, J gene assignment, junction region, or productivity call.
-```
-
-
 ```{bash, engine.opts = '-l', eval = F, echo = T}
 docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
   MakeDb.py igblast \
@@ -914,7 +768,14 @@ docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
   --extended 
 ```
 
-Note: including `--partial \` as an argument allows more sequences to pass (even though they may be unproductive).
+_Note:_
+
+```
+--partial
+If specified, include incomplete V(D)J alignments in the pass file instead of the fail file. An incomplete alignment is defined as a record that is missing a V gene assignment, J gene assignment, junction region, or productivity call.
+```
+
+**Output:**
 
 ```
          START> MakeDB
@@ -937,41 +798,14 @@ OUTPUT> ALPACA1-BC1_db-pass.tsv
    END> MakeDb
 ```
 
+### Parse Database Results
 
-
-
-
-
-
-
-```{bash, engine.opts = '-l', eval = F, echo = T}
-sudo docker run -v $DATA_DIR:/data:z immcantation/suite:devel \
-    ParseDb.py select -d data/$OUT/"$Sample"_db-pass.tsv \
-    -f productive -u T --regex --outname $Sample
-
-sudo docker run -v $DATA_DIR:/data:z immcantation/suite:devel \
-    ParseDb.py select -d data/$OUT/"$Sample"_parse-select.tsv \
-    -f v_call -u IGHV --regex -o data/$OUT/$Sample-RepOut.tsv
-```
-
-#### General 
-
-_Our Command:_
+**Our Command:**
 
 ```{bash, engine.opts = '-l', eval = F, echo = T}
 docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
-  ParseDb.py select -d /data/ALPACA1-BC1-HUM_db-pass.tsv \
-  -f productive -u T --regex --outname ALPACA1-BC1-HUM_db-pass
-```
-
-_Our Modified Command:_
-
-**Changed** `-f productive -u F`
-
-```{bash, engine.opts = '-l', eval = F, echo = T}
-docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
-  ParseDb.py select -d /data/ALPACA1-BC1-HUM_db-pass.tsv \
-  -f productive -u F --regex --outname ALPACA1-BC1-HUM_db-pass
+  ParseDb.py select -d /data/ALPACA1-BC1_db-pass.tsv \
+  -f productive -u T --regex --outname ALPACA1-BC1-parsed-db-pass.tsv
 ```
 
 **Output:**
@@ -979,19 +813,20 @@ docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
 ```
   START> ParseDb
 COMMAND> select
-   FILE> ALPACA1-BC1-HUM_db-pass.tsv
+   FILE> ALPACA1-BC1_db-pass.tsv
  FIELDS> productive
- VALUES> F
+ VALUES> T
   REGEX> True
 
-PROGRESS> 15:42:17 |####################| 100% (321) 0.0 min
+PROGRESS> 20:34:20 |####################| 100% (142) 0.0 min
 
-   OUTPUT> ALPACA1-BC1-HUM_db-pass_parse-select.tsv
-  RECORDS> 321
- SELECTED> 321
-DISCARDED> 0
+   OUTPUT> ALPACA1-BC1-parsed-db-pass.tsv_parse-select.tsv
+  RECORDS> 142
+ SELECTED> 141
+DISCARDED> 1
       END> ParseDb
 ```
+
 
 #### IGHV
 
@@ -999,38 +834,28 @@ _Our Command:_
 
 ```{bash, engine.opts = '-l', eval = F, echo = T}
 docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
-  ParseDb.py select -d /data/ALPACA1-BC1-HUM_db-pass_parse-select.tsv \
-  -f v_call -u IGHV --regex -o /data/ALPACA1-BC1-HUM_db-pass_parse-select-RepOut.tsv
+  ParseDb.py select -d /data/ALPACA1-BC1-parsed-db-pass.tsv_parse-select.tsv \
+  -f v_call -u IGHV --regex -o /data/ALPACA1-BC1-parsed-db-pass.tsv_parse-select-RepOut.tsv
 ```
-
 
 **Output:**
 
 ```
   START> ParseDb
 COMMAND> select
-   FILE> ALPACA1-BC1-HUM_db-pass_parse-select.tsv
+   FILE> ALPACA1-BC1-parsed-db-pass.tsv_parse-select.tsv
  FIELDS> v_call
  VALUES> IGHV
   REGEX> True
 
-PROGRESS> 15:49:55 |####################| 100% (321) 0.0 min
+PROGRESS> 20:38:17 |####################| 100% (141) 0.0 min
 
-   OUTPUT> ALPACA1-BC1-HUM_db-pass_parse-select-RepOut.tsv
-  RECORDS> 321
- SELECTED> 321
+   OUTPUT> ALPACA1-BC1-parsed-db-pass.tsv_parse-select-RepOut.tsv
+  RECORDS> 141
+ SELECTED> 141
 DISCARDED> 0
       END> ParseDb
 ```
-
-# Take 4
-
-1. `console.cloud.google.com`
-
-2. Create VM instance
-
-3. Create permanent External IP address attached to VM instance
-
 
 <br>
 <br>
@@ -1103,7 +928,6 @@ Summary of the key steps:
 Here, we are using `ALPACA1-BC1-HUM.fmt7` while we struggle with the auxiliary alpaca database with `igBLAST`.
 
 `/Users/emoseley/VHH/data/igblast-out/ALPACA1-BC1-HUM.fmt7`
-
 
 **TH Command**
 
@@ -1185,7 +1009,7 @@ gzip /Users/emoseley/VHH/data/ALPACA1-BC1-HUM_db-pass_parse-select-RepOut.tsv
 
 
 # Define sample name
-sample_name <- "/Users/emoseley/VHH/data/ALPACA1-BC1-HUM_db-pass_parse-select-RepOut.tsv"
+sample_name <- "/Users/emoseley/VHH/data/ALPACA1-BC1-parsed-db-pass.tsv_parse-select-RepOut.tsv"
 
 # Read in the data
 DB <- alakazam::readChangeoDb(sample_name)
@@ -1219,37 +1043,13 @@ results1 <- as.data.frame(results)
 
 #glimpse(results1)
 
-plotCloneSummary(results, binwidth=0.02, title=paste(Sample,"Clonal Threshold",thr))
+plotCloneSummary(results, binwidth=0.02, title=paste("Sample","Clonal Threshold",thr))
 
-ggsave(file=PlotOUT)
+#ggsave(file=PlotOUT)
 
-write_airr(results1, file.path(Sub,SampleOUT))
+#write_airr(results1, file.path(Sub,SampleOUT))
 ```
 
-### Example Data
-
-We rely on a subset of Ig sequencing data from Larserson and Vigneault, et al., *PNAS* (2014), which includes sequences from multiple time-points before and after the subject received an immunization.
-
-To identify clones, we require the following columns in the table:
-
-* `junction`
-
-* `c_call`
-
-* `j_call`
-
-* `sequence_alignment`
-
-* `germline_alignment_d_mask`
-
-The example data can be accessed in R by loading the package, and then accessing the dataframe:
-
-```{r, echo = T, eval = F}
-library(scoper)
-
-# Look at the top-6 entries
-head(scoper::ExampleDb)
-```
 
 ### Hierarchical Clones
 
@@ -1265,7 +1065,7 @@ The results `data.frame`, summary plots, and summary table are available. This w
 
 ```{r, echo = T, eval = T}
 # Define our database as the example database
-DB <- scoper::ExampleDb
+#DB <- scoper::ExampleDb
 
 # Note that distToNearest is from shazam
 db1 <- shazam::distToNearest(DB, model="ham", normalize="len",
@@ -1307,7 +1107,7 @@ Technical details can be found in:
 
 ```{r, echo = T, eval = T}
 # Define our database as the example database
-DB <- scoper::ExampleDb
+#DB <- scoper::ExampleDb
 
 # This is the method TH's code used
 results <- scoper::spectralClones(DB, method="vj", nproc=16, cdr3=TRUE, iter_max=200, nstart = 50)
