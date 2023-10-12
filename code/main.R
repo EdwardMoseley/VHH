@@ -5,37 +5,48 @@
 ## 11Oct23
 ## ###
 
+## Commands run
+
+# Rscript /Users/emoseley/VHH/code/main.R A2A_S1_L001_R1_001.fastq A2A_S1_L001_R2_001.fastq
+# Rscript /Users/emoseley/VHH/code/main.R A2G1_S6_L001_R1_001.fastq A2G1_S6_L001_R2_001.fastq
+# Rscript /Users/emoseley/VHH/code/main.R A2G2_S12_L001_R1_001.fastq A2G2_S12_L001_R2_001.fastq
+
+## Cammands running
+
+# Rscript /Users/emoseley/VHH/code/main.R L2A_S2_L001_R1_001.fastq  L2A_S2_L001_R2_001.fastq
+
+## Commands to run
+
+# Rscript /Users/emoseley/VHH/code/main.R L2G1_S2_L001_R1_001.fastq  L2G1_S2_L001_R2_001.fastq
+# Rscript /Users/emoseley/VHH/code/main.R L2G2_S7_L001_R1_001.fastq  L2G2_S7_L001_R2_001.fastq
+
+
 ## ###
 ## Input files:
+## ### 
 
 # Alexander
 # [1] "A2A_S1_L001_R1_001.fastq"
-# [2] "A2A_S1_L001_R2_001.fastq"         
-# [3] "A2G1_S6_L001_R1_001.fastq"        
-# [4] "A2G1_S6_L001_R2_001.fastq"        
-# [5] "A2G2_S12_L001_R1_001.fastq"       
-# [6] "A2G2_S12_L001_R2_001.fastq"   
+# [2] "A2A_S1_L001_R2_001.fastq"
+# [3] "A2G1_S6_L001_R1_001.fastq"
+# [4] "A2G1_S6_L001_R2_001.fastq"
+# [5] "A2G2_S12_L001_R1_001.fastq"
+# [6] "A2G2_S12_L001_R2_001.fastq"
 
 # Lara
-# [8] "L2A_S2_L001_R1_001.fastq"         
-# [9] "L2A_S2_L001_R2_001.fastq"         
-# [10] "L2G1_S7_L001_R1_001.fastq"        
-# [11] "L2G1_S7_L001_R2_001.fastq"        
-# [12] "L2G2_S13_L001_R1_001.fastq"       
-# [13] "L2G2_S13_L001_R2_001.fastq"  
+# [8] "L2A_S2_L001_R1_001.fastq"
+# [9] "L2A_S2_L001_R2_001.fastq"
+# [10] "L2G1_S7_L001_R1_001.fastq"
+# [11] "L2G1_S7_L001_R2_001.fastq"
+# [12] "L2G2_S13_L001_R1_001.fastq"
+# [13] "L2G2_S13_L001_R2_001.fastq"
 
 ## Note use: Rscript main.R [sample_name.fastq]
 
-
-# Make small sample files (terminal)
-# head -n 5000 A2A_S1_L001_R1_001.fastq > A2Asample_S1_L001_R1_001.fastq
-# head -n 5000 A2A_S1_L001_R2_001.fastq > A2Asample_S1_L001_R2_001.fastq
-# They were then edited to 
-
 # Parse arguments into
-# args = commandArgs(trailingOnly=TRUE)
+args = commandArgs(trailingOnly=TRUE)
 
-args <- c("A2Asample_S1_L001_R1_001.fastq", "A2Asample_S1_L001_R2_001.fastq")
+# args <- c("A2A_S1_L001_R1_001.fastq", "A2A_S1_L001_R2_001.fastq")
 
 # test if there is at least one argument: if not, return an error
 if (length(args)==0) {
@@ -44,7 +55,6 @@ if (length(args)==0) {
   file_R1 <- args[1]
   file_R2 <- args[2]
 }
-
 
 ## Command line argument structure
 docker_prefix <- " docker run -v"
@@ -74,7 +84,7 @@ arguments <- paste(" --coord illumina --rc tail --maxerror 0.1 --outname ",
                    id, " --log ", logfile, sep = '')
 
 # Formulate command from components
-command <- paste(docker_prefix, 
+print(command <- paste(docker_prefix, 
                  directory, 
                  immcantation, 
                  program, 
@@ -84,10 +94,12 @@ command <- paste(docker_prefix,
                  ' -2 ', 
                  data_mount, 
                  args[1], 
-                 arguments, sep = '')
+                 arguments, sep = ''))
 
-# Run command and pull output
-output <- system(command)
+
+
+# Run command
+# system(command)
 
 #START> AssemblePairs
 #COMMAND> align
@@ -113,10 +125,10 @@ output <- system(command)
 
 program <- "ParseLog.py -l"
 
-command <- paste(docker_prefix, directory, immcantation, program, logfile, 
-                        '-f ID LENGTH OVERLAP ERROR PVALUE', sep = ' ')
+print(command <- paste(docker_prefix, directory, immcantation, program, logfile, 
+                        '-f ID LENGTH OVERLAP ERROR PVALUE', sep = ' '))
 
-system(command)
+# system(command)
 
 #START> ParseLog
 #FILE> A2Asample_S1_Proc_AP.log
@@ -140,7 +152,7 @@ arguments <- " -q 30 --outname "
 logfile <- paste(' --log ', data_mount, id, '_FS.log', sep = '')
 
 
-command <- paste(docker_prefix, 
+print(command <- paste(docker_prefix, 
                  directory, 
                  immcantation, 
                  program, 
@@ -148,9 +160,9 @@ command <- paste(docker_prefix,
                  arguments,
                  id,
                  logfile,
-                 sep = '')
+                 sep = ''))
 
-system(command)
+# system(command)
 
 #START> FilterSeq
 #COMMAND> quality
@@ -172,12 +184,12 @@ program <- "ParseLog.py -l "
 
 logfile <- paste(data_mount, id, '_FS.log -f ID QUALITY', sep = '')
 
-command <- paste(docker_prefix, 
+print(command <- paste(docker_prefix, 
                  directory,
                  immcantation,
-                 program, logfile, sep = ' ')
+                 program, logfile, sep = ' '))
 
-system(command)
+# system(command)
 
 #START> ParseLog
 #FILE> A2Asample_S1_Proc_FS.log
@@ -200,17 +212,17 @@ barcode <- " -p /data/AlpVHH.fasta --barcode --start 8 --mode cut --pf VPRIMER -
 outname <- paste(' --outname ', id, '-FWD', sep = '')
 logfile <- paste(' --log ', data_mount, id, '-FWD-MPV.log ', sep = '')
 
-command <- paste(docker_prefix,
+print(command <- paste(docker_prefix,
                  directory,
                  immcantation,
                  program,
                  infile,
                  barcode,
                  outname,
-                 logfile, sep = '')
+                 logfile, sep = ''))
 
 
-system(command)
+# system(command)
 
 #START> MaskPrimers
 #COMMAND> score
@@ -235,19 +247,19 @@ system(command)
 
 ## Second one
 program <- "MaskPrimers.py score -s "
-infile <- paste(data_mount, id, '_quality-pass.fastq', sep = '')
+infile <- paste(data_mount, id, '-FWD_primers-pass.fastq', sep = '')
 barcode <- " -p /data/AlpVHH.fasta --barcode --start 8 --mode cut --revpr --pf CPRIMER --maxerror 0.01"
 outname <- paste(' --outname ', id, '-REV', sep = '')
 logfile <- paste(' --log ', data_mount, id, '-REV-MPC.log ', sep = '')
 
-command <- paste(docker_prefix,
+print(command <- paste(docker_prefix,
                  directory,
                  immcantation,
                  program,
                  infile,
                  barcode,
                  outname,
-                 logfile, sep = '')
+                 logfile, sep = ''))
 
 system(command)
 
@@ -273,14 +285,15 @@ system(command)
 #END> MaskPrimers
 
 ## Parse Log
+
 program <- "ParseLog.py -l "
 
-command <- paste(docker_prefix,
+print(command <- paste(docker_prefix,
                  directory,
                  immcantation,
                  program,
                  paste(data_mount, id, '-FWD-MPV.log ', sep = ''), 
-                 paste(data_mount, id, '-REV-MPC.log -f ID PRIMER ERROR', sep = ''), sep = '')
+                 paste(data_mount, id, '-REV-MPC.log -f ID PRIMER ERROR', sep = ''), sep = ''))
 
 
 system(command)
@@ -317,11 +330,11 @@ program <- "ParseHeaders.py collapse -s "
 arguments <- paste(data_mount, id, '-REV_primers-pass.fastq -f BARCODE --act cat', sep = '')
 
 
-command <- paste(docker_prefix, 
+print(command <- paste(docker_prefix, 
                  directory, 
                  immcantation, 
                  program, 
-                 arguments, sep = '')
+                 arguments, sep = ''))
 
 system(command)
 
@@ -347,13 +360,13 @@ infile <- paste(data_mount, id, '-REV_primers-pass_reheader.fastq', sep = '')
 arguments <- " --pf VPRIMER --maxerror 0.1 -n 2 --bf BARCODE -o "
 outfile <- paste(data_mount, id, '-BC1.fastq', sep = '')
 
-command <- paste(docker_prefix, 
+print(command <- paste(docker_prefix, 
                  directory, 
                  immcantation,
                  program,
                  infile,
                  arguments,
-                 outfile, sep = '')
+                 outfile, sep = ''))
 
 system(command)
 
@@ -376,16 +389,13 @@ system(command)
 
 #ERROR> Processing sequence set with ID: ACGACCTT
 
-#docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
-#BuildConsensus.py -s /data/A2Asample_S1_Proc-REV_primers-pass_reheader.fastq --pf VPRIMER \
-#--maxerror 0.1  -o /data/A2Asample_S1_Proc-BC1.fastq -n 2 --bf BARCODE
 
 ## ###
 ## IMGT Database (Gene Annotation)
 ## ###
 
-#### Using Database
 
+#### Using Database
 
 #It looks like `igblastn` requires `.fasta` files, so we will convert our file into that format.
 
@@ -394,3 +404,30 @@ system(command)
 
 # write as fasta
 # ShortRead::writeFasta(tmp, file = "~/VHH/data/ALPACA1-BC1.fasta")
+
+
+## Move results to a new directory
+# current_wd <- gsub(' ', '', strsplit(directory, ':')[[1]][1])
+
+# Set working directory
+# setwd(current_wd)
+
+# Pull results files by their ID var
+# results <- list.files()[grepl(id, list.files())]
+
+# Make directory
+# system(paste("mkdir ", id, sep = ''))
+
+#file.copy(from=results, to=id, 
+#          overwrite = TRUE, recursive = FALSE, 
+#          copy.mode = TRUE)
+
+# Cleanup
+
+# next, mkdir id
+# cp id* /id
+
+# Remove other files if they have been copied
+# if (all(list.files(id) == results[2:length(results)])) system(paste('rm ', id, '*', sep = ''))
+
+
