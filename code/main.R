@@ -14,11 +14,11 @@
 ## Cammands running
 
 # Rscript /Users/emoseley/VHH/code/main.R L2A_S2_L001_R1_001.fastq  L2A_S2_L001_R2_001.fastq
+# Rscript /Users/emoseley/VHH/code/main.R L2G1_S7_L001_R1_001.fastq  L2G1_S7_L001_R2_001.fastq
 
 ## Commands to run
 
-# Rscript /Users/emoseley/VHH/code/main.R L2G1_S2_L001_R1_001.fastq  L2G1_S2_L001_R2_001.fastq
-# Rscript /Users/emoseley/VHH/code/main.R L2G2_S7_L001_R1_001.fastq  L2G2_S7_L001_R2_001.fastq
+# Rscript /Users/emoseley/VHH/code/main.R L2G2_S13_L001_R1_001.fastq  L2G2_S13_L001_R2_001.fastq
 
 
 ## ###
@@ -99,7 +99,7 @@ print(command <- paste(docker_prefix,
 
 
 # Run command
-# system(command)
+system(command)
 
 #START> AssemblePairs
 #COMMAND> align
@@ -128,7 +128,7 @@ program <- "ParseLog.py -l"
 print(command <- paste(docker_prefix, directory, immcantation, program, logfile, 
                         '-f ID LENGTH OVERLAP ERROR PVALUE', sep = ' '))
 
-# system(command)
+system(command)
 
 #START> ParseLog
 #FILE> A2Asample_S1_Proc_AP.log
@@ -162,7 +162,7 @@ print(command <- paste(docker_prefix,
                  logfile,
                  sep = ''))
 
-# system(command)
+system(command)
 
 #START> FilterSeq
 #COMMAND> quality
@@ -189,7 +189,7 @@ print(command <- paste(docker_prefix,
                  immcantation,
                  program, logfile, sep = ' '))
 
-# system(command)
+system(command)
 
 #START> ParseLog
 #FILE> A2Asample_S1_Proc_FS.log
@@ -222,7 +222,7 @@ print(command <- paste(docker_prefix,
                  logfile, sep = ''))
 
 
-# system(command)
+system(command)
 
 #START> MaskPrimers
 #COMMAND> score
@@ -407,16 +407,16 @@ system(command)
 
 
 ## Move results to a new directory
-# current_wd <- gsub(' ', '', strsplit(directory, ':')[[1]][1])
+current_wd <- gsub(' ', '', strsplit(directory, ':')[[1]][1])
 
 # Set working directory
-# setwd(current_wd)
+setwd(current_wd)
 
 # Pull results files by their ID var
 # results <- list.files()[grepl(id, list.files())]
 
 # Make directory
-# system(paste("mkdir ", id, sep = ''))
+system(paste("mkdir ", id, sep = ''))
 
 #file.copy(from=results, to=id, 
 #          overwrite = TRUE, recursive = FALSE, 
@@ -426,8 +426,3 @@ system(command)
 
 # next, mkdir id
 # cp id* /id
-
-# Remove other files if they have been copied
-# if (all(list.files(id) == results[2:length(results)])) system(paste('rm ', id, '*', sep = ''))
-
-
