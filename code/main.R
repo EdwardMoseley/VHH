@@ -9,17 +9,10 @@
 
 # Rscript /Users/emoseley/VHH/code/main.R A2A_S1_L001_R1_001.fastq A2A_S1_L001_R2_001.fastq
 # Rscript /Users/emoseley/VHH/code/main.R A2G1_S6_L001_R1_001.fastq A2G1_S6_L001_R2_001.fastq
-# Rscript /Users/emoseley/VHH/code/main.R A2G2_S12_L001_R1_001.fastq A2G2_S12_L001_R2_001.fastq
-
-## Cammands running
-
 # Rscript /Users/emoseley/VHH/code/main.R L2A_S2_L001_R1_001.fastq  L2A_S2_L001_R2_001.fastq
 # Rscript /Users/emoseley/VHH/code/main.R L2G1_S7_L001_R1_001.fastq  L2G1_S7_L001_R2_001.fastq
-
-## Commands to run
-
+# Rscript /Users/emoseley/VHH/code/main.R A2G2_S12_L001_R1_001.fastq A2G2_S12_L001_R2_001.fastq
 # Rscript /Users/emoseley/VHH/code/main.R L2G2_S13_L001_R1_001.fastq  L2G2_S13_L001_R2_001.fastq
-
 
 ## ###
 ## Input files:
@@ -407,10 +400,10 @@ system(command)
 
 
 ## Move results to a new directory
-current_wd <- gsub(' ', '', strsplit(directory, ':')[[1]][1])
+#current_wd <- gsub(' ', '', strsplit(directory, ':')[[1]][1])
 
 # Set working directory
-setwd(current_wd)
+#setwd(current_wd)
 
 # Pull results files by their ID var
 # results <- list.files()[grepl(id, list.files())]
