@@ -1,11 +1,10 @@
 
 # Arguments
-args_list <- list.files("~/VHH/data")[grepl(".fmt7", list.files("~/VHH/data"))]
+args_list <- "S1_atleast-2.fmt7"# list.files("~/VHH/data")[grepl(".fmt7", list.files("~/VHH/data"))]
 # args = commandArgs(trailingOnly=TRUE)
 
 # Directory
 directory <- "~/VHH/data/"
-
 
 
 for (i in 1:length(args_list)){
@@ -19,9 +18,8 @@ for (i in 1:length(args_list)){
                    paste('/data/', file_s, sep = ''), ' -r /data/imgt-data/imgt_gapped_alpaca_IGHV.fasta /data/imgt-data/imgt_gapped_alpaca_IGHD.fasta  /data/imgt-data/imgt_gapped_alpaca_IGHJ.fasta --outdir /data/ --failed --format airr --extended', sep = '')
   
   print(command)
-  system(command)
+  #system(command)
 }
-
 
 
 
@@ -31,7 +29,7 @@ setwd(directory)
 
 files <- list.files(directory)[grepl("db-", list.files(directory))]
 
-tmp_dat <- read.csv(paste(directory, files[1],sep = ''), sep = '\t', header = T, stringsAsFactors = F)
+tmp_dat <- read.csv(paste(directory, files[4],sep = ''), sep = '\t', header = T, stringsAsFactors = F)
 
 for (i in 2:length(files)){
   tmp_dat <- rbind(tmp_dat, 

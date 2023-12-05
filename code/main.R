@@ -7,12 +7,16 @@
 
 ## Commands run
 
-# Rscript /Users/emoseley/VHH/code/main.R A2A_S1_L001_R1_001.fastq A2A_S1_L001_R2_001.fastq
-# Rscript /Users/emoseley/VHH/code/main.R A2G1_S6_L001_R1_001.fastq A2G1_S6_L001_R2_001.fastq
-# Rscript /Users/emoseley/VHH/code/main.R L2A_S2_L001_R1_001.fastq  L2A_S2_L001_R2_001.fastq
-# Rscript /Users/emoseley/VHH/code/main.R L2G1_S7_L001_R1_001.fastq  L2G1_S7_L001_R2_001.fastq
-# Rscript /Users/emoseley/VHH/code/main.R A2G2_S12_L001_R1_001.fastq A2G2_S12_L001_R2_001.fastq
-# Rscript /Users/emoseley/VHH/code/main.R L2G2_S13_L001_R1_001.fastq  L2G2_S13_L001_R2_001.fastq
+# Rscript /Users/emoseley/VHH/code/main.R 5_S3_L001_R2_001.fastq 5_S3_L001_R1_001.fastq
+# Rscript /Users/emoseley/VHH/code/main.R 1_3_S1_L001_R2_001.fastq 1_3_S1_L001_R1_001.fastq
+# Rscript /Users/emoseley/VHH/code/main.R 2_4_S2_L001_R2_001.fastq 2_4_S2_L001_R1_001.fastq
+
+## Commands not run
+
+
+# Rscript /Users/emoseley/VHH/code/main.R 2_4_S2_L001_R1_001.fastq 2_4_S2_L001_R2_001.fastq
+# 
+
 
 ## ###
 ## Input files:
@@ -38,8 +42,8 @@
 
 # Parse arguments into
 args = commandArgs(trailingOnly=TRUE)
-
-# args <- c("A2A_S1_L001_R1_001.fastq", "A2A_S1_L001_R2_001.fastq")
+ 
+# args <- c("1_3_S1_L001_R1_001.fastq", "1_3_S1_L001_R2_001.fastq")
 
 # test if there is at least one argument: if not, return an error
 if (length(args)==0) {
@@ -201,7 +205,7 @@ system(command)
 
 program <- "MaskPrimers.py score -s "
 infile <- paste(data_mount, id, '_quality-pass.fastq', sep = '')
-barcode <- " -p /data/AlpVHH.fasta --barcode --start 8 --mode cut --pf VPRIMER --maxerror 0.01"
+barcode <- " -p /data/AlpVHH19Oct23.fasta --barcode --start 8 --mode cut --pf VPRIMER --maxerror 0.01"
 outname <- paste(' --outname ', id, '-FWD', sep = '')
 logfile <- paste(' --log ', data_mount, id, '-FWD-MPV.log ', sep = '')
 
@@ -241,7 +245,7 @@ system(command)
 ## Second one
 program <- "MaskPrimers.py score -s "
 infile <- paste(data_mount, id, '-FWD_primers-pass.fastq', sep = '')
-barcode <- " -p /data/AlpVHH.fasta --barcode --start 8 --mode cut --revpr --pf CPRIMER --maxerror 0.01"
+barcode <- " -p /data/AlpVHH19Oct23.fasta --barcode --start 8 --mode cut --revpr --pf CPRIMER --maxerror 0.01"
 outname <- paste(' --outname ', id, '-REV', sep = '')
 logfile <- paste(' --log ', data_mount, id, '-REV-MPC.log ', sep = '')
 

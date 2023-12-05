@@ -3,7 +3,7 @@ library(ShortRead)
 # Rscript /Users/emoseley/VHH/code/IMGT.R A2A_S1_Proc-BC1.fastq
 
 # Arguments
-args <- c("L2G2_S13_Proc-BC1.fastq")
+args <- c("S1_atleast-2.fastq")
 # args = commandArgs(trailingOnly=TRUE)
 
 # Directory

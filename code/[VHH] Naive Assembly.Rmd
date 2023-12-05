@@ -1,0 +1,369 @@
+---
+title: '[VHH] Naive Assembly'
+output: html_document
+date: "2023-11-16"
+---
+
+This assembly process is derived from [Immcantation Documentation: Illumina MiSeq 2x250 BCR mRNA](https://presto.readthedocs.io/en/stable/workflows/Greiff2014_Workflow.html)
+
+Schematically:
+
+<center>
+![](/Users/emoseley/Desktop/Pipeline.png){width=50%}
+</center>
+
+### (1) Paired-End Assembly (a bit).
+
+```{bash, eval = F}
+docker run -v /Users/emoseley/VHH/data:/data  immcantation/suite:4.4.0  \
+  AssemblePairs.py align -1 /data/1_3_S1_L001_R2_001.fastq -2 /data/1_3_S1_L001_R1_001.fastq \
+  --coord illumina --rc tail --maxerror 0.1 \
+  --outname S1
+```
+
+
+```
+docker run -v /Users/emoseley/VHH/data:/data  immcantation/suite:4.4.0  \
+  AssemblePairs.py align -1 /data/1_3_S1_L001_R2_001.fastq -2 /data/1_3_S1_L001_R1_001.fastq \
+  --coord illumina --rc tail --maxerror 0.1 \
+  --outname S1
+  
+  
+       START> AssemblePairs
+     COMMAND> align
+       FILE1> 1_3_S1_L001_R2_001.fastq
+       FILE2> 1_3_S1_L001_R1_001.fastq
+  COORD_TYPE> illumina
+       ALPHA> 1e-05
+   MAX_ERROR> 0.1
+     MIN_LEN> 8
+     MAX_LEN> 1000
+SCAN_REVERSE> False
+       NPROC> 6
+
+PROGRESS> 15:20:10 |####################| 100% (216,163) 9.3 min
+
+OUTPUT> S1_assemble-pass.fastq
+ PAIRS> 216163
+  PASS> 161468
+  FAIL> 54695
+   END> AssemblePairs
+```
+
+### (2) Filter Poor Alignments
+
+```{bash, eval = F}
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+  FilterSeq.py quality -s /data/S1_assemble-pass.fastq -q 20 --outname S1
+```
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+  FilterSeq.py quality -s /data/S1_assemble-pass.fastq -q 20 --outname S1
+   START> FilterSeq
+ COMMAND> quality
+    FILE> S1_assemble-pass.fastq
+   INNER> False
+MIN_QUAL> 20.0
+   NPROC> 6
+
+PROGRESS> 15:47:00 |####################| 100% (161,468) 1.1 min
+
+   OUTPUT> S1_quality-pass.fastq
+SEQUENCES> 161468
+     PASS> 158698
+     FAIL> 2770
+      END> FilterSeq
+```
+
+## (3) Mask Primers
+
+Note: "read 2 is VPRIMER region"
+
+```{bash, eval = F}
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+MaskPrimers.py score -s /data/S1_quality-pass.fastq -p /data/AlpVHH_R2_12Nov23.fasta \
+    --start 0 --mode mask --pf VPRIMER --outname S1-FWD --log /data/MPV.log
+```
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+MaskPrimers.py score -s /data/S1_quality-pass.fastq -p /data/AlpVHH_R2_12Nov23.fasta \
+    --start 0 --mode mask --pf VPRIMER --outname S1-FWD --log /data/MPV.log
+       START> MaskPrimers
+     COMMAND> score
+    SEQ_FILE> S1_quality-pass.fastq
+ PRIMER_FILE> AlpVHH_R2_12Nov23.fasta
+        MODE> mask
+   MAX_ERROR> 0.2
+   START_POS> 0
+  REV_PRIMER> False
+     BARCODE> False
+PRIMER_FIELD> VPRIMER
+       NPROC> 6
+
+PROGRESS> 16:38:30 |####################| 100% (158,698) 2.0 min
+
+   OUTPUT> S1-FWD_primers-pass.fastq
+SEQUENCES> 158698
+     PASS> 157559
+     FAIL> 1139
+      END> MaskPrimers
+```
+
+
+```{bash, eval = F}
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+MaskPrimers.py score -s /data/S1_quality-pass.fastq -p /data/AlpVHH_R1_12Nov23.fasta \
+    --start 0 --mode mask --revpr --pf CPRIMER --outname S1-REV --log /data/MPC.log
+```
+
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+MaskPrimers.py score -s /data/S1_quality-pass.fastq -p /data/AlpVHH_R1_12Nov23.fasta \
+    --start 0 --mode mask --revpr --pf CPRIMER --outname S1-REV --log /data/MPC.log
+       START> MaskPrimers
+     COMMAND> score
+    SEQ_FILE> S1_quality-pass.fastq
+ PRIMER_FILE> AlpVHH_R1_12Nov23.fasta
+        MODE> mask
+   MAX_ERROR> 0.2
+   START_POS> 0
+  REV_PRIMER> True
+     BARCODE> False
+PRIMER_FIELD> CPRIMER
+       NPROC> 6
+
+PROGRESS> 16:23:33 |####################| 100% (158,698) 2.4 min
+
+   OUTPUT> S1-REV_primers-pass.fastq
+SEQUENCES> 158698
+     PASS> 157364
+     FAIL> 1334
+      END> MaskPrimers
+```
+
+#### Parse logs for a sanity check
+
+```{bash, eval = F}
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+  ParseLog.py -l /data/MPV.log /data/MPC.log -f ID PRIMER ERROR
+```
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+  ParseLog.py -l /data/MPV.log /data/MPC.log -f ID PRIMER ERROR
+START> ParseLog
+ FILE> MPV.log
+
+PROGRESS> 16:42:14 (158698) 0.1 min
+
+ OUTPUT> MPV_table.tab
+RECORDS> 158698
+   PASS> 158698
+   FAIL> 0
+    END> ParseLog
+
+START> ParseLog
+ FILE> MPC.log
+
+PROGRESS> 16:42:19 (158698) 0.1 min
+
+ OUTPUT> MPC_table.tab
+RECORDS> 158698
+   PASS> 158698
+   FAIL> 0
+    END> ParseLog
+```
+
+```{r}
+tmp <- read.csv("~/VHH/data/MPC_table.tab", sep = '\t', header = T, stringsAsFactors = F)
+tableone::CreateTableOne("ERROR", "PRIMER", tmp)
+rm(tmp)
+```
+
+## (4) Deduplication and Filtering
+
+The last stage of the workflow involves two filtering steps to yield the final repertoire. First, the set of unique sequences is identified using the `CollapseSeq.py `tool, allowing for up to 20 interior N-valued positions (`-n 20` and `--inner`), and **you requiring that all reads considered duplicates share the same C-region primer annotation (`--uf CPRIMER`)**. Additionally, the V-segment primer annotations of the set of duplicate reads are propagated into the annotation of each retained unique sequence (`--cf VPRIMER` and `--act set`):
+
+```{bash, eval = F}
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+CollapseSeq.py -s /data/S1-REV_primers-pass.fastq -n 20 --inner --uf CPRIMER \
+    --cf VPRIMER --act set --outname S1
+```
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+CollapseSeq.py -s /data/S1-REV_primers-pass.fastq -n 20 --inner --uf CPRIMER \
+    --cf VPRIMER --act set --outname S1
+    
+       START> CollapseSeq
+        FILE> S1-REV_primers-pass.fastq
+ MAX_MISSING> 20
+ UNIQ_FIELDS> CPRIMER
+ COPY_FIELDS> VPRIMER
+COPY_ACTIONS> set
+   MAX_FIELD> None
+   MIN_FIELD> None
+       INNER> True
+KEEP_MISSING> False
+
+PROGRESS> [0 missing] 16:51:47 |####################| 100% (157,364) 0.1 min
+
+      OUTPUT> S1_collapse-unique.fastq
+   SEQUENCES> 157364
+      UNIQUE> 123826
+   DUPLICATE> 33538
+UNDETERMINED> 0
+         END> CollapseSeq
+
+```
+
+`CollapseSeq` stores the count of duplicate reads for each sequence in the `DUPCOUNT` annotation. Following duplicate removal, the data is subset to only those unique sequence with at least two representative reads by using the group subcommand of `SplitSeq.py` on the count field (`-f DUPCOUNT`) and specifying a numeric threshold (`--num 2`):
+
+```{bash, eval = F}
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+  SplitSeq.py group -s /data/S1_collapse-unique.fastq -f DUPCOUNT --num 2 --outname S1
+```
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+  SplitSeq.py group -s /data/S1_collapse-unique.fastq -f DUPCOUNT --num 2 --outname S1
+    START> SplitSeq
+  COMMAND> group
+     FILE> S1_collapse-unique.fastq
+    FIELD> DUPCOUNT
+THRESHOLD> 2.0
+
+PROGRESS> 16:54:11 |####################| 100% (123,826) 0.6 min
+
+  OUTPUT1> S1_under-2.fastq
+  OUTPUT2> S1_atleast-2.fastq
+SEQUENCES> 123826
+    PARTS> 2
+      END> SplitSeq
+```
+
+
+## (5) Creating an annotation table
+
+Finally, the annotations, including duplicate read count (`DUPCOUNT`), isotype (`CPRIMER`) and V-segment primer (`VPRIMER`), of the final repertoire are then extracted from the `SplitSeq.py` output into a tab-delimited file using the table subcommand of `ParseHeaders.py`:
+
+```{bash, eval = F}
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+  ParseHeaders.py table -s /data/S1_atleast-2.fastq -f ID DUPCOUNT CPRIMER VPRIMER
+```
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+  ParseHeaders.py table -s /data/S1_atleast-2.fastq -f ID DUPCOUNT CPRIMER VPRIMER
+  START> ParseHeaders
+COMMAND> table
+   FILE> S1_atleast-2.fastq
+
+PROGRESS> 16:55:31 |####################| 100% (7,747) 0.0 min
+
+   OUTPUT> S1_atleast-2_headers.tab
+SEQUENCES> 7747
+     PASS> 7747
+     FAIL> 0
+      END> ParseHeaders
+```
+
+#### Check log
+
+```{r}
+tmp <- read.csv("~/VHH/data/S1_atleast-2_headers.tab", sep = '\t', header = T, stringsAsFactors = F)
+
+# CPrimer is unmasked
+table(tmp$CPRIMER)
+# VPrimer is masked
+table(tmp$VPRIMER)
+```
+
+### Prep for IMGT
+
+```
+# Copy over the file
+cp S1_atleast-2.fastq ~/ncbi-igblast-1.17.1/
+# Change the directory
+cd ~/ncbi-igblast-1.17.1
+```
+## Convert the file to fasta
+
+```{r, echo = T, eval = F}
+# Arguments
+args <- c("S1_atleast-2.fastq")
+# args = commandArgs(trailingOnly=TRUE)
+
+# Directory
+directory <- "/Users/emoseley/VHH/data/"
+
+# Set current working directory to ncbi-igblast-1.17.1
+setwd("~/ncbi-igblast-1.17.1")
+
+file_origin <- paste("~/ncbi-igblast-1.17.1/", args[1], sep = '')
+file_output <- gsub(".fastq", ".fasta", file_origin)
+results <- gsub(".fastq", '.fmt7', args)
+```
+
+### IMGT
+
+```{bash, eval = F}
+bin/igblastn -germline_db_V database/alpaca_vhh_clean/alpaca_V -germline_db_D database/alpaca_vhh_clean/alpaca_D -germline_db_J database/alpaca_vhh_clean/alpaca_J -domain_system imgt -ig_seqtype Ig -organism alpaca -auxiliary_data optional_file/alpaca_gl.aux -outfmt '7 std qseq sseq btop' -query ~/ncbi-igblast-1.17.1/S1_atleast-2.fasta -out ~/ncbi-igblast-1.17.1/S1_atleast-2.fmt7
+```
+
+```
+# Copy back to data
+cp S1_atleast-2.fmt7 ~/VHH/data
+cp S1_atleast-2.fasta ~/VHH/data
+```
+
+### Make Database
+
+```{bash, eval = F}
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+  MakeDb.py igblast -i /data/S1_atleast-2.fmt7 -s /data/S1_atleast-2.fasta \
+  -r /data/imgt-data/imgt_gapped_alpaca_IGHV.fasta \
+  /data/imgt-data/imgt_gapped_alpaca_IGHD.fasta  \
+  /data/imgt-data/imgt_gapped_alpaca_IGHJ.fasta \
+  --outdir /data/ --failed --format airr --extended
+```
+
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+  MakeDb.py igblast -i /data/S1_atleast-2.fmt7 -s /data/S1_atleast-2.fasta \
+  -r /data/imgt-data/imgt_gapped_alpaca_IGHV.fasta \
+  /data/imgt-data/imgt_gapped_alpaca_IGHD.fasta  \
+  /data/imgt-data/imgt_gapped_alpaca_IGHJ.fasta \
+  --outdir /data/ --failed --format airr --extended
+  
+         START> MakeDB
+       COMMAND> igblast
+  ALIGNER_FILE> S1_atleast-2.fmt7
+      SEQ_FILE> S1_atleast-2.fasta
+       ASIS_ID> False
+    ASIS_CALLS> False
+      VALIDATE> strict
+      EXTENDED> True
+INFER_JUNCTION> False
+
+PROGRESS> 17:25:21 |Done                | 0.0 min
+
+PROGRESS> 17:25:45 |####################| 100% (7,747) 0.4 min
+
+OUTPUT> S1_atleast-2_db-pass.tsv
+  PASS> 6509
+  FAIL> 1238
+   END> MakeDb
+```
+
+
+
+```{r, echo = F, eval = F}
+#tmp <- read.csv("~/VHH/data/S1_atleast-2_db-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+
+#summary(tmp)
+```
