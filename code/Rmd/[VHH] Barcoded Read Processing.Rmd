@@ -1,0 +1,714 @@
+---
+title: '[VHH] Barcoded Read Processing Prototype'
+output: html_document
+date: "2023-10-31"
+---
+
+# Test Assembly
+
+Here we will rely on [UMI Barcoded Illumina MiSeq 2x250 BCR mRNA](https://presto.readthedocs.io/en/stable/workflows/Stern2014_Workflow.html)
+
+```
+#!/usr/bin/env bash
+FilterSeq.py quality -s SRR1383456_1.fastq -q 20 --outname MS12_R1 --log FS1.log
+FilterSeq.py quality -s SRR1383456_2.fastq -q 20 --outname MS12_R2 --log FS2.log
+
+MaskPrimers.py score -s MS12_R1_quality-pass.fastq -p Stern2014_CPrimers.fasta \
+    --start 15 --mode cut --barcode --outname MS12_R1 --log MP1.log
+    
+MaskPrimers.py score -s MS12_R2_quality-pass.fastq -p Stern2014_VPrimers.fasta \
+    --start 0 --mode mask --outname MS12_R2 --log MP2.log
+    
+PairSeq.py -1 MS12_R1_primers-pass.fastq -2 MS12_R2_primers-pass.fastq \
+    --1f BARCODE --coord sra
+    
+BuildConsensus.py -s MS12_R1_primers-pass_pair-pass.fastq --bf BARCODE --pf PRIMER \
+    --prcons 0.6 --maxerror 0.1 --maxgap 0.5 --outname MS12_R1 --log BC1.log
+    
+BuildConsensus.py -s MS12_R2_primers-pass_pair-pass.fastq --bf BARCODE --pf PRIMER \
+    --maxerror 0.1 --maxgap 0.5 --outname MS12_R2 --log BC2.log
+    
+PairSeq.py -1 MS12_R1_consensus-pass.fastq -2 MS12_R2_consensus-pass.fastq \
+    --coord presto
+    
+AssemblePairs.py align -1 MS12_R2_consensus-pass_pair-pass.fastq \
+    -2 MS12_R1_consensus-pass_pair-pass.fastq --coord presto --rc tail \
+    --1f CONSCOUNT --2f CONSCOUNT PRCONS --outname MS12 --log AP.log
+    
+ParseHeaders.py collapse -s MS12_assemble-pass.fastq -f CONSCOUNT --act min
+
+CollapseSeq.py -s MS12*reheader.fastq -n 20 --inner --uf PRCONS \
+    --cf CONSCOUNT --act sum --outname MS12
+    
+SplitSeq.py group -s MS12_collapse-unique.fastq -f CONSCOUNT --num 2 --outname MS12
+
+ParseHeaders.py table -s MS12_atleast-2.fastq -f ID PRCONS CONSCOUNT DUPCOUNT
+
+ParseLog.py -l FS1.log FS2.log -f ID QUALITY
+ParseLog.py -l MP1.log MP2.log -f ID PRIMER BARCODE ERROR
+ParseLog.py -l BC1.log BC2.log -f BARCODE SEQCOUNT CONSCOUNT PRIMER PRCONS PRCOUNT \
+    PRFREQ ERROR
+ParseLog.py -l AP.log -f ID LENGTH OVERLAP ERROR PVALUE FIELDS1 FIELDS2
+```
+
+
+```{r}
+root <- "~/VHH/data"
+read_one <- list.files(root)
+```
+
+
+## Filter
+
+```
+FilterSeq.py quality -s 1_3_S1_L001_R1_001.fastq -q 20 --outname MS12_R1 --log FS1.log
+FilterSeq.py quality -s 1_3_S1_L001_R2_001.fastq -q 20 --outname MS12_R2 --log FS2.log
+```
+
+
+
+
+
+
+
+
+
+
+
+# Build VHH Antibody reads
+
+Note: [rprimer](https://www.bioconductor.org/packages/release/bioc/vignettes/rprimer/inst/doc/getting-started-with-rprimer.html) may have helpful tools.
+
+#### Imports
+
+```{r}
+# For sequence logos
+library(ggseqlogo)
+library(ShortRead)
+```
+
+#### Utility Function `search_seqs`
+
+```{r}
+# search_seqs
+# accepts reads (from fastq file)
+# and motif dataframe
+search_seqs <- function(reads, motifs, top_50 = FALSE){
+  if (top_50){
+      ## ###
+      ## tables() takes only top-50 reads
+      ## ###
+      
+      # Tabulate top reads
+      tbls <- tables(reads)
+      # Pull top reads
+      reads <- names(tbls$top[1:length(tbls$top)])
+  } else {
+      reads <- as.data.frame(sread(reads))$x
+  }
+  for (motif in motifs$seq){
+    hits <- sum(grepl(motif, reads)*1)
+    if (hits != 0){
+          cat('\t',motifs[motifs$seq == motif,]$motif, '\n')
+          cat('\t Sequence:', motif, '\n')
+          cat("\t\tHits: ", hits,'/',length(reads),'\t', 
+              paste(round(hits/length(reads)*100, 2), '%', sep = ''),
+              '\n', sep = '')
+    }
+  }
+}
+```
+
+
+#### Motifs to Search For
+
+`5' -> 3'`
+
+```{r}
+## Motif IDs (from Primer Info slides)
+# All 
+vhh_rep_motif_ids <- c("idx_two_read_primer",
+                       "read_one_primer",
+                       "vhh_forward",
+                       "vector_vhh_forward")
+
+vhh_rep_motif_seqs <- c("AATGATACGGCGACCACCGAGATCTACAC",
+                        "TCGTCGGCAGCGTCAGATGTGTATAAGAGACAG",
+                        "GGTGGTCCTGGCTGC",
+                        "CCCAACCGGCCATGGC")
+
+vhh_rep <- as.data.frame(cbind(vhh_rep_motif_ids, vhh_rep_motif_seqs))
+
+colnames(vhh_rep) <- c("motif", "seq")
+
+## VHH Hinge
+
+vhh_hinge_motif_ids <- c("illumina_binding",
+                         "mplex_read_two_primer",
+                         "mplex_idx_read_seq_primer",
+                         "short_hinge",
+                         "long_hinge")
+
+vhh_hinge_motif_seqs <- c("CAAGCAGAAGACGGCATACGAGATGT",
+                          "GTGACTGGAGTTCAGACGTGTGCTCTTCCGATC",
+                          intToUtf8(rev(utf8ToInt("GTGACTGGAGTTCAGACGTGTGCTCTTCCGATC"))),
+                          "CTTCGCTGTGGTGCGC",
+                          "GGTTTTGGTGTCTTGGG")
+
+vhh_hinge <- as.data.frame(cbind(vhh_hinge_motif_ids, vhh_hinge_motif_seqs))
+colnames(vhh_hinge) <- c("motif", "seq")
+
+vhh_seqs <- rbind(vhh_rep, vhh_hinge)
+
+
+## ###
+## 
+
+
+## ###
+## Reverse complement search
+## ###
+
+vhh_rev_comp_seqs <- vhh_seqs
+
+for (i in 1:nrow(vhh_seqs)){
+  vhh_rev_comp_seqs$seq[i] <- as.character(reverseComplement(DNAString(vhh_seqs$seq[i])))
+}
+
+vhh_rev_comp_seqs$motif <- paste("rev_comp_", vhh_rev_comp_seqs$motif, sep = '')
+
+
+## Rbind results
+vhh_seqs <- rbind(vhh_seqs, vhh_rev_comp_seqs)
+
+## ###
+## 3' -> 5'(reverse)
+## ###
+
+reverse_vhh_seqs <- vhh_seqs
+
+for (i in 1:nrow(vhh_seqs)){
+  reverse_vhh_seqs$seq[i] <- intToUtf8(rev(utf8ToInt(vhh_seqs$seq[i])))
+}
+
+reverse_vhh_seqs$motif <- paste("reversed_", reverse_vhh_seqs$motif, sep = '')
+# Rbind results
+vhh_seqs <- rbind(vhh_seqs, reverse_vhh_seqs)
+# Remove (reversed) duplicates
+vhh_seqs <- vhh_seqs[!duplicated(vhh_seqs$seq),]
+
+
+
+
+# Cleanup
+rm(list = ls()[grepl("vhh_hinge_|vhh_rep_", ls())])
+rm(vhh_hinge, vhh_rep, vhh_rev_comp_seqs, reverse_vhh_seqs)
+```
+
+```
+To allow mismatches:
+
+matchPattern(reverseComplement(DNAString("CCG")), DNAString(names(tbls$top[1])), max.mismatch = 1)
+```
+
+#### Root Directory
+
+```{r}
+root_dir <- "~/VHH/data/"
+
+fastqs <- list.files(root_dir)[grepl("fastq", list.files(root_dir))]
+
+files <- paste(root_dir, fastqs, sep = '')
+```
+
+## Overall Summary
+
+```{r}
+# qaSummary <- qa(files, type="fastq")
+
+# write.csv(qaSummary[['readCounts']], file = "~/Downloads/tmp_qaSummary.csv")
+# write.csv(qaSummary[["baseCalls"]],"~/Downloads/tmp_qaSummary_basecalls.csv")
+```
+
+### Print Top Reads
+
+```{r}
+for (f in files){
+  # Load reads
+  reads <- ShortRead::readFastq(f)
+  # Tabulate top reads
+  tbls <- tables(reads)
+  # Pull top reads
+  reads <- names(tbls$top[1:5])
+  
+  print(f)
+  print(cbind(as.integer(tbls$top[1:5]), names(tbls$top[1:5])))
+}
+
+
+```
+
+## Check for sequences
+
+```{r}
+for (f in files){
+  # Print the file name
+  cat(f, '\n')
+  # Load in the file
+  reads <- ShortRead::readFastq(f)
+  # Search for one set of motifs
+  search_seqs(reads, vhh_seqs, top_50 = FALSE)
+  # Create some space
+  cat('\n\n')
+}
+```
+
+
+# Read-based analysis
+
+```
+~/VHH/data/1_3_S1_L001_R1_001.fastq 
+	 vhh_forward 
+	 Sequence: GGTGGTCCTGGCTGC 
+		Hits: 211432/216163	97.81%
+	 rev_comp_illumina_binding 
+	 Sequence: ACATCTCGTATGCCGTCTTCTGCTTG 
+		Hits: 1347/216163	0.62%
+	 rev_comp_mplex_read_two_primer 
+	 Sequence: GATCGGAAGAGCACACGTCTGAACTCCAGTCAC 
+		Hits: 1472/216163	0.68%
+	 rev_comp_short_hinge 
+	 Sequence: GCGCACCACAGCGAAG 
+		Hits: 1716/216163	0.79%
+	 rev_comp_long_hinge 
+	 Sequence: CCCAAGACACCAAAACC 
+		Hits: 4/216163	0%
+
+
+~/VHH/data/1_3_S1_L001_R2_001.fastq 
+	 short_hinge 
+	 Sequence: CTTCGCTGTGGTGCGC 
+		Hits: 184218/216163	85.22%
+	 long_hinge 
+	 Sequence: GGTTTTGGTGTCTTGGG 
+		Hits: 33/216163	0.02%
+	 rev_comp_idx_two_read_primer 
+	 Sequence: GTGTAGATCTCGGTGGTCGCCGTATCATT 
+		Hits: 1/216163	0%
+	 rev_comp_read_one_primer 
+	 Sequence: CTGTCTCTTATACACATCTGACGCTGCCGACGA 
+		Hits: 1225/216163	0.57%
+	 rev_comp_vhh_forward 
+	 Sequence: GCAGCCAGGACCACC 
+		Hits: 1586/216163	0.73%
+	 reversed_vhh_forward 
+	 Sequence: CGTCGGTCCTGGTGG 
+		Hits: 1/216163	0%
+
+
+~/VHH/data/2_4_S2_L001_R1_001.fastq 
+	 vhh_forward 
+	 Sequence: GGTGGTCCTGGCTGC 
+		Hits: 184888/189033	97.81%
+	 rev_comp_illumina_binding 
+	 Sequence: ACATCTCGTATGCCGTCTTCTGCTTG 
+		Hits: 1774/189033	0.94%
+	 rev_comp_mplex_read_two_primer 
+	 Sequence: GATCGGAAGAGCACACGTCTGAACTCCAGTCAC 
+		Hits: 1847/189033	0.98%
+	 rev_comp_long_hinge 
+	 Sequence: CCCAAGACACCAAAACC 
+		Hits: 2142/189033	1.13%
+
+
+~/VHH/data/2_4_S2_L001_R2_001.fastq 
+	 short_hinge 
+	 Sequence: CTTCGCTGTGGTGCGC 
+		Hits: 18/189033	0.01%
+	 long_hinge 
+	 Sequence: GGTTTTGGTGTCTTGGG 
+		Hits: 126837/189033	67.1%
+	 rev_comp_idx_two_read_primer 
+	 Sequence: GTGTAGATCTCGGTGGTCGCCGTATCATT 
+		Hits: 1/189033	0%
+	 rev_comp_read_one_primer 
+	 Sequence: CTGTCTCTTATACACATCTGACGCTGCCGACGA 
+		Hits: 1448/189033	0.77%
+	 rev_comp_vhh_forward 
+	 Sequence: GCAGCCAGGACCACC 
+		Hits: 1904/189033	1.01%
+
+
+~/VHH/data/5_S3_L001_R1_001.fastq 
+	 vhh_forward 
+	 Sequence: GGTGGTCCTGGCTGC 
+		Hits: 2/159502	0%
+	 rev_comp_illumina_binding 
+	 Sequence: ACATCTCGTATGCCGTCTTCTGCTTG 
+		Hits: 9698/159502	6.08%
+	 rev_comp_mplex_read_two_primer 
+	 Sequence: GATCGGAAGAGCACACGTCTGAACTCCAGTCAC 
+		Hits: 10765/159502	6.75%
+	 rev_comp_short_hinge 
+	 Sequence: GCGCACCACAGCGAAG 
+		Hits: 11978/159502	7.51%
+
+
+~/VHH/data/5_S3_L001_R2_001.fastq 
+	 short_hinge 
+	 Sequence: CTTCGCTGTGGTGCGC 
+		Hits: 143587/159502	90.02%
+	 long_hinge 
+	 Sequence: GGTTTTGGTGTCTTGGG 
+		Hits: 8/159502	0.01%
+	 rev_comp_read_one_primer 
+	 Sequence: CTGTCTCTTATACACATCTGACGCTGCCGACGA 
+		Hits: 4829/159502	3.03%
+```
+
+
+
+```
+  regres <- gregexpr(pattern = dat$CDRH3[i], dat$VHorVHH[i])[[1]]
+  
+  junction_aas <- c(junction_aas, substr(dat$VHorVHH[i],
+                                         regres[1] - 1, 
+                                         regres[1] + attr(regres, "match.length")))# + 1))
+  
+```
+
+
+#### Example Sequence
+
+```
+# https://www.sdab-db.ca/?Display&ID=sdAb_5353_Vp
+
+translate(DNAStringSet(toupper("caggttcagctgcaggaatctggtggtggtctggttcaggcgggtggttctctgcgtctgtcttgcgcggcgtctcgtaacatcaccggtatctctgttatgtcttggtaccgtcagaccccgggtaaacagcgtgaatgggttgcgaccatctctgcgtctggtatcaccaactacgttgacccggttaaaggtcgtttcaccatctctggtgacaacgcggaaggtaccgtttctctgaaaatgaacaacctgaaaccggaagacaccgcgacctactactgcaaaatgatctctcgtgacatgctgtcttactggggtcagggtacccaggttaccgtttcttct")))
+
+AAStringSet object of length 1:
+    width seq
+[1]   116 QVQLQESGGGLVQAGGSLRLSCAASRNITGISVMSWYRQTPGKQREWVATISASGITNYVDPVKGRFTISGDNAEGTVSLKMNNLKPEDTATYYCKMISRDMLSYWGQGTQVTVSS
+```
+
+## Reads
+
+```{r}
+read_ones <- files[grepl("R1", files)]
+read_twos <- files[grepl("R2", files)]
+```
+
+# Focus on S1 for now
+
+```{r}
+S1_R1 <- ShortRead::readFastq(read_ones[1])
+S1_R1_tabs <- tables(S1_R1)
+S1_R1_top <- names(S1_R1_tabs$top[1])
+
+S1_R2 <- ShortRead::readFastq(read_twos[1])
+S1_R2_tabs <- tables(S1_R2)
+S1_R2_top <- names(S1_R2_tabs$top[1])
+```
+
+## Read one and two logos
+
+```{r}
+library(ggseqlogo)
+
+S1_R1_df <- as.data.frame(sread(S1_R1))
+#tmp$seq_length <- unlist(lapply(tmp$x, FUN = nchar))
+
+# Why are some going negative?
+pmw_max <- pmax(PWM(DNAStringSet(S1_R1_df$x)), 0.00)
+
+p1 <- ggseqlogo(pmw_max) + xlab("Position") 
+
+p1
+
+ggsave("~/Desktop/S1_R1_seq_logo.pdf", width = 180, height = 15, units = 'cm', limitsize = F)
+```
+
+## Reverse Complement (Sanity Check)
+
+```{r}
+revcomp_S1_R1_df <- as.data.frame(reverseComplement(sread(S1_R1)))
+# Reverse to see if there is overlap with the other read
+revcomp_S1_R1_df$rev_x <- unlist(lapply(revcomp_S1_R1_df$x, 
+                                 FUN = function(x) intToUtf8(rev(utf8ToInt(x)))))
+
+# Why are some going negative?
+pmw_max <- pmax(PWM(DNAStringSet(revcomp_S1_R1_df$rev_x)), 0.00)
+
+p_tmp <- ggseqlogo(pmw_max) 
+
+p_tmp
+
+#ggsave("~/Desktop/revcomp_S1_R1_seq_logo.pdf", width = 180, height = 15, units = 'cm', limitsize = F)
+```
+
+## Read 2 Logo
+
+```{r}
+S1_R2_df <- as.data.frame(sread(S1_R2))
+
+# Why are some going negative?
+pmw_max <- pmax(PWM(DNAStringSet(S1_R2_df$x)), 0.00)
+
+p2 <- ggseqlogo(pmw_max) # + scale_x_continuous(breaks=1:21, labels=-10:10)
+
+p2
+
+#ggsave("~/Desktop/S1_R2_seq_logo.pdf", width = 180, height = 15, units = 'cm', limitsize = F)
+```
+
+# Top Sequences (Translate)
+
+First, let's see if we can find Methionine (ATG)
+
+```{r}
+# translate(DNAStringSet())
+```
+
+
+```{r}
+S1_R2_top
+S1_R1_top
+```
+
+Check for overlap
+
+```{r}
+#intToUtf8(rev(utf8ToInt(S1_R2_top)))
+```
+GGTGGTCCTGGCTGC
+`translate(DNAString("ATG"))`
+
+```{r}
+# S1_R1_top
+# S1_R2_top
+
+S1_translated <- translate(DNAStringSet(substr(S1_R1_top, 1, 83*3)))
+S2_translated <- translate(DNAStringSet(substr(S1_R2_top, 1, 83*3)))
+S1_translated
+S2_translated
+```
+
+
+```{r}
+S1 <- as.data.frame(ShortRead::sread(ShortRead::readFastq(read_ones[1])))
+S1$run <- rep("S1_R1", each = nrow(S1))
+S2 <- as.data.frame(ShortRead::sread(ShortRead::readFastq(read_ones[2])))
+S2$run <- rep("S2_R1", each = nrow(S2))
+S3 <- as.data.frame(ShortRead::sread(ShortRead::readFastq(read_ones[3])))
+S3$run <- rep("S3_R1", each = nrow(S3))
+
+tmp <- rbind(S1, S2, S3)
+```
+
+## Identify Starts and Ends of Reads
+
+```{r}
+# Should do 30 and 29?
+tmp$first_thirty <- substr(tmp$x, 1, 25)
+
+tmp$last_thirty <- substr(tmp$x, nchar(tmp$x)-24, nchar(tmp$x))
+
+dat <- as.data.frame(table(tmp$first_thirty))
+dat <- dat[order(dat$Freq, decreasing = T),]
+head(dat)
+
+dat <- as.data.frame(table(tmp$last_thirty))
+dat <- dat[order(dat$Freq, decreasing = T),]
+head(dat)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Load Assembly Data
+
+```{r}
+# load proc file addresses
+procs <- list.files(root_dir)[grepl("Proc", list.files(root_dir))][1:4]
+procs <- paste(procs, '/', sep = '')
+
+# Quick index-- we have 4 different read sets (3 originals, one a double-check from me)
+proc_index <- 1
+
+# Define the folder with fastq files in it
+fastq_dir <- paste(root_dir, procs[proc_index], sep = '')
+
+# Reference Logs
+logs <- readLines(paste(fastq_dir, list.files(fastq_dir)[grepl("txt", list.files(fastq_dir))], sep = ''))[1]
+
+# Subset fastqs
+fastqs <- list.files(fastq_dir)[grepl("fastq", list.files(fastq_dir))]
+
+# assembly file
+assembly <- fastqs[grepl("assemble-pass", fastqs)]
+
+# Load the assemble pass
+tmp <- ShortRead::readFastq(paste(root_dir,procs[proc_index],assembly,sep = ''))
+tmp <- as.data.frame(sread(tmp))
+
+# Store the experiment name
+colnames(tmp) <- assembly
+```
+
+
+
+#### Check for primer regions
+
+```
+# Forward primer for VHH coding amplification:
+# VHH-L1 5′ AATGATACGGCGACCACCGAGATCTACAC...CGCTCAGTTC...TCGTCGGCAGCGTCAGATGTGTATAAGAGACA...GGGTGGTCCTGGCTGC 3’
+#           Index 2 read primer region      barcode           read 1 primer region          VHH-L homology region
+
+# Reverse primer for VHH coding amplification:
+# VHH-sh1 5’ CAAGCAGAAGACGGCATACGAGATGT...TCGTGGAGCG...GTGACTGGAGTTCAGACGTGTGCTCTTCCGATC...T...CTTCGCTGTGGTGCGC, 3’
+#                                         Barcode multiplexing index read primer region Albert suggestion VHH-sh homology region
+```
+
+```
+# head(last_thirty)
+                              Var1   Freq
+151 CCGCTCCCGGGCCGGCCATGGCCGGTTGGG 117199
+332 GCCGCTCCCGGGCCGGCCATGGCCGGTTGG    266
+143 CCGCTCCCGGGCCGGCCATGGCCGGTTAGG    207
+85  CCGCTCCCGGACCGGCCATGGCCGGTTGGG    183
+146 CCGCTCCCGGGCCGGCCATGGCCGGTTGAG    163
+58  CCGCCCCCGGGCCGGCCATGGCCGGTTGGG    138
+```
+
+* As the UMI barcode is part of read 1
+
+
+
+
+```{r}
+# Should do 30 and 29?
+tmp$first_thirty <- substr(tmp[[assembly]], 1, 25)
+tmp$last_thirty <- substr(tmp[[assembly]], nchar(tmp[[assembly]])-24, nchar(tmp[[assembly]]))
+
+dat <- as.data.frame(table(tmp$first_thirty))
+dat <- dat[order(dat$Freq, decreasing = T),]
+head(dat)
+
+dat <- as.data.frame(table(tmp$last_thirty))
+dat <- dat[order(dat$Freq, decreasing = T),]
+head(dat)
+
+```
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+## First fifteen
+dat <- as.data.frame(table(tmp$first_thirty))
+dat <- dat[order(dat$Freq, decreasing = T),]
+
+#.   Var1   Freq
+#129 GGTGGTCCTGGCTGC 157689
+#189 GTGGTCCTGGCTGCT    431
+#49  GGTAGTCCTGGCTGC    187
+#157 GGTGGTTCTGGCTGC    186
+
+## Last fifteen
+dat <- as.data.frame(table(tmp$last_thirty))
+dat <- dat[order(dat$Freq, decreasing = T),]
+
+head(dat)
+#Var1   Freq
+#741  GCGCACCACAGCGAAG 145838
+#853  GCGCCCCACAGCGAAG   4092
+#923  GCGCGCCACAGCGAAG   1255
+#735  GCGCACCACAGCAAAG    814
+#1092 TCGCACCACAGCGAAG    545
+
+
+
+
+
+chars <- vector()
+
+for (i in 5:20){
+  tmp_dat <- substr(tmp$x, 1, i)
+  cat(i, '\n')
+  chars <- c(chars, length(unique(tmp_dat)))
+  print(length(unique(tmp_dat)))
+}
+
+cbind(5:20, chars)
+
+
+chars <- vector()
+
+for (i in 5:20){
+  tmp_dat <- substr(tmp$x, nchar(tmp$x)-i, nchar(tmp$x))
+  cat(i, '\n')
+  chars <- c(chars, length(unique(tmp_dat)))
+  print(length(unique(tmp_dat)))
+}
+
+cbind(5:20, chars)
+
+# dat <- read.csv("~/VHH/data/1_3_Proc/1_3_Proc_AP_table.tab", header = T, stringsAsFactors = F, sep = '\t')
+#dat <- dat[sort(dat$OVERLAP, decreasing = T),]
+
+
+
+```

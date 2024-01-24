@@ -184,6 +184,23 @@ Adding sequences from FASTA; added 7 sequences in 0.00118208 seconds.
 -rw-r--r--   1 emoseley  staff    340 Oct 10 12:53 alpaca_V.nto
 ```
 
+### Moving Data to Internal Data Directory
+
+Now we `mkdir ~/ncbi-igblast-1.17.1/interal_data/alpaca`
+
+### alpaca.ndm.imgt
+
+Ensure that `alpaca.ndm.imgt` (which we received from TH, and is called `alpaca_new.ndm.imgt`, so need's to be renamed) is also placed in the `internal_data/alpaca` directory.
+
+### alpaca_gl.aux
+
+Ensure that `alpaca_gl.aux` (which we received from TH), is 
+
+
+
+
+
+
 ## Other notes on setting up IgBlast
 
 * The `internal_data` directory contains data internal to igblast program only and users should NEVER add, delete, move, copy or edit any files in this directory. 

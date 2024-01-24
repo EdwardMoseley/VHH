@@ -1,0 +1,570 @@
+---
+title: "[VHH]-Define-Clones"
+output: html_document
+date: "2024-01-19"
+---
+
+## Create Database (Previous last-step)
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+  MakeDb.py igblast -i /data/S3-M02-TRIM_atleast-1.fmt7 -s /data/S3-M02-TRIM_atleast-1.fasta \
+  -r /data/imgt-data/imgt_gapped_alpaca_IGHV.fasta \
+  /data/imgt-data/imgt_gapped_alpaca_IGHD.fasta  \
+  /data/imgt-data/imgt_gapped_alpaca_IGHJ.fasta \
+  --outdir /data/ --failed --format airr --extended
+  
+  
+         START> MakeDB
+       COMMAND> igblast
+  ALIGNER_FILE> S3-M02-TRIM_atleast-1.fmt7
+      SEQ_FILE> S3-M02-TRIM_atleast-1.fasta
+       ASIS_ID> False
+    ASIS_CALLS> False
+      VALIDATE> strict
+      EXTENDED> True
+INFER_JUNCTION> False
+
+PROGRESS> 00:02:32 |Done                | 0.0 min
+
+PROGRESS> 00:05:31 |####################| 100% (120,914) 3.0 min
+
+OUTPUT> S3-M02-TRIM_atleast-1_db-pass.tsv
+  PASS> 99958
+  FAIL> 20956
+   END> MakeDb
+```
+
+
+### Subset the data to include productive heavy chain sequences
+
+
+
+
+
+
+
+
+
+
+We next filter the data from the previous step to include only productive sequences from the heavy chain. The determination of whether a sequence is productive (or not) is provided by the V(D)J annotation software.
+
+`ParseDb.py select` finds the rows in the file `-d` for which the column `productive` (specified with -f) contains the values `T` or `TRUE` (specified by `-u`). The prefix `data_p` will be used in the name of the output file (specified by `--outname`).
+
+#### Their Command
+
+```
+ParseDb.py select -d results/changeo/data_db-pass.tsv \
+-f productive -u T --outname data_p
+```
+
+
+#### Our command
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+ParseDb.py select -d /data/S3-M02-TRIM_atleast-1_db-pass.tsv \
+-f productive -u T --outname data_p
+
+```
+
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+ParseDb.py select -d /data/S3-M02-TRIM_atleast-1_db-pass.tsv \
+-f productive -u T --outname data_p
+  START> ParseDb
+COMMAND> select
+   FILE> S3-M02-TRIM_atleast-1_db-pass.tsv
+ FIELDS> productive
+ VALUES> T
+  REGEX> False
+
+PROGRESS> 00:44:09 |####################| 100% (99,958) 0.6 min
+
+   OUTPUT> data_p_parse-select.tsv
+  RECORDS> 99958
+ SELECTED> 72022
+DISCARDED> 27936
+      END> ParseDb
+```
+
+### Load in Data to R
+
+```{r}
+suppressPackageStartupMessages(library(airr))
+suppressPackageStartupMessages(library(alakazam))
+suppressPackageStartupMessages(library(ggplot2))
+suppressPackageStartupMessages(library(tigger))
+# get the distance to nearest neighbors
+suppressPackageStartupMessages(library(shazam))
+```
+
+
+```{r}
+db <- read_rearrangement(file.path("~/VHH/data/S3_data_p_parse-select.tsv"))
+```
+
+## Clonal diversity analysis
+
+### Clonal assignment using the CDR3 as a fingerprint
+
+```{r}
+db <- distToNearest(db, model = "ham", 
+                    normalize = "len", 
+                    vCallColumn = "v_call", 
+                    nproc = 4)
+
+# determine the threshold
+threshold <- findThreshold(db$dist_nearest, method = "density")
+thr <- round(threshold@threshold, 2)
+thr
+```
+
+
+
+```{r}
+# Plot histogram of non-NA distances
+p3 <- ggplot(data=subset(db, !is.na(dist_nearest))) + 
+      theme_bw() + 
+      ggtitle("S3 - Distance to nearest: Hamming") + 
+      xlab("Hamming distance") +
+      geom_histogram(aes(x=dist_nearest), binwidth=0.025, 
+                     fill="steelblue", color="white") +
+      geom_vline(xintercept = thr, linetype="dotted", size = 1, color = "red") #+
+      #geom_text(aes(x=thr, label="\nThreshold", y=35000), colour="red", angle=90)
+
+plot(p3)
+```
+
+
+**Note:**
+
+Advanced method: Spectral-based clonal clustering (SCOPer)
+
+Nouri and Steven H Kleinstein (2018a)
+
+In some datasets, the distance-to-nearest distribution may not be bimodal and findThreshold may fail to determine the distance threshold. In these cases, spectral clustering with an adaptive threshold to determine the local sequence neighborhood may be used. This can be done with functions from the SCOPer R package.
+
+
+
+
+
+
+```
+DefineClones.py -d results/tigger/data_ph_genotyped.tsv --vf v_call_genotyped \
+--model ham --norm len --dist {thr[0]} --format airr --nproc 8 \
+--outname data_ph_genotyped --outdir results/changeo/
+```
+
+
+Our command:
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+DefineClones.py -d /data/data_p_parse-select.tsv --vf v_call \ 
+--model ham --norm len --dist 0.25 --format airr --nproc 4 \
+--outname data_p_genotyped --outdir /data/
+```
+
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+DefineClones.py -d /data/data_p_parse-select.tsv --vf v_call \ 
+--model ham --norm len --dist 0.25 --format airr --nproc 4 \
+--outname data_p_genotyped --outdir /data/
+
+       START> DefineClones
+        FILE> data_p_parse-select.tsv
+   SEQ_FIELD> junction
+     V_FIELD> v_call
+     J_FIELD> j_call
+ MAX_MISSING> 0
+GROUP_FIELDS> None
+      ACTION> set
+        MODE> gene
+    DISTANCE> 0.25
+     LINKAGE> single
+       MODEL> ham
+        NORM> len
+         SYM> avg
+       NPROC> 4
+
+PROGRESS> [Grouping sequences] 03:21:54 (72022) 0.6 min
+
+PROGRESS> [Assigning clones] 04:23:15 |####################| 100% (72,022) 61.9 min
+
+ OUTPUT> data_p_genotyped_clone-pass.tsv
+ CLONES> 7883
+RECORDS> 72022
+   PASS> 72022
+   FAIL> 0
+    END> DefineClones
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# For S1
+
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+ParseDb.py select -d /data/S1-M02-TRIM_atleast-1_db-pass.tsv \
+-f productive -u T --outname S1_data_p
+```
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+ParseDb.py select -d /data/S1-M02-TRIM_atleast-1_db-pass.tsv \
+-f productive -u T --outname S1_data_p
+
+  START> ParseDb
+COMMAND> select
+   FILE> S1-M02-TRIM_atleast-1_db-pass.tsv
+ FIELDS> productive
+ VALUES> T
+  REGEX> False
+
+PROGRESS> 12:40:20 |####################| 100% (114,459) 0.9 min
+
+   OUTPUT> S1_data_p_parse-select.tsv
+  RECORDS> 114459
+ SELECTED> 104031
+DISCARDED> 10428
+      END> ParseDb
+```
+
+```{r}
+db <- read_rearrangement(file.path("~/VHH/data/S1_data_p_parse-select.tsv"))
+```
+
+## Clonal diversity analysis
+
+### Clonal assignment using the CDR3 as a fingerprint
+
+```{r}
+db <- distToNearest(db, model = "ham", normalize = "len", 
+                    vCallColumn = "v_call", 
+                    nproc = 4)
+
+# determine the threshold
+threshold <- findThreshold(db$dist_nearest, method = "density")
+thr <- round(threshold@threshold, 2)
+thr
+```
+
+
+
+```{r}
+# Plot histogram of non-NA distances
+p2 <- ggplot(data=subset(db, !is.na(dist_nearest))) + 
+      theme_bw() + 
+      ggtitle("S1 - Distance to nearest: Hamming") + 
+      xlab("Hamming distance") +
+      geom_histogram(aes(x=dist_nearest), binwidth=0.025, 
+                     fill="steelblue", color="white") +
+      geom_vline(xintercept = thr, linetype="dotted", size = 1, color = "red") #+
+      #geom_text(aes(x=thr, label="\nThreshold", y=35000), colour="red", angle=90)
+
+plot(p2)
+```
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+DefineClones.py -d /data/S1_data_p_parse-select.tsv --vf v_call \ 
+--model ham --norm len --dist 0.26 --format airr --nproc 4 \
+--outname S1_data_p_genotyped --outdir /data/
+```
+
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 DefineClones.py -d /data/S1_data_p_parse-select.tsv --vf v_call --model ham --norm len --dist 0.26 --format airr --nproc 4 --outname data_p_genotyped --outdir /data/
+```
+
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 DefineClones.py -d /data/S1_data_p_parse-select.tsv --vf v_call --model ham --norm len --dist 0.26 --format airr --nproc 4 --outname data_p_genotyped --outdir /data/
+
+       START> DefineClones
+        FILE> S1_data_p_parse-select.tsv
+   SEQ_FIELD> junction
+     V_FIELD> v_call
+     J_FIELD> j_call
+ MAX_MISSING> 0
+GROUP_FIELDS> None
+      ACTION> set
+        MODE> gene
+    DISTANCE> 0.26
+     LINKAGE> single
+       MODEL> ham
+        NORM> len
+         SYM> avg
+       NPROC> 4
+
+PROGRESS> [Grouping sequences] 12:58:09 (104031) 0.8 min
+
+PROGRESS> [Assigning clones] 15:20:46 |####################| 100% (104,031) 143.4 min
+
+ OUTPUT> data_p_genotyped_clone-pass.tsv
+ CLONES> 7104
+RECORDS> 104031
+   PASS> 104031
+   FAIL> 0
+    END> DefineClones
+```
+
+## For S2
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+ParseDb.py select -d /data/S2-M02-TRIM_atleast-1_db-pass.tsv \
+-f productive -u T --outname S2_data_p
+```
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+ParseDb.py select -d /data/S2-M02-TRIM_atleast-1_db-pass.tsv \
+-f productive -u T --outname S2_data_p
+  START> ParseDb
+COMMAND> select
+   FILE> S2-M02-TRIM_atleast-1_db-pass.tsv
+ FIELDS> productive
+ VALUES> T
+  REGEX> False
+
+PROGRESS> 15:38:20 |####################| 100% (108,115) 1.1 min
+
+   OUTPUT> S2_data_p_parse-select.tsv
+  RECORDS> 108115
+ SELECTED> 99281
+DISCARDED> 8834
+      END> ParseDb
+```
+
+```{r}
+db <- read_rearrangement(file.path("~/VHH/data/S2_data_p_parse-select.tsv"))
+```
+
+## Clonal diversity analysis
+
+### Clonal assignment using the CDR3 as a fingerprint
+
+```{r}
+db <- distToNearest(db, model = "ham", 
+                    normalize = "len", 
+                    vCallColumn = "v_call", nproc = 4)
+
+# determine the threshold
+threshold <- findThreshold(db$dist_nearest, method = "density")
+thr <- round(threshold@threshold, 2)
+thr
+```
+
+
+
+```{r}
+# Plot histogram of non-NA distances
+p2 <- ggplot(data=subset(db, !is.na(dist_nearest))) + 
+      theme_bw() + 
+      ggtitle("S2 - Distance to nearest: Hamming") + 
+      xlab("Hamming distance") +
+      geom_histogram(aes(x=dist_nearest), binwidth=0.025, 
+                     fill="steelblue", color="white") +
+      geom_vline(xintercept = thr, linetype="dotted", size = 1, color = "red") #+
+      #geom_text(aes(x=thr, label="\nThreshold", y=35000), colour="red", angle=90)
+
+plot(p2)
+```
+
+Note:
+
+```{r}
+
+# Clonal assignment using hierarchical clustering
+results <- scoper::hierarchicalClones(db, method="nt", threshold=thr)
+
+scoper::plotCloneSummary(results, binwidth=0.02, title=paste("Sample","Clonal Threshold", thr))
+
+```
+
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 DefineClones.py -d /data/S2_data_p_parse-select.tsv --vf v_call --model ham --norm len --dist 0.22 --format airr --nproc 4 --outname S2_data_p_genotyped --outdir /data/
+```
+
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 DefineClones.py -d /data/S2_data_p_parse-select.tsv --vf v_call --model ham --norm len --dist 0.22 --format airr --nproc 4 --outname S2_data_p_genotyped --outdir /data/
+       START> DefineClones
+        FILE> S2_data_p_parse-select.tsv
+   SEQ_FIELD> junction
+     V_FIELD> v_call
+     J_FIELD> j_call
+ MAX_MISSING> 0
+GROUP_FIELDS> None
+      ACTION> set
+        MODE> gene
+    DISTANCE> 0.22
+     LINKAGE> single
+       MODEL> ham
+        NORM> len
+         SYM> avg
+       NPROC> 4
+
+PROGRESS> [Grouping sequences] 15:55:13 (99281) 0.9 min
+
+PROGRESS> [Assigning clones] 21:46:35 |####################| 100% (99,281) 352.2 min
+
+ OUTPUT> S2_data_p_genotyped_clone-pass.tsv
+ CLONES> 13227
+RECORDS> 99281
+   PASS> 99281
+   FAIL> 0
+    END> DefineClones
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## S2 Experiment REDO (lower threshold)
+
+
+## For S2
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+ParseDb.py select -d /data/S2-M02-TRIM_atleast-1_db-pass.tsv \
+-f productive -u T --outname S2_data_p
+```
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+ParseDb.py select -d /data/S2-M02-TRIM_atleast-1_db-pass.tsv \
+-f productive -u T --outname S2_data_p
+  START> ParseDb
+COMMAND> select
+   FILE> S2-M02-TRIM_atleast-1_db-pass.tsv
+ FIELDS> productive
+ VALUES> T
+  REGEX> False
+
+PROGRESS> 15:38:20 |####################| 100% (108,115) 1.1 min
+
+   OUTPUT> S2_data_p_parse-select.tsv
+  RECORDS> 108115
+ SELECTED> 99281
+DISCARDED> 8834
+      END> ParseDb
+```
+
+```{r}
+db <- read_rearrangement(file.path("~/VHH/data/S2_data_p_parse-select.tsv"))
+```
+
+## Clonal diversity analysis
+
+### Clonal assignment using the CDR3 as a fingerprint
+
+```{r}
+db <- distToNearest(db, model = "ham", 
+                    normalize = "len", 
+                    vCallColumn = "v_call", nproc = 4)
+
+# determine the threshold
+threshold <- findThreshold(db$dist_nearest, method = "density")
+thr <- round(threshold@threshold, 2)
+thr
+```
+
+```
+0.22
+```
+
+
+```{r}
+# Plot histogram of non-NA distances
+p2 <- ggplot(data=subset(db, !is.na(dist_nearest))) + 
+      theme_bw() + 
+      ggtitle("S2 - Distance to nearest: Hamming") + 
+      xlab("Hamming distance") +
+      geom_histogram(aes(x=dist_nearest), binwidth=0.025, 
+                     fill="steelblue", color="white") +
+      geom_vline(xintercept = thr, linetype="dotted", size = 1, color = "red") #+
+      #geom_text(aes(x=thr, label="\nThreshold", y=35000), colour="red", angle=90)
+
+plot(p2)
+```
+
+Note:
+
+```{r}
+
+# Clonal assignment using hierarchical clustering
+results <- scoper::hierarchicalClones(db, method="nt", threshold=thr)
+
+scoper::plotCloneSummary(results, binwidth=0.02, title=paste("Sample","Clonal Threshold", thr))
+
+```
+
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 DefineClones.py -d /data/S2_data_p_parse-select.tsv --vf v_call --model ham --norm len --dist 0.15 --format airr --nproc 4 --outname S2_thr015_data_p_genotyped --outdir /data/ 
+```
+
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 DefineClones.py -d /data/S2_data_p_parse-select.tsv --vf v_call --model ham --norm len --dist 0.22 --format airr --nproc 4 --outname S2_data_p_genotyped --outdir /data/
+       START> DefineClones
+        FILE> S2_data_p_parse-select.tsv
+   SEQ_FIELD> junction
+     V_FIELD> v_call
+     J_FIELD> j_call
+ MAX_MISSING> 0
+GROUP_FIELDS> None
+      ACTION> set
+        MODE> gene
+    DISTANCE> 0.22
+     LINKAGE> single
+       MODEL> ham
+        NORM> len
+         SYM> avg
+       NPROC> 4
+
+PROGRESS> [Grouping sequences] 15:55:13 (99281) 0.9 min
+
+PROGRESS> [Assigning clones] 21:46:35 |####################| 100% (99,281) 352.2 min
+
+ OUTPUT> S2_data_p_genotyped_clone-pass.tsv
+ CLONES> 13227
+RECORDS> 99281
+   PASS> 99281
+   FAIL> 0
+    END> DefineClones
+```
+

@@ -1,0 +1,365 @@
+---
+title: '[VHH] Read Processing'
+output: html_document
+date: "2023-11-12"
+---
+
+#### Imports
+
+```{r}
+## Load packages and, if loading fails, install them
+## ggplot2 for nice graphics
+if(!require(ggplot2))install.packages("ggplot2")
+## For layout
+if(!require(ggpubr))install.packages("ggpubr")
+
+# Define theme for graphing
+myTheme <- theme(legend.text = element_text(size = 12), 
+                                  legend.title = element_text(size = 14), 
+                                  legend.key.size = unit(1, 'cm'))
+
+## Color-blind friendly palette
+# Credit goes to the knitr and Jekyl developers
+# http://www.cookbook-r.com/Graphs/Colors_(ggplot2)/
+cbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+
+# For sequence logos
+library(ggseqlogo)
+library(ShortRead)
+```
+
+#### Utilities
+
+```{r}
+plot_logo <- function(df, read_one = TRUE){
+  # If it's read two, let's reverse it for readability
+  if (!read_one){
+    df$x <- unlist(lapply(df$x, FUN = function(x) intToUtf8(rev(utf8ToInt(x)))))
+  }
+  
+  df$first_hundred <- substr(df$x, 1, 100)
+  df$next_hundred <- substr(df$x, 101, 200)
+  df$last_bases <- substr(df$x, 200, 251)
+  
+  # Why are some going negative?
+  pmw_max_one <- pmax(PWM(DNAStringSet(df$first_hundred)), 0.00)
+  pmw_max_two <- pmax(PWM(DNAStringSet(df$next_hundred)), 0.00)
+  pmw_max_three <- pmax(PWM(DNAStringSet(df$last_bases)), 0.00)
+  
+  p1 <- ggseqlogo(pmw_max_one) + xlab("Position") + scale_x_continuous(breaks=1:100, labels=1:100) + theme(axis.text.x=element_text(angle=45, hjust=1))
+  
+  p2 <- ggseqlogo(pmw_max_two) + xlab("Position") + scale_x_continuous(breaks=1:100, labels=101:200) + theme(axis.text.x=element_text(angle=45, hjust=1))
+  
+  p3 <- ggseqlogo(pmw_max_three) + xlab("Position") + scale_x_continuous(breaks=1:51, labels=201:251)+ theme(axis.text.x=element_text(angle=45, hjust=1))
+  
+  tmp <- ggarrange(p1, p2, ggarrange(p3, ncol = 2, nrow = 1), 
+                   ncol = 1, nrow = 3, common.legend = TRUE, legend = "bottom")
+  
+  return(tmp)
+}
+```
+
+#### Root Directory
+
+```{r}
+root_dir <- "~/VHH/data/"
+
+fastqs <- list.files(root_dir)[grepl("fastq", list.files(root_dir))]
+
+files <- paste(root_dir, fastqs, sep = '')
+
+# Parse reads
+read_ones <- files[grepl("R1", files)]
+read_twos <- files[grepl("R2", files)]
+```
+
+# Top Reads
+
+```{r}
+S1_R1 <- ShortRead::readFastq(read_ones[1])
+S1_R1_tabs <- tables(S1_R1)
+S1_R1_top <- names(S1_R1_tabs$top[1])
+
+# GGTGGTCCTGGCTGCTCTACTACAAGGTGTCCAGGCTCAGGTGCAGCTGGCGGAGTCGGGGGGAGGCTTGGTGCAGGCTGGGGGGTCTCTGATGCTCTCCTGTGTTGCCAGTGGAGATATCCCCAGTATCAATGCCTGGGGCTGGTATCGTAAGGCTCCAGGGAAGCAGCGCGAGTGGCTCGTTACTGCTACTACTGGTGGTACCACCAACTATGCAAGCTCCGTGCGGGGCCGATTCACCGTCTCCAGAG
+# Top Hits
+# (Chain C, anti-cox-2 alpaca nanobody F9 [Vicugna pacos])
+# (immunoglobulin heavy chain variable region, partial [Vicugna pacos])
+# Blast Translation 
+# ESGGGLVQAGGSLMLSCVASGDIPSINAWGWYRKAPGKQREWLVTATTGGTTNYASSVRGRFTVSR
+
+
+
+S1_R2 <- ShortRead::readFastq(read_twos[1])
+S1_R2_tabs <- tables(S1_R2)
+S1_R2_top <- names(S1_R2_tabs$top[1])
+
+# CTTCGCTGTGGTGCGCTGAGGAGACGGTGACCTGGGTCCCCTGGCCCCAATAACTTTTTATTTGTCCAGTTGGAGCGGCCTTCCCCCAAATATTACAGTAATAGATGGCTGTGTCCTCAGGCTTCAGGCTGATCATTCGCAGTGACACCGTATTCTTGGCGTTGTCCAAGGAGATGGTGAATCGGCCCTTCACGGAGTCTGCATAGTCTGTGGTACCACCACTCATAATCAGTGCGACCGACTCGCGCTGC
+# Top Hits
+# (immunoglobulin variable heavy region JIY-D10 RTA-D10, partial [Vicugna pacos])
+# (Chain B, Camelid nanobody (VHH3) [Vicugna pacos])
+# Blast Translation 
+# QRESVALIMSGGTTDYADSVKGRFTISLDNAKNTVSLRMISLKPEDTAIYYCNIWGKAAPTGQIKSYWGQGTQVTVSSAHHSE
+```
+
+## Load All Reads
+
+```{r}
+S1_R1_df <- as.data.frame(sread(S1_R1))
+S1_R2_df <- as.data.frame(sread(S1_R2))
+S2_R1_df <- as.data.frame(sread(ShortRead::readFastq(read_ones[2])))
+
+S2_R2_df <- as.data.frame(sread(ShortRead::readFastq(read_twos[2])))
+# Remove observation with indeterminate "N"
+S2_R2_df <- as.data.frame(S2_R2_df[!grepl("N", S2_R2_df$x),])
+colnames(S2_R2_df)[1] <- "x"
+
+S3_R1_df <- as.data.frame(sread(ShortRead::readFastq(read_ones[3])))
+S3_R2_df <- as.data.frame(sread(ShortRead::readFastq(read_twos[3])))
+```
+
+
+## Read one and two full logos
+
+```{r}
+## S1
+plot_logo(S1_R1_df,read_one = TRUE)
+
+ggsave("~/Desktop/S1_R1_seq_logo.pdf", width = 60, height = 45, units = 'cm', limitsize = F)
+
+plot_logo(S1_R2_df,read_one = FALSE)
+
+ggsave("~/Desktop/S1_R2_seq_logo.pdf", width = 60, height = 45, units = 'cm', limitsize = F)
+
+## S2
+
+plot_logo(S2_R1_df, read_one = TRUE)
+
+ggsave("~/Desktop/S2_R1_seq_logo.pdf", width = 60, height = 45, units = 'cm', limitsize = F)
+
+plot_logo(S2_R2_df, read_one = FALSE)
+
+ggsave("~/Desktop/S2_R2_seq_logo.pdf", width = 60, height = 45, units = 'cm', limitsize = F)
+
+## S3
+
+plot_logo(S3_R1_df, read_one = TRUE)
+
+ggsave("~/Desktop/S3_R1_seq_logo.pdf", width = 60, height = 45, units = 'cm', limitsize = F)
+
+plot_logo(S3_R2_df, read_one = FALSE)
+
+ggsave("~/Desktop/S3_R2_seq_logo.pdf", width = 60, height = 45, units = 'cm', limitsize = F)
+
+dev.off()
+```
+
+
+
+
+```{r}
+translate(DNAString("GGTGGTCCTGGCTGC"))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Pipeline Attempt
+
+1. `1_3_S1_L001_R1_001.fastq` - Begins with VHH leader primer
+2. `1_3_S1_L001_R2_001.fastq` - Short hinge/Long hinge primers
+
+
+## Filtering
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \      
+  FilterSeq.py quality -s /data/1_3_S1_L001_R1_001.fastq -q 20 --outname MS12_R1 --log FS1.log
+```
+
+```
+   START> FilterSeq
+ COMMAND> quality
+    FILE> 1_3_S1_L001_R1_001.fastq
+   INNER> False
+MIN_QUAL> 20.0
+   NPROC> 6
+
+PROGRESS> 20:13:23 |####################| 100% (216,163) 1.0 min
+
+   OUTPUT> MS12_R1_quality-pass.fastq
+SEQUENCES> 216163
+     PASS> 192671
+     FAIL> 23492
+      END> FilterSeq
+```
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+  FilterSeq.py quality -s /data/1_3_S1_L001_R2_001.fastq -q 20 --outname MS12_R2 --log FS2.log
+```
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+  FilterSeq.py quality -s /data/1_3_S1_L001_R2_001.fastq -q 20 --outname MS12_R2 --log FS2.log
+   START> FilterSeq
+ COMMAND> quality
+    FILE> 1_3_S1_L001_R2_001.fastq
+   INNER> False
+MIN_QUAL> 20.0
+   NPROC> 6
+
+PROGRESS> 20:15:13 |####################| 100% (216,163) 0.9 min
+
+   OUTPUT> MS12_R2_quality-pass.fastq
+SEQUENCES> 216163
+     PASS> 109628
+     FAIL> 106535
+      END> FilterSeq
+
+
+```
+_Parse log as necessary_
+
+```
+ParseLog.py -l FS1.log FS2.log -f ID QUALITY
+```
+
+## UMI annotation and masking of primer regions
+
+Next, the score subcommand of `MaskPrimers.py` is used to identify and remove the PCR primers for both reads. When dealing with Ig sequences, it is important to cut or mask the primers, as B cell receptors are subject to somatic hypermutation (the accumulation of point mutations in the DNA) and degenerate primer matches can look like mutations in downstream applications. The MaskPrimers tool is also used to annotate each read 1 sequence with the 15 nucleotide UMI that precedes the C-region primer (`MaskPrimers score --barcode`):
+
+
+**Note:** The BARCODE exists as ten base pairs immediately after the reverse complement of the read one primer (Primer: "TCGTCGGCAGCGTCAGATGTGTATAAGAGACAG", RevCom: "CTGTCTCTTATACACATCTGACGCTGCCGACGA"), WHICH IS FOUND ON READ 2!
+
+**Note:** We will mask the first primers, and cut the second ones.
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+  MaskPrimers.py score -s /data/MS12_R1_quality-pass.fastq -p /data/strictAlpVHH_R2_12Nov23.fasta \
+      --start 0 --mode mask --outname R1 --log  /data/MP1.log
+```
+
+```
+       START> MaskPrimers
+     COMMAND> score
+    SEQ_FILE> MS12_R1_quality-pass.fastq
+ PRIMER_FILE> AlpVHH_R1_12Nov23.fasta
+        MODE> mask
+   MAX_ERROR> 0.2
+   START_POS> 0
+  REV_PRIMER> False
+     BARCODE> False
+PRIMER_FIELD> PRIMER
+       NPROC> 6
+
+PROGRESS> 20:41:10 |####################| 100% (192,671) 1.6 min
+
+   OUTPUT> R1_primers-pass.fastq
+SEQUENCES> 192671
+     PASS> 191222
+     FAIL> 1449
+      END> MaskPrimers
+```
+
+Note: we use `--start 10` because the `--barcode` is length 10 and precedes the primer region. _However_, it looks like the barcode is picking up information on the opposite side of the read...
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+  MaskPrimers.py score -s /data/MS12_R2_quality-pass.fastq -p /data/strictAlpVHH_R1_12Nov23.fasta \
+      --start 10 --barcode --mode cut --maxerror 0.5 \
+      --outname R2 --log /data/MP2.log
+```
+
+```
+        START> MaskPrimers
+      COMMAND> score
+     SEQ_FILE> MS12_R2_quality-pass.fastq
+  PRIMER_FILE> AlpVHH_R2_12Nov23.fasta
+         MODE> cut
+    MAX_ERROR> 0.5
+    START_POS> 10
+   REV_PRIMER> False
+      BARCODE> True
+BARCODE_FIELD> BARCODE
+ PRIMER_FIELD> PRIMER
+        NPROC> 6
+
+PROGRESS> 20:48:53 |####################| 100% (109,628) 0.9 min
+
+   OUTPUT> R2_primers-pass.fastq
+SEQUENCES> 109628
+     PASS> 101082
+     FAIL> 8546
+      END> MaskPrimers
+```
+
+**Parse Log**
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+  ParseLog.py -l /data/MP1.log /data/MP2.log -f ID PRIMER BARCODE ERROR
+```
+
+**Read log**
+
+```{r}
+read_one_tab <- read.csv("~/VHH/data/MP1_table.tab", header = T, stringsAsFactors = F, sep = '\t')
+```
+
+```{r}
+boxplot(read_one_tab$ERROR ~ read_one_tab$PRIMER)
+```
+
+
+```{r}
+read_two_tab <- read.csv("~/VHH/data/MP2_table.tab", header = T, stringsAsFactors = F, sep = '\t')
+```
+
+```{r}
+boxplot(read_two_tab$ERROR ~ read_two_tab$PRIMER)
+```
+
+## Generating Consensus Sequences
+
+In this task, a single consensus sequence is constructed for each set of reads annotated with the same UMI barcode. As the UMI barcode is part of read 1, the `BARCODE` annotation identified by `MaskPrimers.py` must first be copied to the read 2 mate-pair of each read 1 sequence. 
+
+Propogation of annotations between mate pairs is performed using `PairSeq.py` which also removes unpaired reads and ensures that paired reads are sorted in the same order across files:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{bash}
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+  AssemblePairs.py align -1 /data/A2A_S1_L001_R2_001.fastq -2 /data/A2A_S1_L001_R1_001.fastq \
+    --coord illumina --rc tail --maxerror 0.1 --outname ALPACA1 --log /data/ALPACA_AP.log 
+```
+
+
+

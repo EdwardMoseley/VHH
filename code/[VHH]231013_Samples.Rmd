@@ -1,0 +1,186 @@
+---
+title: '[VHH]231013_Samples'
+output: html_document
+date: "2023-10-20"
+---
+
+
+#### Files
+
+Three pairs:
+
+* `1_3_S1_L001_R1_001.fastq`
+* `1_3_S1_L001_R2_001.fastq`
+
+* `2_4_S2_L001_R1_001.fastq`
+* `2_4_S2_L001_R2_001.fastq`
+
+* `5_S3_L001_R1_001.fastq`
+* `5_S3_L001_R2_001.fastq`
+
+
+
+## Alignment Results
+
+### 1_3_S1_L001_R1_001, 1_3_S1_L001_R2_001
+
+```
+       START> AssemblePairs
+     COMMAND> align
+       FILE1> 1_3_S1_L001_R2_001.fastq
+       FILE2> 1_3_S1_L001_R1_001.fastq
+  COORD_TYPE> illumina
+       ALPHA> 1e-05
+   MAX_ERROR> 0.1
+     MIN_LEN> 8
+     MAX_LEN> 1000
+SCAN_REVERSE> False
+       NPROC> 6
+
+PROGRESS> 00:59:39 |####################| 100% (336,685) 13.3 min
+
+OUTPUT> 1_3_Proc_assemble-pass.fastq
+ PAIRS> 336685
+  PASS> 774
+  FAIL> 335911
+   END> AssemblePairs
+```
+
+### 2_4_S2_L001_R2_001, 2_4_S2_L001_R1_001
+
+```
+       START> AssemblePairs
+     COMMAND> align
+       FILE1> 2_4_S2_L001_R2_001.fastq
+       FILE2> 2_4_S2_L001_R1_001.fastq
+  COORD_TYPE> illumina
+       ALPHA> 1e-05
+   MAX_ERROR> 0.1
+     MIN_LEN> 8
+     MAX_LEN> 1000
+SCAN_REVERSE> False
+       NPROC> 6
+
+PROGRESS> 01:32:15 |####################| 100% (289,822) 10.5 min
+
+OUTPUT> 2_4_Proc_assemble-pass.fastq
+ PAIRS> 289822
+  PASS> 615
+  FAIL> 289207
+   END> AssemblePairs
+```
+
+### 5_S3_L001_R2_001, 5_S3_L001_R1_001
+
+```
+       START> AssemblePairs
+     COMMAND> align
+       FILE1> 5_S3_L001_R2_001.fastq
+       FILE2> 5_S3_L001_R1_001.fastq
+  COORD_TYPE> illumina
+       ALPHA> 1e-05
+   MAX_ERROR> 0.1
+     MIN_LEN> 8
+     MAX_LEN> 1000
+SCAN_REVERSE> False
+       NPROC> 6
+
+PROGRESS> 13:54:06 |####################| 100% (245,971) 11.7 min
+
+OUTPUT> 5_S3_Proc_assemble-pass.fastq
+ PAIRS> 245971
+  PASS> 556
+  FAIL> 245415
+   END> AssemblePairs
+```
+
+#### Check Logs
+
+```{r}
+# tmp <- read.csv("~/VHH/data/1_3_Proc_AP_table.tab", header = T, stringsAsFactors = F, sep = '\t')
+```
+
+
+## Assessing Quality
+
+### FilterSeq on PCR Results
+
+* `1_3_S1_L001_R1_001.fastq`
+* `1_3_S1_L001_R2_001.fastq`
+
+```{bash, echo = T, eval = F}
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+  FilterSeq.py quality -s /data/1_3_S1_L001_R1_001.fastq -q 20 --outname 1_3_S1_Barc_R1 --log /data/1_3_S1_Barc_R1_FS1.log
+
+
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+  FilterSeq.py quality -s /data/1_3_S1_L001_R2_001.fastq -q 20 --outname 1_3_S1_Barc_R2 --log /data/1_3_S1_Barc_R2_FS1.log
+```
+
+
+**Output:**
+
+```
+   START> FilterSeq
+ COMMAND> quality
+    FILE> 1_3_S1_L001_R1_001.fastq
+   INNER> False
+MIN_QUAL> 20.0
+   NPROC> 6
+
+PROGRESS> 14:35:54 |####################| 100% (336,685) 2.0 min
+
+   OUTPUT> 1_3_S1_Barc_R1_quality-pass.fastq
+SEQUENCES> 336685
+     PASS> 302531
+     FAIL> 34154
+      END> FilterSeq
+
+   START> FilterSeq
+ COMMAND> quality
+    FILE> 1_3_S1_L001_R2_001.fastq
+   INNER> False
+MIN_QUAL> 20.0
+   NPROC> 6
+
+PROGRESS> 14:37:07 |####################| 100% (336,685) 1.1 min
+
+   OUTPUT> 1_3_S1_Barc_R2_quality-pass.fastq
+SEQUENCES> 336685
+     PASS> 644
+     FAIL> 336041
+      END> FilterSeq
+```
+
+## Parse Logs for Read Quality
+
+```{bash, echo = T, eval = F}
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+ParseLog.py -l /data/1_3_S1_Barc_R1_FS1.log /data/1_3_S1_Barc_R2_FS1.log -f ID QUALITY
+```
+
+### Load Data
+
+```{r}
+rone <- read.csv("~/VHH/data/1_3_S1_Barc_R1_FS1_table.tab", header = T, stringsAsFactors = F, sep = '\t')
+
+rtwo <- read.csv("~/VHH/data/1_3_S1_Barc_R2_FS1_table.tab", header = T, stringsAsFactors = F, sep = '\t')
+```
+
+#### Summarize Quality Data
+
+```{r}
+summary(rone$QUALITY)
+summary(rtwo$QUALITY)
+boxplot(rone$QUALITY, rtwo$QUALITY, main = "Read 1 vs. Read 2 Quality Scores", names = c("Read 1", "Read 2"))
+```
+
+Note that the median observations for the `R2` file is below the quality threshold set in the `FilterSeq` module (Phred scores `< 20` are removed).
+
+
+
+
+
+
+
+

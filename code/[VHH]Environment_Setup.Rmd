@@ -1,0 +1,196 @@
+---
+title: '[VHH Project] Environment Setup'
+output: html_document
+date: "2023-10-19"
+---
+
+### Installation and Environment Setup
+
+#### Immcantation
+
+* First, [immcantation v.4.4.0](https://hub.docker.com/r/immcantation/suite) was downloaded via Docker
+
+```
+docker pull immcantation/suite:4.4.0
+```
+
+## IgBLAST Installation
+
+We are downloading: `ncbi-igblast-1.17.1-x64-macosx.tar.gz` from [Index of /blast/executables/igblast/release/LATEST](https://ftp.ncbi.nih.gov/blast/executables/igblast/release/LATEST/). Note that we are not downloading the `.dmg`.
+
+For setup information, we rely on NCBI's official [How to Setup](https://ncbi.github.io/igblast/cook/How-to-set-up.html), as well as: [Using IgBlast with Python](https://github.com/xinyu-dev/igblast/blob/master/Using%20IgBlast.ipynb).
+
+#### Required Files:
+
+**From Troy Hinckley:**
+
+```
+alpaca_gl.aux
+alpaca_new.ndm.imgt
+imgt_alpaca_ig_d.fasta
+imgt_alpaca_ig_j.fasta
+imgt_alpaca_ig_v.fasta
+```
+
+We unzip the tar file, and we create a `database` directory in the `igblast` folder, so its contents look something like:
+
+```
+----igblast
+  --bin
+  --internal_data
+  --optional_file
+  --ChangeLog
+  --LICENSE
+  --ncbi_pakacage_info
+  --README
+  --database
+```
+
+We then create `alpaca`, and `alpaca_clean` within the `database` directory
+
+```
+----igblast
+  --bin
+  --internal_data
+  --optional_file
+  --ChangeLog
+  --LICENSE
+  --ncbi_pakacage_info
+  --README
+  ----database
+    --alpaca
+    --alpaca_clean
+```
+
+### Processing IMGT V(D)J sequences received from Troy
+
+To parse the IGHV/D/J protein germline sequences, navigate to `ncbi-igblast-1.17.1`, then run:
+
+
+```{bash, echo = T, eval = F}
+# Process V segment sequences with edit_imgt_file
+bin/edit_imgt_file.pl database/alpaca/IG_DNA/imgt_gapped_alpaca_IGHV > database/alpaca_vhh_clean/alpaca_V
+# Process D segment sequences with edit_imgt_file
+bin/edit_imgt_file.pl database/alpaca/IG_DNA/imgt_gapped_alpaca_IGHD > database/alpaca_vhh_clean/alpaca_D
+# Process J segment sequences with edit_imgt_file
+bin/edit_imgt_file.pl database/alpaca/IG_DNA/imgt_gapped_alpaca_IGHJ > database/alpaca_vhh_clean/alpaca_J
+```
+
+Note that we do not use file extensions on `alpaca_V`, `alpaca_D`, and `alpaca_J`
+
+
+### Make Database
+
+Now we make the blastdb
+
+```{bash, echo = T, eval = F}
+bin/makeblastdb -parse_seqids -dbtype nucl -in database/alpaca_vhh_clean/alpaca_V
+bin/makeblastdb -parse_seqids -dbtype nucl -in database/alpaca_vhh_clean/alpaca_D
+bin/makeblastdb -parse_seqids -dbtype nucl -in database/alpaca_vhh_clean/alpaca_J
+```
+
+
+**Output:**
+
+```
+Building a new DB, current time: 10/10/2023 12:53:57
+New DB name:   /Users/emoseley/ncbi-igblast-1.17.1/database/alpaca_vhh_clean/alpaca_V
+New DB title:  database/alpaca_vhh_clean/alpaca_V
+Sequence type: Nucleotide
+Keep MBits: T
+Maximum file size: 1000000000B
+Adding sequences from FASTA; added 84 sequences in 0.00240207 seconds.
+
+Building a new DB, current time: 10/10/2023 12:53:57
+New DB name:   /Users/emoseley/ncbi-igblast-1.17.1/database/alpaca_vhh_clean/alpaca_D
+New DB title:  database/alpaca_vhh_clean/alpaca_D
+Sequence type: Nucleotide
+Keep MBits: T
+Maximum file size: 1000000000B
+Adding sequences from FASTA; added 8 sequences in 0.000921965 seconds.
+
+Building a new DB, current time: 10/10/2023 12:53:58
+New DB name:   /Users/emoseley/ncbi-igblast-1.17.1/database/alpaca_vhh_clean/alpaca_J
+New DB title:  database/alpaca_vhh_clean/alpaca_J
+Sequence type: Nucleotide
+Keep MBits: T
+Maximum file size: 1000000000B
+Adding sequences from FASTA; added 7 sequences in 0.00118208 seconds.
+```
+
+### Moving Data to Internal Data Directory
+
+Now we make the `alpaca` directory with `mkdir ~/ncbi-igblast-1.17.1/interal_data/alpaca`, and copy our database over from `database/alpaca_vhh_clean`.
+
+```{bash, echo = T, eval = F}
+cp -R ./database/alpaca_vhh_clean ./internal_data
+```
+
+**Resulting Files:** 
+
+```
+-rw-r--r--   1 emoseley  staff    265 Oct 10 12:52 alpaca_D
+-rw-r--r--   1 emoseley  staff  32768 Oct 10 12:53 alpaca_D.ndb
+-rw-r--r--   1 emoseley  staff    376 Oct 10 12:53 alpaca_D.nhr
+-rw-r--r--   1 emoseley  staff    220 Oct 10 12:53 alpaca_D.nin
+-rw-r--r--   1 emoseley  staff     64 Oct 10 12:53 alpaca_D.nog
+-rw-r--r--   1 emoseley  staff    144 Oct 10 12:53 alpaca_D.nos
+-rw-r--r--   1 emoseley  staff    104 Oct 10 12:53 alpaca_D.not
+-rw-r--r--   1 emoseley  staff     49 Oct 10 12:53 alpaca_D.nsq
+-rw-r--r--   1 emoseley  staff  16384 Oct 10 12:53 alpaca_D.ntf
+-rw-r--r--   1 emoseley  staff     36 Oct 10 12:53 alpaca_D.nto
+-rw-r--r--   1 emoseley  staff    427 Oct 10 12:52 alpaca_J
+-rw-r--r--   1 emoseley  staff  32768 Oct 10 12:53 alpaca_J.ndb
+-rw-r--r--   1 emoseley  staff    329 Oct 10 12:53 alpaca_J.nhr
+-rw-r--r--   1 emoseley  staff    208 Oct 10 12:53 alpaca_J.nin
+-rw-r--r--   1 emoseley  staff     60 Oct 10 12:53 alpaca_J.nog
+-rw-r--r--   1 emoseley  staff    127 Oct 10 12:53 alpaca_J.nos
+-rw-r--r--   1 emoseley  staff     92 Oct 10 12:53 alpaca_J.not
+-rw-r--r--   1 emoseley  staff     94 Oct 10 12:53 alpaca_J.nsq
+-rw-r--r--   1 emoseley  staff  16384 Oct 10 12:53 alpaca_J.ntf
+-rw-r--r--   1 emoseley  staff     32 Oct 10 12:53 alpaca_J.nto
+-rw-r--r--   1 emoseley  staff  25811 Oct 10 12:52 alpaca_V
+-rw-r--r--   1 emoseley  staff  32768 Oct 10 12:53 alpaca_V.ndb
+-rw-r--r--   1 emoseley  staff   4173 Oct 10 12:53 alpaca_V.nhr
+-rw-r--r--   1 emoseley  staff   1132 Oct 10 12:53 alpaca_V.nin
+-rw-r--r--   1 emoseley  staff    368 Oct 10 12:53 alpaca_V.nog
+-rw-r--r--   1 emoseley  staff   1661 Oct 10 12:53 alpaca_V.nos
+-rw-r--r--   1 emoseley  staff   1016 Oct 10 12:53 alpaca_V.not
+-rw-r--r--   1 emoseley  staff   6139 Oct 10 12:53 alpaca_V.nsq
+-rw-r--r--   1 emoseley  staff  16384 Oct 10 12:53 alpaca_V.ntf
+-rw-r--r--   1 emoseley  staff    340 Oct 10 12:53 alpaca_V.nto
+```
+
+### alpaca.ndm.imgt
+
+Ensure that `alpaca.ndm.imgt` (which we received from TH, and is called `alpaca_new.ndm.imgt`, so need's to be renamed) is also placed in the `internal_data/alpaca` directory.
+
+### alpaca_gl.aux
+
+Ensure that `alpaca_gl.aux` (which we received from TH), is placed in the `optional_file` directory.
+
+Note (from IgBLAST documentation)
+
+> If you also want CDR3/FWR4 information, you need to supply a file that has information such as CDR3 stop for germline J genes (see optional_file/human_gl.aux for an example). This file can have any name and can be put anywhere as long as you supply it to the -auxiliary_data parameter when running IgBLAST(for example -auxiliary_data my_foler/my_file).
+
+## Error: `[internal_data] cannot be found`. 
+
+### Assign path to environment variable `IGDATA`
+
+**Method:** 
+
+```
+export IGDATA=/Users/emoseley/ncbi-igblast-1.17.1/bin
+```
+
+This will help to solve the issue of `[internal_data] cannot be found`. 
+
+Note that the `IGDATA` variable should:
+
+1. point to the `bin` folder, not the `internal_data` folder.
+
+2. use the full path (e.g. in mac `/Users/emoseley/ncbi-igblast-1.17.1/bin`) and NOT a relative path
+
+3. The path should not contain any spaces (change your directory name if it does).
+
+
