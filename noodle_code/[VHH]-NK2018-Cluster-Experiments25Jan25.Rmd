@@ -1,0 +1,117 @@
+---
+title: "[VHH]-Cluster-Experiments"
+output: html_document
+date: "2024-01-24"
+---
+
+```{r, warning=F, echo = F}
+suppressMessages(library(ggplot2))
+suppressMessages(library(ggseqlogo))
+suppressMessages(library(gridExtra))
+knitr::opts_chunk$set(fig.width=12, fig.height=4) 
+```
+
+
+#### Tools
+
+```{r}
+#### Translate
+translate_DNA <- function(dna_data){
+  clean_dna <- gsub("[^ACTG]", "", dna_data)
+  DNA_strings <- Biostrings::DNAStringSet(clean_dna)
+  translations <- as.character(Biostrings::translate(DNA_strings))
+  return(translations)
+}
+
+#### Trim CDR3
+trim_CDR3 <- function(seq_vec){
+  return(substr(seq_vec, 2, nchar(seq_vec)-1))
+}
+
+top_groups <- function(results){
+  return(table(results$family)[order(table(results$family), decreasing = T)])
+}
+
+unproductive <- function(results){
+  return(results[which(!grepl("\\*", results$VHH, fixed = F)),])
+}
+```
+
+# Rule-based Method
+
+## Load Data
+
+
+```{r, warning=F}
+
+S1 <- read.csv("~/VHH/data/S1_data_p_genotyped_clone-pass.tsv",
+               header = T, stringsAsFactors = F, sep = '\t')
+S2 <- read.csv("~/VHH/data/S2_data_p_genotyped_clone-pass.tsv", 
+               header = T, stringsAsFactors = F, sep = '\t')
+S3 <- read.csv("~/VHH/data/S3_data_p_genotyped_clone-pass.tsv", 
+               header = T, stringsAsFactors = F, sep = '\t')
+
+S1$experiment <- rep("S1", each = nrow(S1))
+
+S2$experiment <- rep("S2", each = nrow(S2))
+
+S3$experiment <- rep("S3", each = nrow(S3))
+
+df <- rbind(S1, S2, S3)
+
+df <- df[!is.na(df$junction_aa),]
+
+df$VHH <- translate_DNA(df$sequence_alignment)
+
+df <- unproductive(df)
+
+colnames(df)[which(colnames(df) == "clone_id")] <- "family"
+```
+
+## Make Logo Plots for the top 25 clusters (for each experiment)
+
+* **Note:** In order to plot the VHH's, I would need to align them-- takes time
+
+## Logos
+
+```{r}
+for (experiment_id in unique(df$experiment)){
+  
+  tmp_one <- df[df$experiment == experiment_id,]
+  tab <- top_groups(tmp_one)
+  tmp <- tmp_one[tmp_one$family %in% head(as.numeric(names(tab)), 25),]
+  
+    for (nm in unique(tmp$family)){
+      tmp_frame <- tmp[tmp$family == as.numeric(nm),]
+      
+      common_CDR3 <- names(table(tmp_frame$junction_aa)[order(table(tmp_frame$junction_aa), decreasing = T)][1])
+      
+      cat("Experiment: ", experiment_id, ' \n', sep = '')
+      cat("Group ID: ", unique(tmp_frame$family), '\n', sep = '')
+      cat("Unique VHHs: ", length(unique(tmp_frame$VHH)), '\n', sep = '')
+      cat("Unique CDR3s: ", length(unique(tmp_frame$junction_aa)), '\n', sep = '')
+      cat("Most-frequent CDR3: ", common_CDR3, ' (with ',nrow(tmp_frame[tmp_frame$junction_aa == common_CDR3,]), ' CDR3 observations)\n', sep = '')
+      #print(ggseqlogo(as.character(tmp_frame$junction_aa), seq_type='aa', method = 'p') + 
+      #  theme_classic() + ggtitle(paste(" CDR3 Logo Plot for cluster with the most common CDR3 sequence:\n               ", common_CDR3, sep = '')))
+      
+      
+      print("Writing...")
+      file_name <- paste("~/VHH/data/clustering_results/Hierarchical-Cluster_",experiment_id,"_Family_",unique(tmp_frame$family),"_Median-CRD3_",common_CDR3,".csv", sep = '')
+      print(file_name)
+      
+      
+      #tmp_frame <- tmp_frame[,c("junction_aa", "experiment", "family", "VHH", "sequence_id")]
+      #colnames(tmp_frame) <- c("junction_aa", "Illumina_run", "family", "VHH", "sequence_id")
+      
+      #write.csv(tmp_frame, file = file_name, row.names = F)
+      
+      
+    }
+  
+}
+
+```
+
+
+
+
