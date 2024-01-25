@@ -568,3 +568,35 @@ RECORDS> 99281
     END> DefineClones
 ```
 
+### Take Two
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 DefineClones.py -d /data/S2_data_p_parse-select.tsv --vf v_call --model ham --norm len --dist 0.15 --format airr --nproc 4 --outname S2__thr015_data_p_genotyped --outdir /data/ 
+
+       START> DefineClones
+        FILE> S2_data_p_parse-select.tsv
+   SEQ_FIELD> junction
+     V_FIELD> v_call
+     J_FIELD> j_call
+ MAX_MISSING> 0
+GROUP_FIELDS> None
+      ACTION> set
+        MODE> gene
+    DISTANCE> 0.15
+     LINKAGE> single
+       MODEL> ham
+        NORM> len
+         SYM> avg
+       NPROC> 4
+
+PROGRESS> [Grouping sequences] 15:41:35 (99281) 1.2 min
+
+PROGRESS> [Assigning clones] 21:12:18 |####################| 100% (99,281) 331.8 min
+
+ OUTPUT> S2__thr015_data_p_genotyped_clone-pass.tsv
+ CLONES> 15348
+RECORDS> 99281
+   PASS> 99281
+   FAIL> 0
+    END> DefineClones
+```

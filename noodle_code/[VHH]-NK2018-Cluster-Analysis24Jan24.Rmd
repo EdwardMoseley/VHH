@@ -80,12 +80,19 @@ colnames(seqs)[3] <- "sequence_id"
 seqs$sequence <- trim_CDR3(seqs$sequence)
 ```
 
+---
+
+---
+
 ### Load Illumina (DB) Sequnces
 
 ```{r}
-S1 <- read.csv("~/VHH/data/S1_data_p_genotyped_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
-S2 <- read.csv("~/VHH/data/S2_data_p_genotyped_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
-S3 <- read.csv("~/VHH/data/S3_data_p_genotyped_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+S1 <- read.csv("~/VHH/data/S1_data_p_genotyped_clone-pass.tsv", 
+               header = T, stringsAsFactors = F, sep = '\t')
+S2 <- read.csv("~/VHH/data/S2_data_p_genotyped_clone-pass.tsv", 
+               header = T, stringsAsFactors = F, sep = '\t')
+S3 <- read.csv("~/VHH/data/S3_data_p_genotyped_clone-pass.tsv", 
+               header = T, stringsAsFactors = F, sep = '\t')
 ```
 
 
