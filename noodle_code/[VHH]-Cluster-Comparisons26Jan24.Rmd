@@ -1,0 +1,569 @@
+---
+title: "[VHH]-Cluster-Comparisons26Jan24"
+output: html_document
+date: "2024-01-26"
+---
+
+
+```{r, warning=F, echo = F}
+suppressMessages(library(ggplot2))
+suppressMessages(library(ggseqlogo))
+suppressMessages(library(gridExtra))
+knitr::opts_chunk$set(fig.width=12, fig.height=4) 
+```
+
+#### Tools
+
+```{r}
+#### Translate
+translate_DNA <- function(dna_data){
+  clean_dna <- gsub("[^ACTG]", "", dna_data)
+  DNA_strings <- Biostrings::DNAStringSet(clean_dna)
+  translations <- as.character(Biostrings::translate(DNA_strings))
+  return(translations)
+}
+
+#### Trim CDR3
+trim_CDR3 <- function(seq_vec){
+  return(substr(seq_vec, 2, nchar(seq_vec)-1))
+}
+
+top_groups <- function(results){
+  return(table(results$family)[order(table(results$family), decreasing = T)])
+}
+
+unproductive <- function(results){
+  return(results[which(!grepl("\\*", results$VHH, fixed = F)),])
+}
+```
+
+## Hierarchical Method
+
+Rule-based Method
+
+### Load Data
+
+```{r, warning=F}
+S1 <- read.csv("~/VHH/data/S1_data_p_genotyped_clone-pass.tsv",
+               header = T, stringsAsFactors = F, sep = '\t')
+# Rename clones
+S1$clone_id <- paste("S1_", S1$clone_id, sep = '')
+
+S2 <- read.csv("~/VHH/data/S2_data_p_genotyped_clone-pass.tsv", 
+               header = T, stringsAsFactors = F, sep = '\t')
+# Rename clones
+S2$clone_id <- paste("S2_", S2$clone_id, sep = '')
+
+S3 <- read.csv("~/VHH/data/S3_data_p_genotyped_clone-pass.tsv", 
+               header = T, stringsAsFactors = F, sep = '\t')
+# Rename clones
+S3$clone_id <- paste("S3_", S3$clone_id, sep = '')
+
+
+S1$experiment <- rep("S1", each = nrow(S1))
+S2$experiment <- rep("S2", each = nrow(S2))
+S3$experiment <- rep("S3", each = nrow(S3))
+
+df <- rbind(S1, S2, S3)
+
+df$junction_aa <- trim_CDR3(df$junction_aa)
+
+df <- df[!is.na(df$junction_aa),]
+
+df$VHH <- translate_DNA(df$sequence_alignment)
+
+df <- unproductive(df)
+
+# clone_id for 
+# colnames(df)[which(colnames(df) == "clone_id")] <- "family"
+
+rm(S1, S2, S3)
+
+df <- df[,c("sequence_id", "junction_aa", "VHH", "experiment", "clone_id"),]
+```
+
+## Rule-based Method
+
+### Load Data
+
+```{r, warning=F}
+S1 <- read.csv("~/VHH/data/S1_Rule-based_families24Jan24.csv", header = T, stringsAsFactors = F)
+
+# Rename famlies
+S1$family <- paste("S1_", S1$family, sep = '')
+S1$experiment <- rep("S1", each = nrow(S1))
+
+S2 <- read.csv("~/VHH/data/S2_Rule-based_families24Jan24.csv", header = T, stringsAsFactors = F)
+
+S2$family <- paste("S2_", S2$family, sep = '')
+S2$experiment <- rep("S2", each = nrow(S2))
+
+S3 <- read.csv("~/VHH/data/S3_Rule-based_families24Jan24.csv", header = T, stringsAsFactors = F)
+
+S3$family <- paste("S3_", S3$family, sep = '')
+S3$experiment <- rep("S3", each = nrow(S3))
+
+rb_df <- rbind(S1, S2, S3)
+
+rb_df <- rb_df[!is.na(rb_df$junction_aa),]
+
+rb_df$VHH <- translate_DNA(rb_df$sequence_alignment)
+
+rb_df <- unproductive(rb_df)
+
+rm(S1, S2, S3)
+
+rb_df <- rb_df[,c("sequence_id", "junction_aa", "VHH", "experiment", "family")]
+```
+
+### Drop junction_aa's found in one but not the other
+
+```{r}
+test <- rb_df[which(rb_df$sequence_id %in% df$sequence_id),]
+test_two <- df[which(df$sequence_id %in% rb_df$sequence_id),]
+
+all(test$sequence_id %in% test_two$sequence_id)
+all(test_two$sequence_id %in% test$sequence_id)
+
+rb_df <- test
+df <- test_two
+
+rm(test, test_two)
+```
+
+## Quick Check
+
+```{r}
+setdiff(colnames(df), colnames(rb_df))
+# [1] "clone_id"
+setdiff(colnames(rb_df), colnames(df))
+# [1] "family" 
+```
+
+
+### Merge
+
+1. **MERGE** Datasets so we have "RB-Family" and "Clone_ID"
+
+```{r}
+df <- merge(df, rb_df, all.x = T, by = c("sequence_id", "junction_aa", "experiment", "VHH"))
+
+rm(rb_df)
+```
+
+2. Query databset for a few example sequences, pulling:
+
+```
+c("sequence_id", "junction_aa", "VHH", "experiment", "family", "clone_id")
+```
+
+# PLAN
+
+Stack or Merge the datasets
+
+Query the dataset for:
+
+Look into:
+
+1. “NEEDY”
+2. “NAGAGD”
+3. “XLL-H11” (Query results)
+
+
+
+My goal for Monday, then, will be to discuss preliminary results from the clustering processes (after seeing if I can “tighten” the methods up a bit) with an emphasis on the extent to which the methods can effectively partition these families. I will probably run the clustering algorithms, and then query the clustered results to see which, and/or how many, clusters are the “closest matches” to the SmCA-specific families and the SmPDE-specific ones— I’m borrowing this general idea from the experiment you suggested previously (find a diverse family, cluster, and query to check robustness).
+
+
+**Query Sequences**
+
+1. `~/Desktop/Shoemaker Lab/Query-Seqs/XLL-H6-family-of-SmCA-binders_VHHs_9-23.fasta`
+
+2. `~/Desktop/Shoemaker Lab/Query-SeqsXLN-H5-family-and-outliers_SmPDE-binders_1-26-24.fasta`
+
+(Also, double-check emails to see if there are other interesting groups)
+
+
+1. See how distributed these families are across clusters after finding their nearest neighbors
+
+2. After that, we can re-query as necessary (or look into their families)
+
+3. (?) Way to check if both are finding the same families?
+
+
+
+
+
+
+
+
+
+
+
+## Query to Check for Results
+
+Load query sequences
+
+
+
+
+
+---
+
+
+
+
+## Utilities
+
+```{r}
+library(msa)
+library(Biostrings)
+```
+
+#### CDR3 Search
+
+```{r}
+# function def
+CDR3_Search <- function(dat,
+                        sequences,
+                        insert_cost,
+                        delete_cost,
+                        substitute_cost){
+  
+  # Count junction_aa length
+  # dat$junction_aa_length <- nchar(dat$junction_aa)
+  
+  # For each CDR3
+  for (i in 1:length(seqs$sequence)){
+    # Pull the name
+    CDR3_ID <- seqs$sequence_id[i]
+    # Pull the junction_aa
+    CDR3 <- seqs$sequence[i]
+    
+    # calculate distance metric indexed by Query VHH name
+    dat[[CDR3_ID]] <- stringdist::stringdist(seqs$sequence[i], 
+                                             dat$junction_aa, 
+                                             method = "lv",
+                                        weight = c(insert_cost, 
+                                                   delete_cost, 
+                                                   substitute_cost))
+  }
+  return(dat)
+}
+  
+```
+
+
+#### Translate
+
+```{r}
+translate_DNA <- function(dna_data){
+  clean_dna <- gsub("[^ACTG]", "", dna_data)
+  DNA_strings <- Biostrings::DNAStringSet(clean_dna)
+  translations <- as.character(Biostrings::translate(DNA_strings))
+  return(translations)
+}
+```
+
+#### Trim CDR3
+
+```{r}
+trim_CDR3 <- function(seq_vec){
+  return(substr(seq_vec, 2, nchar(seq_vec)-1))
+}
+```
+
+
+## Load Data
+
+### Load query sequences
+
+```{r}
+seqs <- read.csv("~/Desktop/Shoemaker Lab/VHH_all_query_CDR3s17Jan24.csv", header = T, stringsAsFactors = F)
+
+# Rename junction_aa
+colnames(seqs)[2] <- "sequence"
+colnames(seqs)[3] <- "sequence_id"
+
+# Trim
+seqs$sequence <- trim_CDR3(seqs$sequence)
+```
+
+### Load Illumina (DB) Sequnces
+
+```{r}
+S1 <- read.csv("~/VHH/data/S1_data_p_genotyped_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+S2 <- read.csv("~/VHH/data/S2_data_p_genotyped_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+S3 <- read.csv("~/VHH/data/S3_data_p_genotyped_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+```
+
+
+### Clean Data
+
+```{r}
+S1$junction_aa <- trim_CDR3(S1$junction_aa)
+S2$junction_aa <- trim_CDR3(S2$junction_aa)
+S3$junction_aa <- trim_CDR3(S3$junction_aa)
+```
+
+### Perform CDR3 Search
+
+```{r}
+S1_res <- CDR3_Search(S1,
+                      seqs,
+                      insert_cost = 1,
+                      delete_cost = 1,
+                      substitute_cost = 0.05)
+
+S1_res$experiment <- rep("S1", each = nrow(S1_res))
+
+S2_res <- CDR3_Search(S2,
+                      seqs,
+                      insert_cost = 1,
+                      delete_cost = 1,
+                      substitute_cost = 0.05)
+
+S2_res$experiment <- rep("S2", each = nrow(S2_res))
+
+S3_res <- CDR3_Search(S3,
+                      seqs,
+                      insert_cost = 1,
+                      delete_cost = 1,
+                      substitute_cost = 0.05)
+
+S3_res$experiment <- rep("S3", each = nrow(S3_res))
+
+rm(S1, S2, S3)
+```
+
+### Find closest Clonal Familes for Each Query
+
+* **Note:** This only pulls the _first_ minimum distanced `clone_id` right now
+
+```{r}
+pull_clone_id_and_junction <- function(dat, seqs){
+  results <- data.frame()
+
+  for (nm in unique(seqs$sequence_id)){
+    results <- rbind(results, cbind(nm,
+                                    seqs[seqs$sequence_id == nm,]$sequence,
+                                    dat[which.min(dat[[nm]]),]$clone_id,
+                                    dat[which.min(dat[[nm]]),]$junction_aa,
+                                    dat[which.min(dat[[nm]]),]$experiment,
+                                    dat[which.min(dat[[nm]]),]$sequence_alignment))
+  }
+  
+  colnames(results) <- c("sequence_id", 
+                         "sequence",
+                         "clone_id",
+                         "junction_aa", 
+                         "experiment",
+                         "sequence_alignment")
+  
+  return(results)
+  
+}
+
+results <- rbind(pull_clone_id_and_junction(S1_res, seqs),
+                 pull_clone_id_and_junction(S2_res, seqs),
+                 pull_clone_id_and_junction(S3_res, seqs))
+
+
+# Create an "all results" variable
+all_res <- rbind(S1_res, S2_res, S3_res)
+```
+
+
+```{r}
+for (nm in unique(results$sequence_id)){
+  print(nm)
+  print(results[results$sequence_id == nm,])
+  cat('\n')
+}
+```
+
+
+## Subset clones for each Sequence_id
+
+1. Subset for each sequence id based on clone
+
+2. Calculate levenshtein distance for each
+
+3. Order by distance
+
+4. Compute multiple sequence alignment
+
+#### Pull clones for a given sequence
+
+```{r}
+res_list <- list()
+
+# Cluster by experiment
+for (experiment_set in unique(results$experiment)){
+  
+  tmp_results <- results[results$experiment == experiment_set,]
+  
+  # Then by clones
+  for (nm in tmp_results$sequence_id){
+      # Create an empty spot if it doesn't exist
+      if (is.null(res_list[[nm]])) res_list[[nm]] <- data.frame()
+      # Subset clones
+      tmp <- all_res[all_res$clone_id == tmp_results[tmp_results$sequence_id == nm,]$clone_id,]
+      
+      # Remove duplicate junction_aas (for now)
+      tmp <- tmp[!duplicated(tmp$junction_aa),]
+      
+      # Subset relevant information
+      tmp <- tmp[order(tmp[[nm]], decreasing = F), c("sequence_id",
+                                                     "junction_aa",
+                                                     "sequence_alignment",
+                                                      nm,
+                                                     "experiment")]
+      
+      # Correct distance to the # of substitutions
+      tmp[[nm]] <- tmp[[nm]]/0.05
+      
+      tmp$sequence_id <- paste(nm, ':', tmp$sequence_id, sep = '')
+      # Add new columns
+      tmp$Query_VHH_id <- rep(nm, each = nrow(tmp))
+      tmp$Query_VHH_CDR3 <- rep(seqs[seqs$sequence_id == nm,]$sequence)
+      
+      colnames(tmp) <- c("DB_sequence_id", 
+                         "DB_VHH_CDR3",
+                         "DB_sequence_alignment",
+                         "distance",
+                         "experiment",
+                         "Q_VHH_id",
+                         "Q_VHH_CDR3")
+      
+      #print(nm)
+      #print("All CDR3's the same length?")
+      #print(all(nchar(tmp$DB_VHH_CDR3) == nchar(tmp$Q_VHH_CDR3)))
+      
+      tmp <- tmp[nchar(tmp$DB_VHH_CDR3) == nchar(tmp$Q_VHH_CDR3),]
+      
+      #Translate
+      tmp$DB_sequence_alignment <- translate_DNA(tmp$DB_sequence_alignment)
+      # Chop off front
+      tmp$DB_sequence_alignment <- substr(tmp$DB_sequence_alignment, 7, nchar(tmp$DB_sequence_alignment))
+      # Drop premature stop codons
+      tmp <- tmp[which(!grepl("\\*", tmp$DB_sequence_alignment, fixed = F)),]
+      
+      ## Rearrange columns
+      tmp <- tmp[,c("Q_VHH_id", 
+                    "Q_VHH_CDR3",
+                    "DB_VHH_CDR3",
+                    "distance",
+                    "DB_sequence_alignment",
+                    "DB_sequence_id",
+                    "experiment")]
+      
+      # Store in results
+      res_list[[nm]] <- rbind(res_list[[nm]], tmp)
+    }
+}
+
+
+```
+
+
+## Sequence Alignments
+
+1. Iterate over the list of datasets
+
+2. perform MSA on assembled VHHs
+
+3. Write csv
+
+## Sequence Alignment
+
+```{r}
+for (nm in names(res_list)){
+  print(nm)
+  # Create a data frame with amino acid sequences
+  tmp <- res_list[[nm]]
+  VHH_results <- data.frame()
+  
+  for (experiment_id in unique(tmp$experiment)){
+    
+      tmp <- tmp[tmp$experiment == experiment_id,]
+      
+      if (nrow(tmp) > 0){
+          # Convert the data frame to an AAStringSet object
+          sequences <- AAStringSet(tmp$DB_sequence_alignment)
+          # Perform multiple sequence alignment
+          msa_result <- msa(sequences, method = "ClustalOmega")
+          # Store aligned results
+          tmp$Aligned_VHHs <- as.character(msa_result@unmasked)
+          # Substitute spaces for the - characters
+          tmp$Aligned_VHHs <- gsub('-', ' ', tmp$Aligned_VHHs)
+          
+          ## Convert distance to a percentage
+          # tmp$distance <- 100 - ((tmp$distance/nchar(tmp$DB_VHH_CDR3))*100)
+          
+          # Write
+          VHH_results <- rbind(VHH_results, tmp)
+      } else {
+        cat("Unable to find match for: ", nm, '\n')
+      }
+  }
+  
+      print("Writing...")
+      print(nm)
+      VHH_results <- VHH_results[order(VHH_results$distance, decreasing = F),]
+      # Drop exact matches
+      VHH_results <- VHH_results[VHH_results$distance != 0,]
+      file_name <- paste("~/Desktop/Shoemaker Lab/VHH_",nm,"_NK2018_clustering_CDR3_results20Jan24.csv", sep = '')
+      write.csv(VHH_results, file_name, row.names = F)
+      cat('Written.\n')
+      cat('\n')
+}
+
+
+
+```
+
+
+
+
+```{r}
+for (nm in names(res_list)){
+  print(nm)
+  # Create a data frame with amino acid sequences
+  tmp <- res_list[[nm]]
+  VHH_results <- data.frame()
+
+      if (nrow(tmp) > 0){
+          # Convert the data frame to an AAStringSet object
+          sequences <- AAStringSet(tmp$DB_sequence_alignment)
+          # Perform multiple sequence alignment
+          msa_result <- msa(sequences, method = "ClustalOmega")
+          # Store aligned results
+          tmp$Aligned_VHHs <- as.character(msa_result@unmasked)
+          # Substitute spaces for the - characters
+          tmp$Aligned_VHHs <- gsub('-', ' ', tmp$Aligned_VHHs)
+          
+          ## Convert distance to a percentage
+          # tmp$distance <- 100 - ((tmp$distance/nchar(tmp$DB_VHH_CDR3))*100)
+          
+          # Write
+          VHH_results <- rbind(VHH_results, tmp)
+          
+      } else {
+        cat("Unable to find match for: ", nm, '\n')
+      }
+  
+      print("Writing...")
+      print(nm)
+      VHH_results <- VHH_results[order(VHH_results$distance, decreasing = F),]
+      # Drop exact matches
+      VHH_results <- VHH_results[VHH_results$distance != 0,]
+      file_name <- paste("~/Desktop/Shoemaker Lab/VHH_",nm,"_NK2018_clustering_CDR3_results20Jan24.csv", sep = '')
+      write.csv(VHH_results, file_name, row.names = F)
+      cat('Written.\n')
+      cat('\n')
+}
+```
+
+
+
+
