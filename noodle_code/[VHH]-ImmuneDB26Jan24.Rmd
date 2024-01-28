@@ -87,7 +87,117 @@ The location of important files are:
 
 * `/example`: A set of example input data to familiarize yourself with ImmuneDB.
 
-## Running ImmuneDB
+# Running the Example Pipeline
 
-This part relies heavily on [Example Pipeline](https://docs.immunedb.com/en/latest/pipeline_example.html), and [Running the Pipeline on Your Data](https://docs.immunedb.com/en/latest/pipeline_full.html#pipeline-full).
+This part relies heavily on [Example Pipeline](https://docs.immunedb.com/en/latest/pipeline_example.html)
 
+This page serves to familiarize new users with the basic process of running the ImmuneDB pipeline. Example input FASTQ files are provided which contain human B-cell heavy chain sequences.
+
+Commands are listed as either being run in either the Docker container or on the host. All `immunedb_*` commands have a `--help` flag which will show all arguments and their descriptions. It is recommended for each command you run the help flag to see options not listed in this documentation.
+
+## Example Pipeline
+
+Load up the docker image, mount `:share`
+
+```
+docker run -v $HOME/immunedb_share:/share \
+  -p 8080:8080 -it arosenfeld/immunedb:v0.29.11
+```
+
+## Metadata Specification
+
+Before ImmuneDB can be run, metadata must be specified for each input file. For this example, one has already been created for you. To learn how to create a metadata file for your own data, see [Creating a Metadata Sheet](https://docs.immunedb.com/en/latest/pipeline_full.html#creating-a-metadata-sheet).
+
+## ImmuneDB Instance Creation
+
+Next, we create a database for the data with:
+
+```
+immunedb_admin create example_db /share/configs
+```
+
+**Error:**
+
+```
+Traceback (most recent call last):
+  File "/usr/local/bin/immunedb_admin", line 4, in <module>
+    import immunedb.util.admin as admin
+  File "/usr/local/lib/python3.8/dist-packages/immunedb/util/admin.py", line 3, in <module>
+    import pymysql
+ModuleNotFoundError: No module named 'pymysql'
+```
+
+**1st Fix Attempt**
+
+```
+pip3 install pymysql
+```
+
+```
+Collecting pymysql
+  Downloading PyMySQL-1.1.0-py3-none-any.whl (44 kB)
+     |████████████████████████████████| 44 kB 1.0 MB/s 
+Installing collected packages: pymysql
+Successfully installed pymysql-1.1.0
+```
+
+**Error:**
+
+```
+Traceback (most recent call last):
+  File "/usr/local/bin/immunedb_admin", line 4, in <module>
+    import immunedb.util.admin as admin
+  File "/usr/local/lib/python3.8/dist-packages/immunedb/util/admin.py", line 11, in <module>
+    import immunedb.common.config as config
+  File "/usr/local/lib/python3.8/dist-packages/immunedb/common/config.py", line 6, in <module>
+    from sqlalchemy import create_engine
+ModuleNotFoundError: No module named 'sqlalchemy'
+```
+
+**2nd Fix Attempt**
+
+```
+pip3 install sqlalchemy
+```
+
+**...more errors, more fix attempts.**
+
+```
+pip3 install coloredlogs
+```
+
+**Finally:**
+
+* `immunedb_admin create example_db /share/configs`
+
+```
+2024-01-27 14:39:51 [INFO] Creating user "example_db"
+2024-01-27 14:39:51 [INFO] Creating database "example_db"
+2024-01-27 14:39:51 [INFO] Creating config at /share/configs/example_db.json
+2024-01-27 14:39:51 [INFO] Initializing tables
+2024-01-27 14:39:52 [INFO] Success!
+```
+
+## Identifying Important Sequences
+
+Data can be added to the new ImmuneDB database either by importing annotated sequencing data in [AIRR format](http://docs.airr-community.org/en/latest/datarep/rearrangements.html), or via a built-in gene assignment method based on [Zhang, et al., 2015](https://www.ncbi.nlm.nih.gov/pubmed/26529062).
+
+For this example, there are two input FASTQ files in /example/fastq along with an associated metadata file. These will be used regardless of the method you choose. There are also germline files for human and mouse included.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+---
+
+[Running the Pipeline on Your Data](https://docs.immunedb.com/en/latest/pipeline_full.html#pipeline-full).

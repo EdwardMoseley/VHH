@@ -94,7 +94,298 @@ DefineClones.py -d /data/S1_data_p_parse-select.tsv --vf v_call \
 --outname S1_specificity_test --outdir /data/
 ```
 
----
+```
+DefineClones.py -d /data/S1_data_p_parse-select.tsv --vf v_call \
+--model ham --norm len --dist 0.20 --format airr --nproc 4 \
+--outname S1_specificity_test --outdir /data/
+
+       START> DefineClones
+        FILE> S1_data_p_parse-select.tsv
+   SEQ_FIELD> junction
+     V_FIELD> v_call
+     J_FIELD> j_call
+ MAX_MISSING> 0
+GROUP_FIELDS> None
+      ACTION> set
+        MODE> gene
+    DISTANCE> 0.2
+     LINKAGE> single
+       MODEL> ham
+        NORM> len
+         SYM> avg
+       NPROC> 4
+
+PROGRESS> [Grouping sequences] 22:05:50 (104031) 1.0 min
+
+PROGRESS> [Assigning clones] 00:26:09 |####################| 100% (104,031) 141.3 min
+
+ OUTPUT> S1_specificity_test_clone-pass.tsv
+ CLONES> 7709
+RECORDS> 104031
+   PASS> 104031
+   FAIL> 0
+    END> DefineClones
+```
+
+
+
+
+
+# S2
+
+
+
+```{r}
+db <- read_rearrangement(file.path("~/VHH/data/S2_data_p_parse-select.tsv"))
+```
+
+## Clonal diversity analysis
+
+### Clonal assignment using the CDR3 as a fingerprint
+
+Note: we will _decrease_ the threshold value by 25% (arbitrarily) in an effort to increase the specificity of the clonal grouping.
+
+```{r}
+db <- distToNearest(db, model = "ham", normalize = "len", 
+                    vCallColumn = "v_call", 
+                    jCallColumn = "j_call",
+                    nproc = 4)
+
+# determine the threshold
+threshold <- findThreshold(db$dist_nearest, method = "density")
+thr <- threshold@threshold
+
+print(thr)
+thr <- thr - (thr*0.25)
+print("25% Lower Threshold:")
+print(round(thr, 2))
+```
+
+```
+
+```
+
+```{r}
+# Plot histogram of non-NA distances
+p2 <- ggplot(data=subset(db, !is.na(dist_nearest))) + 
+      theme_bw() + 
+      ggtitle("S2 - Distance to nearest: Hamming") + 
+      xlab("Hamming distance") +
+      geom_histogram(aes(x=dist_nearest), binwidth=0.025, 
+                     fill="steelblue", color="white") +
+      geom_vline(xintercept = thr, linetype="dotted", size = 1, color = "red") #+
+      #geom_text(aes(x=thr, label="\nThreshold", y=35000), colour="red", angle=90)
+
+plot(p2)
+```
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+DefineClones.py -d /data/S2_data_p_parse-select.tsv --vf v_call \
+--model ham --norm len --dist 0.17 --format airr --nproc 4 \
+--outname S2_specificity_test --outdir /data/
+```
+
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+DefineClones.py -d /data/S2_data_p_parse-select.tsv --vf v_call \
+--model ham --norm len --dist 0.17 --format airr --nproc 4 \
+--outname S2_specificity_test --outdir /data/
+       START> DefineClones
+        FILE> S2_data_p_parse-select.tsv
+   SEQ_FIELD> junction
+     V_FIELD> v_call
+     J_FIELD> j_call
+ MAX_MISSING> 0
+GROUP_FIELDS> None
+      ACTION> set
+        MODE> gene
+    DISTANCE> 0.17
+     LINKAGE> single
+       MODEL> ham
+        NORM> len
+         SYM> avg
+       NPROC> 4
+
+PROGRESS> [Grouping sequences] 00:54:02 (99281) 0.8 min
+
+PROGRESS> [Assigning clones] 05:53:26 |####################| 100% (99,281) 300.2 min
+
+ OUTPUT> S2_specificity_test_clone-pass.tsv
+ CLONES> 14654
+RECORDS> 99281
+   PASS> 99281
+   FAIL> 0
+    END> DefineClones
+
+```
+
+
+
+
+
+
+
+
+# S3
+
+
+
+```{r}
+db <- read_rearrangement(file.path("~/VHH/data/S3_data_p_parse-select.tsv"))
+```
+
+## Clonal diversity analysis
+
+### Clonal assignment using the CDR3 as a fingerprint
+
+Note: we will _decrease_ the threshold value by 25% (arbitrarily) in an effort to increase the specificity of the clonal grouping.
+
+```{r}
+db <- distToNearest(db, model = "ham", normalize = "len", 
+                    vCallColumn = "v_call", 
+                    jCallColumn = "j_call",
+                    nproc = 4)
+
+# determine the threshold
+threshold <- findThreshold(db$dist_nearest, method = "density")
+thr <- threshold@threshold
+
+print(thr)
+thr <- thr - (thr*0.25)
+print("25% Lower Threshold:")
+print(round(thr, 2))
+```
+
+```
+> print(thr)
+[1] 0.2505645
+> thr <- thr - (thr*0.25)
+> print("25% Lower Threshold:")
+[1] "25% Lower Threshold:"
+> print(round(thr, 2))
+[1] 0.19
+```
+
+```{r}
+# Plot histogram of non-NA distances
+p3 <- ggplot(data=subset(db, !is.na(dist_nearest))) + 
+      theme_bw() + 
+      ggtitle("S3 - Distance to nearest: Hamming") + 
+      xlab("Hamming distance") +
+      geom_histogram(aes(x=dist_nearest), binwidth=0.025, 
+                     fill="steelblue", color="white") +
+      geom_vline(xintercept = thr, linetype="dotted", size = 1, color = "red") #+
+      #geom_text(aes(x=thr, label="\nThreshold", y=35000), colour="red", angle=90)
+
+plot(p3)
+```
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+DefineClones.py -d /data/S3_data_p_parse-select.tsv --vf v_call \
+--model ham --norm len --dist 0.19 --format airr --nproc 4 \
+--outname S3_specificity_test --outdir /data/
+```
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+DefineClones.py -d /data/S3_data_p_parse-select.tsv --vf v_call \
+--model ham --norm len --dist 0.19 --format airr --nproc 4 \
+--outname S3_specificity_test --outdir /data/
+       START> DefineClones
+        FILE> S3_data_p_parse-select.tsv
+   SEQ_FIELD> junction
+     V_FIELD> v_call
+     J_FIELD> j_call
+ MAX_MISSING> 0
+GROUP_FIELDS> None
+      ACTION> set
+        MODE> gene
+    DISTANCE> 0.19
+     LINKAGE> single
+       MODEL> ham
+        NORM> len
+         SYM> avg
+       NPROC> 4
+
+PROGRESS> [Grouping sequences] 11:51:56 (72022) 0.6 min
+
+PROGRESS> [Assigning clones] 12:54:30 |####################| 100% (72,022) 63.1 min
+
+ OUTPUT> S3_specificity_test_clone-pass.tsv
+ CLONES> 8533
+RECORDS> 72022
+   PASS> 72022
+   FAIL> 0
+    END> DefineClones
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
