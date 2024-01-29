@@ -149,12 +149,8 @@ setdiff(colnames(rb_df), colnames(df))
 df <- merge(df, rb_df, all.x = T, by = c("sequence_id", "junction_aa", "experiment", "VHH"))
 
 rm(rb_df)
-```
 
-2. Query databset for a few example sequences, pulling:
-
-```
-c("sequence_id", "junction_aa", "VHH", "experiment", "family", "clone_id")
+# write.csv(df, file = "~/Desktop/Shoemaker Lab/Clustered-Database-HM-Clones-vs-RB-families28Jan24.csv", row.names = F)
 ```
 
 ### Quick Look
@@ -246,9 +242,8 @@ Look into:
 1. "NEEDY"
 2. "NAGAGD"
 3. "XLL-H11" (Query results)
-4. 
 
-> My goal for Monday, then, will be to discuss preliminary results from the clustering processes (after seeing if I can “tighten” the methods up a bit) with an emphasis on the extent to which the methods can effectively partition these families. I will probably run the clustering algorithms, and then query the clustered results to see which, and/or how many, clusters are the “closest matches” to the SmCA-specific families and the SmPDE-specific ones— I’m borrowing this general idea from the experiment you suggested previously (find a diverse family, cluster, and query to check robustness).
+> My goal for Monday, then, will be to discuss preliminary results from the clustering processes (after seeing if I can "tighten" the methods up a bit) with an emphasis on the extent to which the methods can effectively partition these families. I will probably run the clustering algorithms, and then query the clustered results to see which, and/or how many, clusters are the "closest matches" to the SmCA-specific families and the SmPDE-specific ones— I'm borrowing this general idea from the experiment you suggested previously (find a diverse family, cluster, and query to check robustness).
 
 
 **Query Sequences**
@@ -500,8 +495,8 @@ for (nm in names(res_list)){
   print(nm)
   VHH_results <- VHH_results[order(VHH_results$distance, decreasing = T),]
 
-  file_name <- paste("~/Desktop/Shoemaker Lab/NK-vs-Rule-based/VHH_",nm,"_clustering_comparison27Jan24.csv", sep = '')
-  write.csv(VHH_results, file_name, row.names = F)
+  # file_name <- paste("~/Desktop/Shoemaker Lab/NK-vs-Rule-based/VHH_",nm,"_clustering_comparison27Jan24.csv", sep = '')
+  # write.csv(VHH_results, file_name, row.names = F)
   cat('Written.\n')
   cat('\n')
 }
@@ -519,9 +514,6 @@ for (nm in names(res_list)){
   * Tallies of clonal groups (clone_ids and families)
   * Most-frequently found CDR3
   * Query CDR3
-
-
-
 
 ```{r}
 

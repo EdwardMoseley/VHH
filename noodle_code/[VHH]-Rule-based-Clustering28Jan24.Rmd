@@ -1,0 +1,245 @@
+---
+title: "[VHH]-Rule-based_Clustering23Jan24"
+output: html_document
+date: "2024-01-23"
+---
+
+### Helper Functions
+
+```{r}
+#### Translate
+translate_DNA <- function(dna_data){
+  clean_dna <- gsub("[^ACTG]", "", dna_data)
+  DNA_strings <- Biostrings::DNAStringSet(clean_dna)
+  translations <- as.character(Biostrings::translate(DNA_strings))
+  return(translations)
+}
+
+#### Trim CDR3
+trim_CDR3 <- function(seq_vec){
+  return(substr(seq_vec, 2, nchar(seq_vec)-1))
+}
+```
+
+## Algorithm
+
+1. Randomly select a junction_aa from the data frame
+2. Subset all junction_aa values with the same length
+3. Assign all of the junction_aa values with >= 50% edit distance to the first junction_aa's "group"
+    * All other junction_aa values should be returned to the original dataset
+4. Perform this again until all junction_aa's have a "group" assigned to them
+
+
+```{r}
+tmp <- read.csv("~/VHH/data/S1-M02-TRIM_atleast-1_db-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+
+tmp$junction_aa <- trim_CDR3(tmp$junction_aa)
+```
+
+
+Subset samples for speed.
+
+```{r}
+# set.seed(1)
+# df <- tmp[sample(1:nrow(tmp), 10000),]
+df <- tmp
+# Create variable for subsetting equal length CDR3s
+df$junction_aa_length <- nchar(df$junction_aa)
+```
+
+
+```{r}
+threshold <- (2/5)*100
+results <- data.frame()
+  # Start with 1 for group name
+  group <- 1
+
+time_stamp_one <- Sys.time()
+while (nrow(df) > 1){
+  if (group %% 100 == 0) cat("Clustering group: ", group, '\n')
+  
+  ## Randomly select a CDR3
+  set.seed(group)
+  # Select a single observation from DF
+  tmp_CDR3 <- df[sample(1:nrow(df), 1),]
+  
+  # Subset all CDR3's with the same length
+  tmp_frame <- df[df$junction_aa_length == tmp_CDR3$junction_aa_length,]
+  
+  # Calculate distances
+  tmp_frame$distance <- stringdist::stringdist(tmp_CDR3$junction_aa,
+                                               tmp_frame$junction_aa, 
+                                               method = "lv")
+  
+  tmp_frame$distance <- 100 - (tmp_frame$distance/tmp_frame$junction_aa_length)*100
+  
+  # Drop any with less than the threshold
+  tmp_frame <- tmp_frame[tmp_frame$distance >= threshold,]
+  # Assign group
+  tmp_frame$family <- rep(group, each = nrow(tmp_frame))
+  # Increment counter
+  group <- group + 1
+  # Add to results
+  results <- rbind(results, tmp_frame)
+  
+  # Remove tmp_frame data from df
+  df <- df[!(df$sequence_id %in% tmp_frame$sequence_id),]
+}
+cat("Clustering took:\n")
+print(Sys.time() - time_stamp_one)
+```
+
+```
+2938 groups
+Time difference of 11.6637 mins
+```
+
+```{r}
+S1 <- results
+```
+
+## S2
+
+```{r}
+tmp <- read.csv("~/VHH/data/S2-M02-TRIM_atleast-1_db-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+
+tmp$junction_aa <- trim_CDR3(tmp$junction_aa)
+```
+
+
+Subset samples for speed.
+
+```{r}
+set.seed(1)
+# df <- tmp[sample(1:nrow(tmp), 10000),]
+df <- tmp
+# Create variable for subsetting equal length CDR3s
+df$junction_aa_length <- nchar(df$junction_aa)
+```
+
+
+```{r}
+threshold <- (2/5)*100
+results <- data.frame()
+  # Start with 1 for group name
+  group <- 1
+
+time_stamp_one <- Sys.time()
+while (nrow(df) > 1){
+  cat("Clustering group: ", group, '\n')
+  
+  ## Randomly select a CDR3
+  set.seed(group)
+  # Select a single observation from DF
+  tmp_CDR3 <- df[sample(1:nrow(df), 1),]
+  
+  # Subset all CDR3's with the same length
+  tmp_frame <- df[df$junction_aa_length == tmp_CDR3$junction_aa_length,]
+  
+  # Calculate distances
+  tmp_frame$distance <- stringdist::stringdist(tmp_CDR3$junction_aa,
+                                               tmp_frame$junction_aa, 
+                                               method = "lv")
+  
+  tmp_frame$distance <- 100 - (tmp_frame$distance/tmp_frame$junction_aa_length)*100
+  
+  # Drop any with less than the threshold
+  tmp_frame <- tmp_frame[tmp_frame$distance >= threshold,]
+  # Assign group
+  tmp_frame$family <- rep(group, each = nrow(tmp_frame))
+  # Increment counter
+  group <- group + 1
+  # Add to results
+  results <- rbind(results, tmp_frame)
+  
+  # Remove tmp_frame data from df
+  df <- df[!(df$sequence_id %in% tmp_frame$sequence_id),]
+}
+cat("Clustering took:\n")
+print(Sys.time() - time_stamp_one)
+```
+
+```{r}
+S2 <- results
+```
+
+## S3
+
+```{r}
+tmp <- read.csv("~/VHH/data/S3-M02-TRIM_atleast-1_db-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+
+tmp$junction_aa <- trim_CDR3(tmp$junction_aa)
+```
+
+```{r}
+set.seed(1)
+# df <- tmp[sample(1:nrow(tmp), 10000),]
+df <- tmp
+# Create variable for subsetting equal length CDR3s
+df$junction_aa_length <- nchar(df$junction_aa)
+```
+
+```{r}
+threshold <- (2/5)*100
+results <- data.frame()
+  # Start with 1 for group name
+  group <- 1
+
+time_stamp_one <- Sys.time()
+while (nrow(df) > 1){
+  cat("Clustering group: ", group, '\n')
+  
+  ## Randomly select a CDR3
+  set.seed(group)
+  # Select a single observation from DF
+  tmp_CDR3 <- df[sample(1:nrow(df), 1),]
+  
+  # Subset all CDR3's with the same length
+  tmp_frame <- df[df$junction_aa_length == tmp_CDR3$junction_aa_length,]
+  
+  # Calculate distances
+  tmp_frame$distance <- stringdist::stringdist(tmp_CDR3$junction_aa,
+                                               tmp_frame$junction_aa, 
+                                               method = "lv")
+  
+  tmp_frame$distance <- 100 - (tmp_frame$distance/tmp_frame$junction_aa_length)*100
+  
+  # Drop any with less than the threshold
+  tmp_frame <- tmp_frame[tmp_frame$distance >= threshold,]
+  # Assign group
+  tmp_frame$family <- rep(group, each = nrow(tmp_frame))
+  # Increment counter
+  group <- group + 1
+  # Add to results
+  results <- rbind(results, tmp_frame)
+  
+  # Remove tmp_frame data from df
+  df <- df[!(df$sequence_id %in% tmp_frame$sequence_id),]
+}
+cat("Clustering took:\n")
+print(Sys.time() - time_stamp_one)
+```
+
+
+
+This one time'd out and had many distinct duplicates in the `results`. Was it because there was a singlet left `(nrow(df) >= 1`?
+
+**Because it kept going, it randomly selected clones and expanded out the families, but some families remained very underrepresented. Interesting.**
+
+```{r}
+S3 <- results
+S3 <- S3[!duplicated(S3$sequence_id),]
+```
+
+## Writes
+
+```{r}
+# write.csv(S1, "~/VHH/data/S1_Rule-based_families24Jan24.csv", row.names = F)
+# write.csv(S2, "~/VHH/data/S2_Rule-based_families24Jan24.csv", row.names = F)
+# write.csv(S3, "~/VHH/data/S3_Rule-based_families24Jan24.csv", row.names = F)
+```
+
+```{r}
+tab <- table(results$family)[order(table(results$family), decreasing = T)]
+```
+
