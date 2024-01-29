@@ -278,7 +278,6 @@ p3 <- ggplot(data=subset(db, !is.na(dist_nearest))) +
                      fill="steelblue", color="white") +
       geom_vline(xintercept = thr, linetype="dotted", size = 1, color = "red") +
       geom_vline(xintercept = 0.25, linetype="dotted", size = 1, color = "pink2")
-      #geom_text(aes(x=thr, label="\nThreshold", y=35000), colour="red", angle=90)
 
 plot(p3)
 ```
@@ -323,9 +322,41 @@ RECORDS> 72022
     END> DefineClones
 ```
 
+(Previous S3)
 
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+DefineClones.py -d /data/data_p_parse-select.tsv --vf v_call \ 
+--model ham --norm len --dist 0.25 --format airr --nproc 4 \
+--outname data_p_genotyped --outdir /data/
 
+       START> DefineClones
+        FILE> data_p_parse-select.tsv
+   SEQ_FIELD> junction
+     V_FIELD> v_call
+     J_FIELD> j_call
+ MAX_MISSING> 0
+GROUP_FIELDS> None
+      ACTION> set
+        MODE> gene
+    DISTANCE> 0.25
+     LINKAGE> single
+       MODEL> ham
+        NORM> len
+         SYM> avg
+       NPROC> 4
 
+PROGRESS> [Grouping sequences] 03:21:54 (72022) 0.6 min
+
+PROGRESS> [Assigning clones] 04:23:15 |####################| 100% (72,022) 61.9 min
+
+ OUTPUT> data_p_genotyped_clone-pass.tsv
+ CLONES> 7883
+RECORDS> 72022
+   PASS> 72022
+   FAIL> 0
+    END> DefineClones
+```
 
 
 

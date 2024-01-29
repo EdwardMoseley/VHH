@@ -1,0 +1,119 @@
+---
+title: "[VHH]-Rule-based and Hierarchical Cluster Experiments"
+output: html_document
+date: "2024-01-29"
+---
+
+```{r, warning=F, echo = F}
+# Load up utility functions
+source("~/VHH/lib/utilities.R")
+knitr::opts_chunk$set(fig.width=12, fig.height=4) 
+```
+
+```{r, warning=F, echo = F}
+S1 <- read.csv("~/VHH/data/S1_Rule-based_families24Jan24.csv", header = T, stringsAsFactors = F)
+S1$experiment <- rep("S1", each = nrow(S1))
+S2 <- read.csv("~/VHH/data/S2_Rule-based_families24Jan24.csv", header = T, stringsAsFactors = F)
+S2$experiment <- rep("S2", each = nrow(S2))
+S3 <- read.csv("~/VHH/data/S3_Rule-based_families24Jan24.csv", header = T, stringsAsFactors = F)
+S3$experiment <- rep("S3", each = nrow(S3))
+
+db <- rbind(S1, S2, S3)
+
+db <- db[!is.na(db$junction_aa),]
+
+db$VHH <- translate_DNA(db$sequence_alignment)
+
+db$junction_aa_length <- NULL
+
+db <- unproductive(db)
+```
+
+```{r, warning=F, echo = F}
+
+S1 <- read.csv("~/VHH/data/S1_data_p_genotyped_clone-pass.tsv",
+               header = T, stringsAsFactors = F, sep = '\t')
+S2 <- read.csv("~/VHH/data/S2_data_p_genotyped_clone-pass.tsv", 
+               header = T, stringsAsFactors = F, sep = '\t')
+S3 <- read.csv("~/VHH/data/S3_data_p_genotyped_clone-pass.tsv", 
+               header = T, stringsAsFactors = F, sep = '\t')
+
+S1$experiment <- rep("S1", each = nrow(S1))
+
+S2$experiment <- rep("S2", each = nrow(S2))
+
+S3$experiment <- rep("S3", each = nrow(S3))
+
+df <- rbind(S1, S2, S3)
+
+df <- df[!is.na(df$junction_aa),]
+
+df$VHH <- translate_DNA(df$sequence_alignment)
+
+df$junction_aa <- trim_CDR3(df$junction_aa)
+
+df <- unproductive(df)
+
+# colnames(df)[which(colnames(df) == "clone_id")] <- "family"
+
+rm(S1, S2, S3)
+
+
+test <- db[which(db$sequence_id %in% df$sequence_id),]
+test_two <- df[which(df$sequence_id %in% db$sequence_id),]
+
+#all(test$sequence_id %in% test_two$sequence_id)
+#all(test_two$sequence_id %in% test$sequence_id)
+
+db <- test
+df <- test_two
+
+rm(test, test_two)
+
+db <- db[nchar(db$junction_aa) == 5,]
+```
+
+## Subset families of interest
+
+1. From Hierarchical, Illumina Run `S1`, Group ID: `1581`
+
+2. From Rule-based, Illumina Run `S1`, Group ID `31`
+
+```{r}
+# NTGAV families
+hdb <- df[df$clone_id == 1585,]
+rdb <- db[db$family == 31,]
+```
+
+### Print information:
+
+```{r}
+cat("Rule-based Family: ", rdb$family[1], " has:\n", nrow(rdb), " VHHs.\n", sep = '')
+cat("Hierarchical Family: ", hdb$clone_id[1], " has:\n", nrow(hdb), " VHHs.\n", sep = '')
+cat("Rule-based Family: ", rdb$family[1], " and ", "Hierarchical Family: ", hdb$clone_id[1], " share ", length(intersect(hdb$sequence_id, rdb$sequence_id)), " VHHs\n", sep = '')
+```
+
+#### Intersection (found in both clusters)
+
+```{r}
+db_int <- db[db$sequence_id %in% intersect(hdb$sequence_id, rdb$sequence_id),]
+
+plot_logo(db_int)
+```
+
+#### Hierarchical Only Logo-Plot
+
+```{r}
+hdb_only <- hdb[!(hdb$sequence_id %in% rdb$sequence_id),]
+
+plot_logo(hdb_only)
+```
+
+#### Rule-based Only Logo-Plot
+
+```{r}
+rb_only <- rdb[!(rdb$sequence_id %in% hdb$sequence_id),]
+
+plot_logo(rb_only)
+```
+
