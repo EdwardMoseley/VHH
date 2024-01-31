@@ -1,0 +1,43 @@
+---
+title: "[VHH]-Assembly-Checks30Jan24"
+output: html_document
+date: "2024-01-30"
+---
+
+## AssemblePairs
+
+```{bash, engine.opts='-l'}
+docker run -v /Users/emoseley/VHH/data:/data  immcantation/suite:4.4.0  \
+  AssemblePairs.py align -1 /data/13_VecF1_R2_S13_L001_R2_001.fastq -2 /data/13_VecF1_R2_S13_L001_R1_001.fastq \
+  --coord illumina --rc tail --maxerror 0.2 \
+  --outname 13_VecF1
+```
+
+### Output:
+
+```
+docker run -v /Users/emoseley/VHH/data:/data  immcantation/suite:4.4.0  \
+  AssemblePairs.py align -1 /data/13_VecF1_R2_S13_L001_R2_001.fastq -2 /data/13_VecF1_R2_S13_L001_R1_001.fastq \
+  --coord illumina --rc tail --maxerror 0.2 \
+  --outname 13_VecF1
+  
+       START> AssemblePairs
+     COMMAND> align
+       FILE1> 13_VecF1_R2_S13_L001_R2_001.fastq
+       FILE2> 13_VecF1_R2_S13_L001_R1_001.fastq
+  COORD_TYPE> illumina
+       ALPHA> 1e-05
+   MAX_ERROR> 0.2
+     MIN_LEN> 8
+     MAX_LEN> 1000
+SCAN_REVERSE> False
+       NPROC> 6
+
+PROGRESS> 23:47:02 |####################| 100% (972,296) 106.3 min
+
+OUTPUT> 13_VecF1_assemble-pass.fastq
+ PAIRS> 972296
+  PASS> 911526
+  FAIL> 60770
+   END> AssemblePairs
+```
