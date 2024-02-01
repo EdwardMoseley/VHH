@@ -5,8 +5,13 @@ new_files <- gsub("L001.*", "", files)
 # We only need part of that
 new_files <- unique(substr(new_files, 1, nchar(new_files)-1))
 
-# Drop one we've already done
-new_files <- new_files[new_files != "13_VecF1_R2_S13"]
+# Pull files we've already assembled
+assembled_files <- list.files("~/VHH/data")[grepl("assemble-pass", list.files("~/VHH/data"))]
+# Pull their prefixes
+assembled_files <- gsub("_assemble-pass.fastq", "", assembled_files)
+# Pull the ones we need
+unassembled_files <- assembled_files[which(!(assembled_files %in% new_files))]
+
 
 ## [22] "17_VecF3_R3_S17_L001_R2_001.fastq"    "18_VecF3_R4_S18_L001_R1_001.fastq"    "18_VecF3_R4_S18_L001_R2_001.fastq"   
 ## [25] "19_VecF1_R3_S19_L001_R1_001.fastq"    "19_VecF1_R3_S19_L001_R2_001.fastq"    "2_L1_lh2_S2_L001_R1_001.fastq"  
@@ -16,7 +21,7 @@ R1 <- "_L001_R1_001.fastq"
 R2 <- "_L001_R2_001.fastq"
 
 ## Iterate over each file
-for (f in new_files[1]){
+for (f in new_files){
   # Some elevator music
   print(f)
   print(paste(f, "_L001_R1_001.fastq", sep = ''))# %in% files)
@@ -37,11 +42,5 @@ for (f in new_files[1]){
   paste(f, sep = ''), sep = '')
   )
 }
-
-
-docker run -v /Users/emoseley/VHH/data:/data  immcantation/suite:4.4.0  \
-AssemblePairs.py align -1 /data/13_VecF1_R2_S13_L001_R2_001.fastq -2 /data/13_VecF1_R2_S13_L001_R1_001.fastq \
---coord illumina --rc tail --maxerror 0.2 \
---outname 13_VecF1
 
 

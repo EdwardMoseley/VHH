@@ -10,7 +10,7 @@ date: "2024-01-30"
 docker run -v /Users/emoseley/VHH/data:/data  immcantation/suite:4.4.0  \
   AssemblePairs.py align -1 /data/13_VecF1_R2_S13_L001_R2_001.fastq -2 /data/13_VecF1_R2_S13_L001_R1_001.fastq \
   --coord illumina --rc tail --maxerror 0.2 \
-  --outname 13_VecF1
+  --outname 13_VecF1_S13
 ```
 
 ### Output:
@@ -19,7 +19,7 @@ docker run -v /Users/emoseley/VHH/data:/data  immcantation/suite:4.4.0  \
 docker run -v /Users/emoseley/VHH/data:/data  immcantation/suite:4.4.0  \
   AssemblePairs.py align -1 /data/13_VecF1_R2_S13_L001_R2_001.fastq -2 /data/13_VecF1_R2_S13_L001_R1_001.fastq \
   --coord illumina --rc tail --maxerror 0.2 \
-  --outname 13_VecF1
+  --outname 13_VecF1_R2_S13
   
        START> AssemblePairs
      COMMAND> align
@@ -35,9 +35,1080 @@ SCAN_REVERSE> False
 
 PROGRESS> 23:47:02 |####################| 100% (972,296) 106.3 min
 
-OUTPUT> 13_VecF1_assemble-pass.fastq
+OUTPUT> 13_VecF1_R2_S13_assemble-pass.fastq
  PAIRS> 972296
   PASS> 911526
   FAIL> 60770
    END> AssemblePairs
+```
+
+## Filter Poor Alignments
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+  FilterSeq.py quality -s /data/13_VecF1_R2_S13_assemble-pass.fastq -q 20 --outname 13_VecF1_R2_S13
+```
+
+### Results
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+  FilterSeq.py quality -s /data/13_VecF1_R2_S13_assemble-pass.fastq -q 20 --outname 13_VecF1_R2_S13
+   START> FilterSeq
+ COMMAND> quality
+    FILE> 13_VecF1_R2_S13_assemble-pass.fastq
+   INNER> False
+MIN_QUAL> 20.0
+   NPROC> 6
+
+PROGRESS> 16:52:09 |####################| 100% (911,526) 7.3 min
+
+   OUTPUT> 13_VecF1_R2_S13_quality-pass.fastq
+SEQUENCES> 911526
+     PASS> 880072
+     FAIL> 31454
+      END> FilterSeq
+```
+
+## (1) Trim Primers
+
+Note: "read 2 is `VPRIMER` region"
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+MaskPrimers.py score -s /data/13_VecF1_R2_S13_quality-pass.fastq -p /data/AlpVHH_R2_primers_07Jan24.fasta \
+    --start 0 --mode cut --pf VPRIMER --outname 13_VecF1_R2_S13-TRIM --log /data/MPV-13_VecF1_R2_S13-TRIM.log
+```
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+MaskPrimers.py score -s /data/13_VecF1_R2_S13_quality-pass.fastq -p /data/AlpVHH_R2_primers_07Jan24.fasta \
+    --start 0 --mode cut --pf VPRIMER --outname 13_VecF1_R2_S13-TRIM --log /data/MPV-13_VecF1_R2_S13-TRIM.log
+    
+       START> MaskPrimers
+     COMMAND> score
+    SEQ_FILE> 13_VecF1_R2_S13_quality-pass.fastq
+ PRIMER_FILE> AlpVHH_R2_primers_07Jan24.fasta
+        MODE> cut
+   MAX_ERROR> 0.2
+   START_POS> 0
+  REV_PRIMER> False
+     BARCODE> False
+PRIMER_FIELD> VPRIMER
+       NPROC> 6
+
+PROGRESS> 21:55:02 |####################| 100% (880,072) 10.2 min
+
+   OUTPUT> 13_VecF1_R2_S13-TRIM_primers-pass.fastq
+SEQUENCES> 880072
+     PASS> 873330
+     FAIL> 6742
+      END> MaskPrimers
+
+```
+
+## (2) Trim Primers
+
+
+
+Note: "read 1 is `CPRIMER` region"
+
+```{bash, eval = F}
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+MaskPrimers.py score -s /data/13_VecF1_R2_S13-TRIM_primers-pass.fastq -p /data/AlpVHH_R1_primers_07Jan24.fasta \
+    --start 0 --mode cut --revpr --pf CPRIMER --outname 13_VecF1_R2_S13-MPC-TRIM --log /data/MPC-13_VecF1_R2_S13-TRIM.log
+```
+
+
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+MaskPrimers.py score -s /data/13_VecF1_R2_S13-TRIM_primers-pass.fastq -p /data/AlpVHH_R1_primers_07Jan24.fasta \
+    --start 0 --mode cut --revpr --pf CPRIMER --outname 13_VecF1_R2_S13-MPC-TRIM --log /data/MPC-13_VecF1_R2_S13-TRIM.log
+       START> MaskPrimers
+     COMMAND> score
+    SEQ_FILE> 13_VecF1_R2_S13-TRIM_primers-pass.fastq
+ PRIMER_FILE> AlpVHH_R1_primers_07Jan24.fasta
+        MODE> cut
+   MAX_ERROR> 0.2
+   START_POS> 0
+  REV_PRIMER> True
+     BARCODE> False
+PRIMER_FIELD> CPRIMER
+       NPROC> 6
+
+PROGRESS> 22:14:31 |####################| 100% (873,330) 11.2 min
+
+   OUTPUT> 13_VecF1_R2_S13-MPC-TRIM_primers-pass.fastq
+SEQUENCES> 873330
+     PASS> 865721
+     FAIL> 7609
+      END> MaskPrimers
+
+```
+
+
+
+
+
+
+
+# Assemble Pass
+
+
+```
+Rscript Assemble-Pairs30Jan24.R
+[1] "1_L1_sh2_S1"
+[1] "1_L1_sh2_S1_L001_R1_001.fastq"
+[1] "1_L1_sh2_S1_L001_R2_001.fastq"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 AssemblePairs.py align -1 /data/1_L1_sh2_S1_L001_R2_001.fastq -2 /data/1_L1_sh2_S1_L001_R1_001.fastq --coord illumina --rc tail --maxerror 0.2 --outname 1_L1_sh2_S1"
+       START> AssemblePairs
+     COMMAND> align
+       FILE1> 1_L1_sh2_S1_L001_R2_001.fastq
+       FILE2> 1_L1_sh2_S1_L001_R1_001.fastq
+  COORD_TYPE> illumina
+       ALPHA> 1e-05
+   MAX_ERROR> 0.2
+     MIN_LEN> 8
+     MAX_LEN> 1000
+SCAN_REVERSE> False
+       NPROC> 6
+
+PROGRESS> 02:40:24 |####################| 100% (692,993) 34.0 min
+
+OUTPUT> 1_L1_sh2_S1_assemble-pass.fastq
+ PAIRS> 692993
+  PASS> 647889
+  FAIL> 45104
+   END> AssemblePairs
+
+[1] "10_L3_lh2_S10"
+[1] "10_L3_lh2_S10_L001_R1_001.fastq"
+[1] "10_L3_lh2_S10_L001_R2_001.fastq"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 AssemblePairs.py align -1 /data/10_L3_lh2_S10_L001_R2_001.fastq -2 /data/10_L3_lh2_S10_L001_R1_001.fastq --coord illumina --rc tail --maxerror 0.2 --outname 10_L3_lh2_S10"
+       START> AssemblePairs
+     COMMAND> align
+       FILE1> 10_L3_lh2_S10_L001_R2_001.fastq
+       FILE2> 10_L3_lh2_S10_L001_R1_001.fastq
+  COORD_TYPE> illumina
+       ALPHA> 1e-05
+   MAX_ERROR> 0.2
+     MIN_LEN> 8
+     MAX_LEN> 1000
+SCAN_REVERSE> False
+       NPROC> 6
+
+PROGRESS> 03:10:39 |####################| 100% (606,454) 30.0 min
+
+OUTPUT> 10_L3_lh2_S10_assemble-pass.fastq
+ PAIRS> 606454
+  PASS> 562549
+  FAIL> 43905
+   END> AssemblePairs
+
+[1] "11_L3_sh3_S11"
+[1] "11_L3_sh3_S11_L001_R1_001.fastq"
+[1] "11_L3_sh3_S11_L001_R2_001.fastq"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 AssemblePairs.py align -1 /data/11_L3_sh3_S11_L001_R2_001.fastq -2 /data/11_L3_sh3_S11_L001_R1_001.fastq --coord illumina --rc tail --maxerror 0.2 --outname 11_L3_sh3_S11"
+       START> AssemblePairs
+     COMMAND> align
+       FILE1> 11_L3_sh3_S11_L001_R2_001.fastq
+       FILE2> 11_L3_sh3_S11_L001_R1_001.fastq
+  COORD_TYPE> illumina
+       ALPHA> 1e-05
+   MAX_ERROR> 0.2
+     MIN_LEN> 8
+     MAX_LEN> 1000
+SCAN_REVERSE> False
+       NPROC> 6
+
+PROGRESS> 03:42:12 |####################| 100% (628,861) 31.3 min
+
+OUTPUT> 11_L3_sh3_S11_assemble-pass.fastq
+ PAIRS> 628861
+  PASS> 596410
+  FAIL> 32451
+   END> AssemblePairs
+
+[1] "12_L3_lh3_S12"
+[1] "12_L3_lh3_S12_L001_R1_001.fastq"
+[1] "12_L3_lh3_S12_L001_R2_001.fastq"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 AssemblePairs.py align -1 /data/12_L3_lh3_S12_L001_R2_001.fastq -2 /data/12_L3_lh3_S12_L001_R1_001.fastq --coord illumina --rc tail --maxerror 0.2 --outname 12_L3_lh3_S12"
+       START> AssemblePairs
+     COMMAND> align
+       FILE1> 12_L3_lh3_S12_L001_R2_001.fastq
+       FILE2> 12_L3_lh3_S12_L001_R1_001.fastq
+  COORD_TYPE> illumina
+       ALPHA> 1e-05
+   MAX_ERROR> 0.2
+     MIN_LEN> 8
+     MAX_LEN> 1000
+SCAN_REVERSE> False
+       NPROC> 6
+
+PROGRESS> 04:08:31 |####################| 100% (526,259) 26.1 min
+
+OUTPUT> 12_L3_lh3_S12_assemble-pass.fastq
+ PAIRS> 526259
+  PASS> 492598
+  FAIL> 33661
+   END> AssemblePairs
+
+[1] "14_VecF2_R2_S14"
+[1] "14_VecF2_R2_S14_L001_R1_001.fastq"
+[1] "14_VecF2_R2_S14_L001_R2_001.fastq"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 AssemblePairs.py align -1 /data/14_VecF2_R2_S14_L001_R2_001.fastq -2 /data/14_VecF2_R2_S14_L001_R1_001.fastq --coord illumina --rc tail --maxerror 0.2 --outname 14_VecF2_R2_S14"
+       START> AssemblePairs
+     COMMAND> align
+       FILE1> 14_VecF2_R2_S14_L001_R2_001.fastq
+       FILE2> 14_VecF2_R2_S14_L001_R1_001.fastq
+  COORD_TYPE> illumina
+       ALPHA> 1e-05
+   MAX_ERROR> 0.2
+     MIN_LEN> 8
+     MAX_LEN> 1000
+SCAN_REVERSE> False
+       NPROC> 6
+
+PROGRESS> 04:32:34 |####################| 100% (483,915) 23.9 min
+
+OUTPUT> 14_VecF2_R2_S14_assemble-pass.fastq
+ PAIRS> 483915
+  PASS> 451902
+  FAIL> 32013
+   END> AssemblePairs
+
+[1] "15_VecF3_R2_S15"
+[1] "15_VecF3_R2_S15_L001_R1_001.fastq"
+[1] "15_VecF3_R2_S15_L001_R2_001.fastq"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 AssemblePairs.py align -1 /data/15_VecF3_R2_S15_L001_R2_001.fastq -2 /data/15_VecF3_R2_S15_L001_R1_001.fastq --coord illumina --rc tail --maxerror 0.2 --outname 15_VecF3_R2_S15"
+       START> AssemblePairs
+     COMMAND> align
+       FILE1> 15_VecF3_R2_S15_L001_R2_001.fastq
+       FILE2> 15_VecF3_R2_S15_L001_R1_001.fastq
+  COORD_TYPE> illumina
+       ALPHA> 1e-05
+   MAX_ERROR> 0.2
+     MIN_LEN> 8
+     MAX_LEN> 1000
+SCAN_REVERSE> False
+       NPROC> 6
+
+PROGRESS> 05:00:40 |####################| 100% (564,813) 27.9 min
+
+OUTPUT> 15_VecF3_R2_S15_assemble-pass.fastq
+ PAIRS> 564813
+  PASS> 504018
+  FAIL> 60795
+   END> AssemblePairs
+
+[1] "16_VecF4_R2_S16"
+[1] "16_VecF4_R2_S16_L001_R1_001.fastq"
+[1] "16_VecF4_R2_S16_L001_R2_001.fastq"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 AssemblePairs.py align -1 /data/16_VecF4_R2_S16_L001_R2_001.fastq -2 /data/16_VecF4_R2_S16_L001_R1_001.fastq --coord illumina --rc tail --maxerror 0.2 --outname 16_VecF4_R2_S16"
+       START> AssemblePairs
+     COMMAND> align
+       FILE1> 16_VecF4_R2_S16_L001_R2_001.fastq
+       FILE2> 16_VecF4_R2_S16_L001_R1_001.fastq
+  COORD_TYPE> illumina
+       ALPHA> 1e-05
+   MAX_ERROR> 0.2
+     MIN_LEN> 8
+     MAX_LEN> 1000
+SCAN_REVERSE> False
+       NPROC> 6
+
+PROGRESS> 05:34:28 |####################| 100% (685,115) 33.5 min
+
+OUTPUT> 16_VecF4_R2_S16_assemble-pass.fastq
+ PAIRS> 685115
+  PASS> 644706
+  FAIL> 40409
+   END> AssemblePairs
+
+[1] "17_VecF3_R3_S17"
+[1] "17_VecF3_R3_S17_L001_R1_001.fastq"
+[1] "17_VecF3_R3_S17_L001_R2_001.fastq"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 AssemblePairs.py align -1 /data/17_VecF3_R3_S17_L001_R2_001.fastq -2 /data/17_VecF3_R3_S17_L001_R1_001.fastq --coord illumina --rc tail --maxerror 0.2 --outname 17_VecF3_R3_S17"
+       START> AssemblePairs
+     COMMAND> align
+       FILE1> 17_VecF3_R3_S17_L001_R2_001.fastq
+       FILE2> 17_VecF3_R3_S17_L001_R1_001.fastq
+  COORD_TYPE> illumina
+       ALPHA> 1e-05
+   MAX_ERROR> 0.2
+     MIN_LEN> 8
+     MAX_LEN> 1000
+SCAN_REVERSE> False
+       NPROC> 6
+
+PROGRESS> 06:00:19 |####################| 100% (520,696) 25.6 min
+
+OUTPUT> 17_VecF3_R3_S17_assemble-pass.fastq
+ PAIRS> 520696
+  PASS> 503672
+  FAIL> 17024
+   END> AssemblePairs
+
+[1] "18_VecF3_R4_S18"
+[1] "18_VecF3_R4_S18_L001_R1_001.fastq"
+[1] "18_VecF3_R4_S18_L001_R2_001.fastq"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 AssemblePairs.py align -1 /data/18_VecF3_R4_S18_L001_R2_001.fastq -2 /data/18_VecF3_R4_S18_L001_R1_001.fastq --coord illumina --rc tail --maxerror 0.2 --outname 18_VecF3_R4_S18"
+       START> AssemblePairs
+     COMMAND> align
+       FILE1> 18_VecF3_R4_S18_L001_R2_001.fastq
+       FILE2> 18_VecF3_R4_S18_L001_R1_001.fastq
+  COORD_TYPE> illumina
+       ALPHA> 1e-05
+   MAX_ERROR> 0.2
+     MIN_LEN> 8
+     MAX_LEN> 1000
+SCAN_REVERSE> False
+       NPROC> 6
+
+PROGRESS> 06:31:32 |####################| 100% (631,342) 31.0 min
+
+OUTPUT> 18_VecF3_R4_S18_assemble-pass.fastq
+ PAIRS> 631342
+  PASS> 604452
+  FAIL> 26890
+   END> AssemblePairs
+
+[1] "19_VecF1_R3_S19"
+[1] "19_VecF1_R3_S19_L001_R1_001.fastq"
+[1] "19_VecF1_R3_S19_L001_R2_001.fastq"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 AssemblePairs.py align -1 /data/19_VecF1_R3_S19_L001_R2_001.fastq -2 /data/19_VecF1_R3_S19_L001_R1_001.fastq --coord illumina --rc tail --maxerror 0.2 --outname 19_VecF1_R3_S19"
+       START> AssemblePairs
+     COMMAND> align
+       FILE1> 19_VecF1_R3_S19_L001_R2_001.fastq
+       FILE2> 19_VecF1_R3_S19_L001_R1_001.fastq
+  COORD_TYPE> illumina
+       ALPHA> 1e-05
+   MAX_ERROR> 0.2
+     MIN_LEN> 8
+     MAX_LEN> 1000
+SCAN_REVERSE> False
+       NPROC> 6
+
+PROGRESS> 06:56:06 |####################| 100% (497,053) 24.4 min
+
+OUTPUT> 19_VecF1_R3_S19_assemble-pass.fastq
+ PAIRS> 497053
+  PASS> 475830
+  FAIL> 21223
+   END> AssemblePairs
+
+[1] "2_L1_lh2_S2"
+[1] "2_L1_lh2_S2_L001_R1_001.fastq"
+[1] "2_L1_lh2_S2_L001_R2_001.fastq"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 AssemblePairs.py align -1 /data/2_L1_lh2_S2_L001_R2_001.fastq -2 /data/2_L1_lh2_S2_L001_R1_001.fastq --coord illumina --rc tail --maxerror 0.2 --outname 2_L1_lh2_S2"
+       START> AssemblePairs
+     COMMAND> align
+       FILE1> 2_L1_lh2_S2_L001_R2_001.fastq
+       FILE2> 2_L1_lh2_S2_L001_R1_001.fastq
+  COORD_TYPE> illumina
+       ALPHA> 1e-05
+   MAX_ERROR> 0.2
+     MIN_LEN> 8
+     MAX_LEN> 1000
+SCAN_REVERSE> False
+       NPROC> 6
+
+PROGRESS> 07:27:48 |####################| 100% (640,664) 31.5 min
+
+OUTPUT> 2_L1_lh2_S2_assemble-pass.fastq
+ PAIRS> 640664
+  PASS> 596769
+  FAIL> 43895
+   END> AssemblePairs
+
+[1] "20_VecF2_R3_S20"
+[1] "20_VecF2_R3_S20_L001_R1_001.fastq"
+[1] "20_VecF2_R3_S20_L001_R2_001.fastq"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 AssemblePairs.py align -1 /data/20_VecF2_R3_S20_L001_R2_001.fastq -2 /data/20_VecF2_R3_S20_L001_R1_001.fastq --coord illumina --rc tail --maxerror 0.2 --outname 20_VecF2_R3_S20"
+       START> AssemblePairs
+     COMMAND> align
+       FILE1> 20_VecF2_R3_S20_L001_R2_001.fastq
+       FILE2> 20_VecF2_R3_S20_L001_R1_001.fastq
+  COORD_TYPE> illumina
+       ALPHA> 1e-05
+   MAX_ERROR> 0.2
+     MIN_LEN> 8
+     MAX_LEN> 1000
+SCAN_REVERSE> False
+       NPROC> 6
+
+PROGRESS> 07:44:50 |####################| 100% (345,245) 16.9 min
+
+OUTPUT> 20_VecF2_R3_S20_assemble-pass.fastq
+ PAIRS> 345245
+  PASS> 329163
+  FAIL> 16082
+   END> AssemblePairs
+
+[1] "21_VecF4_R3_S21"
+[1] "21_VecF4_R3_S21_L001_R1_001.fastq"
+[1] "21_VecF4_R3_S21_L001_R2_001.fastq"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 AssemblePairs.py align -1 /data/21_VecF4_R3_S21_L001_R2_001.fastq -2 /data/21_VecF4_R3_S21_L001_R1_001.fastq --coord illumina --rc tail --maxerror 0.2 --outname 21_VecF4_R3_S21"
+       START> AssemblePairs
+     COMMAND> align
+       FILE1> 21_VecF4_R3_S21_L001_R2_001.fastq
+       FILE2> 21_VecF4_R3_S21_L001_R1_001.fastq
+  COORD_TYPE> illumina
+       ALPHA> 1e-05
+   MAX_ERROR> 0.2
+     MIN_LEN> 8
+     MAX_LEN> 1000
+SCAN_REVERSE> False
+       NPROC> 6
+
+PROGRESS> 08:06:02 |####################| 100% (426,307) 21.0 min
+
+OUTPUT> 21_VecF4_R3_S21_assemble-pass.fastq
+ PAIRS> 426307
+  PASS> 409469
+  FAIL> 16838
+   END> AssemblePairs
+
+[1] "22_VecF4_R4_S22"
+[1] "22_VecF4_R4_S22_L001_R1_001.fastq"
+[1] "22_VecF4_R4_S22_L001_R2_001.fastq"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 AssemblePairs.py align -1 /data/22_VecF4_R4_S22_L001_R2_001.fastq -2 /data/22_VecF4_R4_S22_L001_R1_001.fastq --coord illumina --rc tail --maxerror 0.2 --outname 22_VecF4_R4_S22"
+       START> AssemblePairs
+     COMMAND> align
+       FILE1> 22_VecF4_R4_S22_L001_R2_001.fastq
+       FILE2> 22_VecF4_R4_S22_L001_R1_001.fastq
+  COORD_TYPE> illumina
+       ALPHA> 1e-05
+   MAX_ERROR> 0.2
+     MIN_LEN> 8
+     MAX_LEN> 1000
+SCAN_REVERSE> False
+       NPROC> 6
+
+PROGRESS> 08:34:50 |####################| 100% (581,097) 28.6 min
+
+OUTPUT> 22_VecF4_R4_S22_assemble-pass.fastq
+ PAIRS> 581097
+  PASS> 554135
+  FAIL> 26962
+   END> AssemblePairs
+
+[1] "3_L1_sh3_S3"
+[1] "3_L1_sh3_S3_L001_R1_001.fastq"
+[1] "3_L1_sh3_S3_L001_R2_001.fastq"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 AssemblePairs.py align -1 /data/3_L1_sh3_S3_L001_R2_001.fastq -2 /data/3_L1_sh3_S3_L001_R1_001.fastq --coord illumina --rc tail --maxerror 0.2 --outname 3_L1_sh3_S3"
+       START> AssemblePairs
+     COMMAND> align
+       FILE1> 3_L1_sh3_S3_L001_R2_001.fastq
+       FILE2> 3_L1_sh3_S3_L001_R1_001.fastq
+  COORD_TYPE> illumina
+       ALPHA> 1e-05
+   MAX_ERROR> 0.2
+     MIN_LEN> 8
+     MAX_LEN> 1000
+SCAN_REVERSE> False
+       NPROC> 6
+
+PROGRESS> 09:09:05 |####################| 100% (696,451) 34.0 min
+
+OUTPUT> 3_L1_sh3_S3_assemble-pass.fastq
+ PAIRS> 696451
+  PASS> 658374
+  FAIL> 38077
+   END> AssemblePairs
+
+[1] "4_L1_lh3_S4"
+[1] "4_L1_lh3_S4_L001_R1_001.fastq"
+[1] "4_L1_lh3_S4_L001_R2_001.fastq"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 AssemblePairs.py align -1 /data/4_L1_lh3_S4_L001_R2_001.fastq -2 /data/4_L1_lh3_S4_L001_R1_001.fastq --coord illumina --rc tail --maxerror 0.2 --outname 4_L1_lh3_S4"
+       START> AssemblePairs
+     COMMAND> align
+       FILE1> 4_L1_lh3_S4_L001_R2_001.fastq
+       FILE2> 4_L1_lh3_S4_L001_R1_001.fastq
+  COORD_TYPE> illumina
+       ALPHA> 1e-05
+   MAX_ERROR> 0.2
+     MIN_LEN> 8
+     MAX_LEN> 1000
+SCAN_REVERSE> False
+       NPROC> 6
+
+PROGRESS> 09:39:40 |####################| 100% (614,401) 30.4 min
+
+OUTPUT> 4_L1_lh3_S4_assemble-pass.fastq
+ PAIRS> 614401
+  PASS> 572850
+  FAIL> 41551
+   END> AssemblePairs
+
+[1] "5_L2_sh2_S5"
+[1] "5_L2_sh2_S5_L001_R1_001.fastq"
+[1] "5_L2_sh2_S5_L001_R2_001.fastq"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 AssemblePairs.py align -1 /data/5_L2_sh2_S5_L001_R2_001.fastq -2 /data/5_L2_sh2_S5_L001_R1_001.fastq --coord illumina --rc tail --maxerror 0.2 --outname 5_L2_sh2_S5"
+       START> AssemblePairs
+     COMMAND> align
+       FILE1> 5_L2_sh2_S5_L001_R2_001.fastq
+       FILE2> 5_L2_sh2_S5_L001_R1_001.fastq
+  COORD_TYPE> illumina
+       ALPHA> 1e-05
+   MAX_ERROR> 0.2
+     MIN_LEN> 8
+     MAX_LEN> 1000
+SCAN_REVERSE> False
+       NPROC> 6
+
+PROGRESS> 09:59:07 |####################| 100% (392,359) 19.3 min
+
+OUTPUT> 5_L2_sh2_S5_assemble-pass.fastq
+ PAIRS> 392359
+  PASS> 368239
+  FAIL> 24120
+   END> AssemblePairs
+
+[1] "6_L2_lh2_S6"
+[1] "6_L2_lh2_S6_L001_R1_001.fastq"
+[1] "6_L2_lh2_S6_L001_R2_001.fastq"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 AssemblePairs.py align -1 /data/6_L2_lh2_S6_L001_R2_001.fastq -2 /data/6_L2_lh2_S6_L001_R1_001.fastq --coord illumina --rc tail --maxerror 0.2 --outname 6_L2_lh2_S6"
+       START> AssemblePairs
+     COMMAND> align
+       FILE1> 6_L2_lh2_S6_L001_R2_001.fastq
+       FILE2> 6_L2_lh2_S6_L001_R1_001.fastq
+  COORD_TYPE> illumina
+       ALPHA> 1e-05
+   MAX_ERROR> 0.2
+     MIN_LEN> 8
+     MAX_LEN> 1000
+SCAN_REVERSE> False
+       NPROC> 6
+
+PROGRESS> 10:34:44 |####################| 100% (721,157) 35.3 min
+
+OUTPUT> 6_L2_lh2_S6_assemble-pass.fastq
+ PAIRS> 721157
+  PASS> 669783
+  FAIL> 51374
+   END> AssemblePairs
+
+[1] "7_L2_sh3_S7"
+[1] "7_L2_sh3_S7_L001_R1_001.fastq"
+[1] "7_L2_sh3_S7_L001_R2_001.fastq"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 AssemblePairs.py align -1 /data/7_L2_sh3_S7_L001_R2_001.fastq -2 /data/7_L2_sh3_S7_L001_R1_001.fastq --coord illumina --rc tail --maxerror 0.2 --outname 7_L2_sh3_S7"
+       START> AssemblePairs
+     COMMAND> align
+       FILE1> 7_L2_sh3_S7_L001_R2_001.fastq
+       FILE2> 7_L2_sh3_S7_L001_R1_001.fastq
+  COORD_TYPE> illumina
+       ALPHA> 1e-05
+   MAX_ERROR> 0.2
+     MIN_LEN> 8
+     MAX_LEN> 1000
+SCAN_REVERSE> False
+       NPROC> 6
+
+PROGRESS> 11:04:16 |####################| 100% (594,660) 29.3 min
+
+OUTPUT> 7_L2_sh3_S7_assemble-pass.fastq
+ PAIRS> 594660
+  PASS> 560333
+  FAIL> 34327
+   END> AssemblePairs
+
+[1] "8_L2_lh3_S8"
+[1] "8_L2_lh3_S8_L001_R1_001.fastq"
+[1] "8_L2_lh3_S8_L001_R2_001.fastq"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 AssemblePairs.py align -1 /data/8_L2_lh3_S8_L001_R2_001.fastq -2 /data/8_L2_lh3_S8_L001_R1_001.fastq --coord illumina --rc tail --maxerror 0.2 --outname 8_L2_lh3_S8"
+       START> AssemblePairs
+     COMMAND> align
+       FILE1> 8_L2_lh3_S8_L001_R2_001.fastq
+       FILE2> 8_L2_lh3_S8_L001_R1_001.fastq
+  COORD_TYPE> illumina
+       ALPHA> 1e-05
+   MAX_ERROR> 0.2
+     MIN_LEN> 8
+     MAX_LEN> 1000
+SCAN_REVERSE> False
+       NPROC> 6
+
+PROGRESS> 11:32:30 |####################| 100% (574,399) 28.0 min
+
+OUTPUT> 8_L2_lh3_S8_assemble-pass.fastq
+ PAIRS> 574399
+  PASS> 535308
+  FAIL> 39091
+   END> AssemblePairs
+
+[1] "9_L3_sh2_S9"
+[1] "9_L3_sh2_S9_L001_R1_001.fastq"
+[1] "9_L3_sh2_S9_L001_R2_001.fastq"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 AssemblePairs.py align -1 /data/9_L3_sh2_S9_L001_R2_001.fastq -2 /data/9_L3_sh2_S9_L001_R1_001.fastq --coord illumina --rc tail --maxerror 0.2 --outname 9_L3_sh2_S9"
+       START> AssemblePairs
+     COMMAND> align
+       FILE1> 9_L3_sh2_S9_L001_R2_001.fastq
+       FILE2> 9_L3_sh2_S9_L001_R1_001.fastq
+  COORD_TYPE> illumina
+       ALPHA> 1e-05
+   MAX_ERROR> 0.2
+     MIN_LEN> 8
+     MAX_LEN> 1000
+SCAN_REVERSE> False
+       NPROC> 6
+
+PROGRESS> 12:09:16 |####################| 100% (742,475) 36.5 min
+
+OUTPUT> 9_L3_sh2_S9_assemble-pass.fastq
+ PAIRS> 742475
+  PASS> 667461
+  FAIL> 75014
+   END> AssemblePairs
+
+[1] "Undetermined_S0"
+[1] "Undetermined_S0_L001_R1_001.fastq"
+[1] "Undetermined_S0_L001_R2_001.fastq"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 AssemblePairs.py align -1 /data/Undetermined_S0_L001_R2_001.fastq -2 /data/Undetermined_S0_L001_R1_001.fastq --coord illumina --rc tail --maxerror 0.2 --outname Undetermined_S0"
+       START> AssemblePairs
+     COMMAND> align
+       FILE1> Undetermined_S0_L001_R2_001.fastq
+       FILE2> Undetermined_S0_L001_R1_001.fastq
+  COORD_TYPE> illumina
+       ALPHA> 1e-05
+   MAX_ERROR> 0.2
+     MIN_LEN> 8
+     MAX_LEN> 1000
+SCAN_REVERSE> False
+       NPROC> 6
+
+PROGRESS> 15:59:36 |####################| 100% (4,280,255) 228.4 min
+
+OUTPUT> Undetermined_S0_assemble-pass.fastq
+ PAIRS> 4280255
+  PASS> 2937437
+  FAIL> 1342818
+   END> AssemblePairs
+```
+
+# Quality Pass
+
+```
+$ Rscript Quality-Check31Jan24.R
+
+
+[1] "1_L1_sh2_S1"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 FilterSeq.py quality -s /data/1_L1_sh2_S1_assemble-pass.fastq -q 20 --outname 1_L1_sh2_S1"
+   START> FilterSeq
+ COMMAND> quality
+    FILE> 1_L1_sh2_S1_assemble-pass.fastq
+   INNER> False
+MIN_QUAL> 20.0
+   NPROC> 6
+
+PROGRESS> 00:24:45 |####################| 100% (647,889) 4.6 min
+
+   OUTPUT> 1_L1_sh2_S1_quality-pass.fastq
+SEQUENCES> 647889
+     PASS> 625069
+     FAIL> 22820
+      END> FilterSeq
+
+[1] "10_L3_lh2_S10"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 FilterSeq.py quality -s /data/10_L3_lh2_S10_assemble-pass.fastq -q 20 --outname 10_L3_lh2_S10"
+   START> FilterSeq
+ COMMAND> quality
+    FILE> 10_L3_lh2_S10_assemble-pass.fastq
+   INNER> False
+MIN_QUAL> 20.0
+   NPROC> 6
+
+PROGRESS> 00:28:23 |####################| 100% (562,549) 3.5 min
+
+   OUTPUT> 10_L3_lh2_S10_quality-pass.fastq
+SEQUENCES> 562549
+     PASS> 542750
+     FAIL> 19799
+      END> FilterSeq
+
+[1] "11_L3_sh3_S11"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 FilterSeq.py quality -s /data/11_L3_sh3_S11_assemble-pass.fastq -q 20 --outname 11_L3_sh3_S11"
+   START> FilterSeq
+ COMMAND> quality
+    FILE> 11_L3_sh3_S11_assemble-pass.fastq
+   INNER> False
+MIN_QUAL> 20.0
+   NPROC> 6
+
+PROGRESS> 00:32:39 |####################| 100% (596,410) 4.1 min
+
+   OUTPUT> 11_L3_sh3_S11_quality-pass.fastq
+SEQUENCES> 596410
+     PASS> 579731
+     FAIL> 16679
+      END> FilterSeq
+
+[1] "12_L3_lh3_S12"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 FilterSeq.py quality -s /data/12_L3_lh3_S12_assemble-pass.fastq -q 20 --outname 12_L3_lh3_S12"
+   START> FilterSeq
+ COMMAND> quality
+    FILE> 12_L3_lh3_S12_assemble-pass.fastq
+   INNER> False
+MIN_QUAL> 20.0
+   NPROC> 6
+
+PROGRESS> 00:36:23 |####################| 100% (492,598) 3.6 min
+
+   OUTPUT> 12_L3_lh3_S12_quality-pass.fastq
+SEQUENCES> 492598
+     PASS> 477406
+     FAIL> 15192
+      END> FilterSeq
+
+[1] "13_VecF1_R2_S13"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 FilterSeq.py quality -s /data/13_VecF1_R2_S13_assemble-pass.fastq -q 20 --outname 13_VecF1_R2_S13"
+   START> FilterSeq
+ COMMAND> quality
+    FILE> 13_VecF1_R2_S13_assemble-pass.fastq
+   INNER> False
+MIN_QUAL> 20.0
+   NPROC> 6
+
+PROGRESS> 00:42:46 |####################| 100% (911,526) 6.2 min
+
+   OUTPUT> 13_VecF1_R2_S13_quality-pass.fastq
+SEQUENCES> 911526
+     PASS> 880072
+     FAIL> 31454
+      END> FilterSeq
+
+[1] "14_VecF2_R2_S14"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 FilterSeq.py quality -s /data/14_VecF2_R2_S14_assemble-pass.fastq -q 20 --outname 14_VecF2_R2_S14"
+   START> FilterSeq
+ COMMAND> quality
+    FILE> 14_VecF2_R2_S14_assemble-pass.fastq
+   INNER> False
+MIN_QUAL> 20.0
+   NPROC> 6
+
+PROGRESS> 00:45:37 |####################| 100% (451,902) 2.7 min
+
+   OUTPUT> 14_VecF2_R2_S14_quality-pass.fastq
+SEQUENCES> 451902
+     PASS> 435496
+     FAIL> 16406
+      END> FilterSeq
+
+[1] "15_VecF3_R2_S15"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 FilterSeq.py quality -s /data/15_VecF3_R2_S15_assemble-pass.fastq -q 20 --outname 15_VecF3_R2_S15"
+   START> FilterSeq
+ COMMAND> quality
+    FILE> 15_VecF3_R2_S15_assemble-pass.fastq
+   INNER> False
+MIN_QUAL> 20.0
+   NPROC> 6
+
+PROGRESS> 00:48:52 |####################| 100% (504,018) 3.1 min
+
+   OUTPUT> 15_VecF3_R2_S15_quality-pass.fastq
+SEQUENCES> 504018
+     PASS> 489548
+     FAIL> 14470
+      END> FilterSeq
+
+[1] "16_VecF4_R2_S16"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 FilterSeq.py quality -s /data/16_VecF4_R2_S16_assemble-pass.fastq -q 20 --outname 16_VecF4_R2_S16"
+   START> FilterSeq
+ COMMAND> quality
+    FILE> 16_VecF4_R2_S16_assemble-pass.fastq
+   INNER> False
+MIN_QUAL> 20.0
+   NPROC> 6
+
+PROGRESS> 00:52:51 |####################| 100% (644,706) 3.9 min
+
+   OUTPUT> 16_VecF4_R2_S16_quality-pass.fastq
+SEQUENCES> 644706
+     PASS> 622598
+     FAIL> 22108
+      END> FilterSeq
+
+[1] "17_VecF3_R3_S17"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 FilterSeq.py quality -s /data/17_VecF3_R3_S17_assemble-pass.fastq -q 20 --outname 17_VecF3_R3_S17"
+   START> FilterSeq
+ COMMAND> quality
+    FILE> 17_VecF3_R3_S17_assemble-pass.fastq
+   INNER> False
+MIN_QUAL> 20.0
+   NPROC> 6
+
+PROGRESS> 00:56:09 |####################| 100% (503,672) 3.2 min
+
+   OUTPUT> 17_VecF3_R3_S17_quality-pass.fastq
+SEQUENCES> 503672
+     PASS> 492329
+     FAIL> 11343
+      END> FilterSeq
+
+[1] "18_VecF3_R4_S18"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 FilterSeq.py quality -s /data/18_VecF3_R4_S18_assemble-pass.fastq -q 20 --outname 18_VecF3_R4_S18"
+   START> FilterSeq
+ COMMAND> quality
+    FILE> 18_VecF3_R4_S18_assemble-pass.fastq
+   INNER> False
+MIN_QUAL> 20.0
+   NPROC> 6
+
+PROGRESS> 01:00:27 |####################| 100% (604,452) 4.2 min
+
+   OUTPUT> 18_VecF3_R4_S18_quality-pass.fastq
+SEQUENCES> 604452
+     PASS> 589344
+     FAIL> 15108
+      END> FilterSeq
+
+[1] "19_VecF1_R3_S19"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 FilterSeq.py quality -s /data/19_VecF1_R3_S19_assemble-pass.fastq -q 20 --outname 19_VecF1_R3_S19"
+   START> FilterSeq
+ COMMAND> quality
+    FILE> 19_VecF1_R3_S19_assemble-pass.fastq
+   INNER> False
+MIN_QUAL> 20.0
+   NPROC> 6
+
+PROGRESS> 01:03:26 |####################| 100% (475,830) 2.9 min
+
+   OUTPUT> 19_VecF1_R3_S19_quality-pass.fastq
+SEQUENCES> 475830
+     PASS> 467123
+     FAIL> 8707
+      END> FilterSeq
+
+[1] "2_L1_lh2_S2"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 FilterSeq.py quality -s /data/2_L1_lh2_S2_assemble-pass.fastq -q 20 --outname 2_L1_lh2_S2"
+   START> FilterSeq
+ COMMAND> quality
+    FILE> 2_L1_lh2_S2_assemble-pass.fastq
+   INNER> False
+MIN_QUAL> 20.0
+   NPROC> 6
+
+PROGRESS> 01:07:12 |####################| 100% (596,769) 3.6 min
+
+   OUTPUT> 2_L1_lh2_S2_quality-pass.fastq
+SEQUENCES> 596769
+     PASS> 576161
+     FAIL> 20608
+      END> FilterSeq
+
+[1] "20_VecF2_R3_S20"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 FilterSeq.py quality -s /data/20_VecF2_R3_S20_assemble-pass.fastq -q 20 --outname 20_VecF2_R3_S20"
+   START> FilterSeq
+ COMMAND> quality
+    FILE> 20_VecF2_R3_S20_assemble-pass.fastq
+   INNER> False
+MIN_QUAL> 20.0
+   NPROC> 6
+
+PROGRESS> 01:09:17 |####################| 100% (329,163) 2.0 min
+
+   OUTPUT> 20_VecF2_R3_S20_quality-pass.fastq
+SEQUENCES> 329163
+     PASS> 322637
+     FAIL> 6526
+      END> FilterSeq
+
+[1] "21_VecF4_R3_S21"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 FilterSeq.py quality -s /data/21_VecF4_R3_S21_assemble-pass.fastq -q 20 --outname 21_VecF4_R3_S21"
+   START> FilterSeq
+ COMMAND> quality
+    FILE> 21_VecF4_R3_S21_assemble-pass.fastq
+   INNER> False
+MIN_QUAL> 20.0
+   NPROC> 6
+
+PROGRESS> 01:11:58 |####################| 100% (409,469) 2.6 min
+
+   OUTPUT> 21_VecF4_R3_S21_quality-pass.fastq
+SEQUENCES> 409469
+     PASS> 402502
+     FAIL> 6967
+      END> FilterSeq
+
+[1] "22_VecF4_R4_S22"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 FilterSeq.py quality -s /data/22_VecF4_R4_S22_assemble-pass.fastq -q 20 --outname 22_VecF4_R4_S22"
+   START> FilterSeq
+ COMMAND> quality
+    FILE> 22_VecF4_R4_S22_assemble-pass.fastq
+   INNER> False
+MIN_QUAL> 20.0
+   NPROC> 6
+
+PROGRESS> 01:15:36 |####################| 100% (554,135) 3.5 min
+
+   OUTPUT> 22_VecF4_R4_S22_quality-pass.fastq
+SEQUENCES> 554135
+     PASS> 540141
+     FAIL> 13994
+      END> FilterSeq
+
+[1] "3_L1_sh3_S3"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 FilterSeq.py quality -s /data/3_L1_sh3_S3_assemble-pass.fastq -q 20 --outname 3_L1_sh3_S3"
+   START> FilterSeq
+ COMMAND> quality
+    FILE> 3_L1_sh3_S3_assemble-pass.fastq
+   INNER> False
+MIN_QUAL> 20.0
+   NPROC> 6
+
+PROGRESS> 01:19:50 |####################| 100% (658,374) 4.1 min
+
+   OUTPUT> 3_L1_sh3_S3_quality-pass.fastq
+SEQUENCES> 658374
+     PASS> 639389
+     FAIL> 18985
+      END> FilterSeq
+
+[1] "4_L1_lh3_S4"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 FilterSeq.py quality -s /data/4_L1_lh3_S4_assemble-pass.fastq -q 20 --outname 4_L1_lh3_S4"
+   START> FilterSeq
+ COMMAND> quality
+    FILE> 4_L1_lh3_S4_assemble-pass.fastq
+   INNER> False
+MIN_QUAL> 20.0
+   NPROC> 6
+
+PROGRESS> 01:23:31 |####################| 100% (572,850) 3.6 min
+
+   OUTPUT> 4_L1_lh3_S4_quality-pass.fastq
+SEQUENCES> 572850
+     PASS> 555566
+     FAIL> 17284
+      END> FilterSeq
+
+[1] "5_L2_sh2_S5"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 FilterSeq.py quality -s /data/5_L2_sh2_S5_assemble-pass.fastq -q 20 --outname 5_L2_sh2_S5"
+   START> FilterSeq
+ COMMAND> quality
+    FILE> 5_L2_sh2_S5_assemble-pass.fastq
+   INNER> False
+MIN_QUAL> 20.0
+   NPROC> 6
+
+PROGRESS> 01:25:55 |####################| 100% (368,239) 2.3 min
+
+   OUTPUT> 5_L2_sh2_S5_quality-pass.fastq
+SEQUENCES> 368239
+     PASS> 356715
+     FAIL> 11524
+      END> FilterSeq
+
+[1] "6_L2_lh2_S6"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 FilterSeq.py quality -s /data/6_L2_lh2_S6_assemble-pass.fastq -q 20 --outname 6_L2_lh2_S6"
+   START> FilterSeq
+ COMMAND> quality
+    FILE> 6_L2_lh2_S6_assemble-pass.fastq
+   INNER> False
+MIN_QUAL> 20.0
+   NPROC> 6
+
+PROGRESS> 01:30:36 |####################| 100% (669,783) 4.5 min
+
+   OUTPUT> 6_L2_lh2_S6_quality-pass.fastq
+SEQUENCES> 669783
+     PASS> 647003
+     FAIL> 22780
+      END> FilterSeq
+
+[1] "7_L2_sh3_S7"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 FilterSeq.py quality -s /data/7_L2_sh3_S7_assemble-pass.fastq -q 20 --outname 7_L2_sh3_S7"
+   START> FilterSeq
+ COMMAND> quality
+    FILE> 7_L2_sh3_S7_assemble-pass.fastq
+   INNER> False
+MIN_QUAL> 20.0
+   NPROC> 6
+
+PROGRESS> 01:34:07 |####################| 100% (560,333) 3.4 min
+
+   OUTPUT> 7_L2_sh3_S7_quality-pass.fastq
+SEQUENCES> 560333
+     PASS> 545912
+     FAIL> 14421
+      END> FilterSeq
+
+[1] "8_L2_lh3_S8"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 FilterSeq.py quality -s /data/8_L2_lh3_S8_assemble-pass.fastq -q 20 --outname 8_L2_lh3_S8"
+   START> FilterSeq
+ COMMAND> quality
+    FILE> 8_L2_lh3_S8_assemble-pass.fastq
+   INNER> False
+MIN_QUAL> 20.0
+   NPROC> 6
+
+PROGRESS> 01:37:27 |####################| 100% (535,308) 3.2 min
+
+   OUTPUT> 8_L2_lh3_S8_quality-pass.fastq
+SEQUENCES> 535308
+     PASS> 519628
+     FAIL> 15680
+      END> FilterSeq
+
+[1] "9_L3_sh2_S9"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 FilterSeq.py quality -s /data/9_L3_sh2_S9_assemble-pass.fastq -q 20 --outname 9_L3_sh2_S9"
+   START> FilterSeq
+ COMMAND> quality
+    FILE> 9_L3_sh2_S9_assemble-pass.fastq
+   INNER> False
+MIN_QUAL> 20.0
+   NPROC> 6
+
+PROGRESS> 01:41:56 |####################| 100% (667,461) 4.3 min
+
+   OUTPUT> 9_L3_sh2_S9_quality-pass.fastq
+SEQUENCES> 667461
+     PASS> 645206
+     FAIL> 22255
+      END> FilterSeq
+
+[1] "Undetermined_S0"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 FilterSeq.py quality -s /data/Undetermined_S0_assemble-pass.fastq -q 20 --outname Undetermined_S0"
+   START> FilterSeq
+ COMMAND> quality
+    FILE> Undetermined_S0_assemble-pass.fastq
+   INNER> False
+MIN_QUAL> 20.0
+   NPROC> 6
+
+PROGRESS> 02:01:02 |####################| 100% (2,937,437) 18.5 min
+
+   OUTPUT> Undetermined_S0_quality-pass.fastq
+SEQUENCES> 2937437
+     PASS> 2830613
+     FAIL> 106824
+      END> FilterSeq
+
+```
+
+# Trim Primers
+
+```
+(base) emoseley@MacBook-Pro-5 noodle_code % Rscript Trim-Primers31Jan24.R 
+[1] "13_VecF1_R2_S13"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  MaskPrimers.py score -s /data/13_VecF1_R2_S13_quality-pass.fastq -p /data/AlpVHH_R2_primers_07Jan24.fasta --start 0 --mode cut --pf VPRIMER --outname 13_VecF1_R2_S13_MPV --log /data/13_VecF1_R2_S13_TRIM.log"
+       START> MaskPrimers
+     COMMAND> score
+    SEQ_FILE> 13_VecF1_R2_S13_assemble-pass.fastq
+ PRIMER_FILE> AlpVHH_R2_primers_07Jan24.fasta
+        MODE> cut
+   MAX_ERROR> 0.2
+   START_POS> 0
+  REV_PRIMER> False
+     BARCODE> False
+PRIMER_FIELD> VPRIMER
+       NPROC> 6
+
+PROGRESS> 02:17:51 |####################| 100% (911,526) 9.2 min
+
+   OUTPUT> 13_VecF1_R2_S13_MPV_primers-pass.fastq
+SEQUENCES> 911526
+     PASS> 904440
+     FAIL> 7086
+      END> MaskPrimers
 ```
