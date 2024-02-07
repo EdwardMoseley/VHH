@@ -1,0 +1,116 @@
+---
+title: "[VHH]F13-EDA05Feb24"
+output: html_document
+date: "2024-02-06"
+---
+
+```{r, echo = F, eval = T}
+suppressMessages(library(ggplot2))
+suppressMessages(library(ggseqlogo))
+suppressMessages(library(gridExtra))
+suppressMessages(library(msa))
+suppressMessages(library(Biostrings))
+knitr::opts_chunk$set(fig.width=12, fig.height=4) 
+
+#### Translate
+translate_DNA <- function(dna_data){
+  clean_dna <- gsub("[^ACTG]", "", dna_data)
+  DNA_strings <- Biostrings::DNAStringSet(clean_dna)
+  translations <- as.character(Biostrings::translate(DNA_strings))
+  return(translations)
+}
+
+#### Trim CDR3
+trim_CDR3 <- function(seq_vec){
+  return(substr(seq_vec, 2, nchar(seq_vec)-1))
+}
+
+top_groups <- function(results, clone_var){
+  return(table(results[[clone_var]])[order(table(results[[clone_var]]), decreasing = T)])
+}
+
+unproductive <- function(results){
+  return(results[which(!grepl("\\*", results$VHH, fixed = F)),])
+}
+```
+
+## Load Data
+
+```{r}
+df <- read.csv("~/VHH/data/Old Data/S3_specificity_test_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+```
+
+#### Check variables
+
+```{r}
+colnames(df)
+```
+
+## Sequence Info
+
+## String Info
+
+```{r}
+new_q30_bases_geq30 <- c(88.15, 
+                     90.40, 
+                     89.29, 
+                     88.06, 
+                     85.47,
+                     89.44,
+                     88.81,
+                     92.25,
+                     90.46,
+                     91.01,
+                     87.38,
+                     88.01,
+                     91.77,
+                     89.87,
+                     87.18,
+                     89.59,
+                     88.76,
+                     87.03,
+                     86.83,
+                     89.18,
+                     87.89,
+                     87.02,
+                     82.98)
+
+old_q30_bases_geq30 <- c(75.13, 72.76, 77.47, 84.41)
+
+t.test(new_q30_bases_geq30, old_q30_bases_geq30)
+```
+
+
+
+```{r}
+new_mean_Q <- c(34.87,
+                35.41,
+                35.14,
+                34.64,
+                34.02,
+                34.97,
+                34.82,
+                35.54,
+                35.19,
+                35.29,
+                34.64,
+                34.56,
+                35.48,
+                34.99,
+                34.64,
+                35.18,
+                35.03,
+                34.53,
+                34.54,
+                35.10,
+                34.79,
+                34.58,
+                33.91)
+
+old_mean_Q <- c(31.95,
+                31.48,
+                32.26,
+                34.03)
+
+t.test(new_mean_Q, old_mean_Q)
+```

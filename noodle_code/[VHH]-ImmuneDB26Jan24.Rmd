@@ -184,20 +184,264 @@ Data can be added to the new ImmuneDB database either by importing annotated seq
 
 For this example, there are two input FASTQ files in /example/fastq along with an associated metadata file. These will be used regardless of the method you choose. There are also germline files for human and mouse included.
 
+### Option 1: Importing from AIRR Files (Recommended)
+
+First, IgBLAST needs to be run on the input files. A small wrapper script is provided in the Docker container. It takes three parameters: a species, a locus (in uppercase), an input directory with FASTA/FASTQ files, and an output directory:
+
+```
+run_igblast.sh human IGH /example/fastq /example/airr
+```
+
+To import these files, run the `immunedb_import` command:
+
+```
+immunedb_import /share/configs/example_db.json airr \
+     /root/germlines/igblast/human/IGHV.gapped.fasta \
+     /root/germlines/igblast/human/IGHJ.gapped.fasta \
+     /example/airr
+```
+
+```
+root@45f696ff35ff:~# immunedb_import /share/configs/example_db.json airr \
+>      /root/germlines/igblast/human/IGHV.gapped.fasta \
+>      /root/germlines/igblast/human/IGHJ.gapped.fasta \
+>      /example/airr
+
+2024-02-07 18:07:43 [INFO] Created new study "Example Dataset"
+2024-02-07 18:07:43 [INFO] Created new sample "Donor1_Colon"
+2024-02-07 18:07:43 [INFO] Collapsing identical sequences
+2024-02-07 18:07:43 [INFO] Sample has 562 total copies, 559 unique
+2024-02-07 18:07:43 [INFO] Waiting on pool process_line
+2024-02-07 18:07:44 [INFO] Pool done: 0.24825000762939453
+2024-02-07 18:07:44 [INFO] Waiting on aggregation aggregate_results
+2024-02-07 18:07:44 [INFO] 559 total sequences (548 alignments, 11 noresults)
+2024-02-07 18:07:44 [INFO] Done aggregation: 0.027857065200805664
+2024-02-07 18:07:44 [INFO] There are 191 buckets to collapse
+2024-02-07 18:07:44 [INFO] Waiting on pool collapse_duplicates
+2024-02-07 18:07:44 [INFO] Pool done: 0.15831542015075684
+2024-02-07 18:07:44 [INFO] Waiting on aggregation add_results
+2024-02-07 18:07:44 [INFO] Done aggregation: 0.6049027442932129
+2024-02-07 18:07:44 [INFO] Completed sample Donor1_Colon in 0.0m
+2024-02-07 18:07:44 [INFO] Created new sample "Donor1_Spleen"
+2024-02-07 18:07:44 [INFO] Collapsing identical sequences
+2024-02-07 18:07:44 [INFO] Sample has 1468 total copies, 1400 unique
+2024-02-07 18:07:45 [INFO] Waiting on pool process_line
+2024-02-07 18:07:45 [INFO] Pool done: 0.417496919631958
+2024-02-07 18:07:45 [INFO] Waiting on aggregation aggregate_results
+2024-02-07 18:07:45 [INFO] 1400 total sequences (1395 alignments, 5 noresults)
+2024-02-07 18:07:45 [INFO] Done aggregation: 0.04792594909667969
+2024-02-07 18:07:45 [INFO] There are 309 buckets to collapse
+2024-02-07 18:07:45 [INFO] Waiting on pool collapse_duplicates
+2024-02-07 18:07:45 [INFO] Pool done: 0.23218297958374023
+2024-02-07 18:07:45 [INFO] Waiting on aggregation add_results
+2024-02-07 18:07:46 [INFO] Done aggregation: 1.0446503162384033
+2024-02-07 18:07:46 [INFO] Completed sample Donor1_Spleen in 0.0m
+```
+
+**Output of `run_igblast.sh`:**
+
+```
+Running IgBLAST on /example/fastq/d1_colon.fastq (saving to /example/airr/d1_colon.airr.tsv)
+Warning: Number of threads was reduced to 6 to match the number of available CPUs
+...
+Running IgBLAST on /example/fastq/d1_spl.fastq (saving to /example/airr/d1_spl.airr.tsv)
+```
+
+## Sequence Collapsing
+
+After data are imported or annotated on a sample-level basis, ImmuneDB determines the subject-level unique sequences; that is, the set of unique sequences across all samples in each subject. Because sequences may contain the ambiguous `N` symbol, the process is not trivial string equality checking. It is implemented in the `immunedb_collapse` command.
+
+To collapse sequences, run:
+
+```
+immunedb_collapse /share/configs/example_db.json
+```
+
+## Clonal Assignment
+
+After collapsing unique sequences across each subject they can be grouped into clones which are aggregations of sequences likely deriving from a common progenitor cell.
+
+ImmuneDB offers two clonal inference methods, similarity and cluster. The cluster method is recommended and documented here as it more robust than similarity.
+
+For both methods, clones are inferred in two steps: **grouping sequences** and then **merging similar clones**. Both steps are run together with the `immunedb_clones` command
+
+By default, only sequences with a subject-level copy number greater than 1 are included in clones. This can be changed with the `--min-copy` parameter.
+
+In the first step of clonal inference, sequences meeting the above copy number criteria are hierarchically clustered together such that any two sequences in a clone must 
+
+1. (1) have the same CDR3 length and 
+2. (2) share at least 85% amino-acid similarity in the CDR3. 
+
+The similarity can be changed with `--min-similarity X` parameter where `X` is the minimum similarity between `0` and `1`. If nucleotide similarity should be used, `--level nt` can be passed.
+
+After this step is complete, sequences have been assigned to clones. In some cases clones may have the same CDR3 nucleotide sequence but different gene calls. This can indeed occur biologically but frequently due to mutation and sequencing error causing incorrect gene calls.
+
+To rectify this, a second step in clonal inference is to collapse merge clones that have the same CDR3 nucleotide sequences. **In cases where this occurs, the highest copy clone absorbs the lower copy clones.** 
+
+This second step can be configured in two ways via the `--reduce-difference` flag. Setting it to a negative number (e.g. `--reduce-difference -1`) disables the step entirely. Setting it to a positive number (e.g. `--reduce-difference 2`) will alter the step’s behavior to combine clones differing by at most that number of nucleotides. **The default value is `0`, so only clones with exactly the same CDR3 nucleotide sequences will be combined**.
 
 
+```
+immunedb_clones /share/configs/example_db.json cluster
+```
+
+```
+Traceback (most recent call last):
+  File "/usr/local/bin/immunedb_clones", line 93, in <module>
+    run_clones(session, args)
+  File "/usr/local/lib/python3.8/dist-packages/immunedb/aggregation/clones.py", line 425, in run_clones
+    push_clone_ids(session)
+  File "/usr/local/lib/python3.8/dist-packages/immunedb/aggregation/clones.py", line 82, in push_clone_ids
+    session.connection(mapper=Sequence).execute(
+TypeError: connection() got an unexpected keyword argument 'mapper'
+```
 
 
+**To Fix(?), checked requirements and req SQLalchemy < v2**
 
+```
+pip uninstall sqlalchemy
+Found existing installation: SQLAlchemy 2.0.25
+Uninstalling SQLAlchemy-2.0.25:
+```
 
+```
+pip install sqlalchemy==1.3.3
+Collecting sqlalchemy==1.3.3
+  Downloading SQLAlchemy-1.3.3.tar.gz (5.9 MB)
+     |████████████████████████████████| 5.9 MB 2.0 MB/s 
+Building wheels for collected packages: sqlalchemy
+  Building wheel for sqlalchemy (setup.py) ... done
+  Created wheel for sqlalchemy: filename=SQLAlchemy-1.3.3-cp38-cp38-linux_x86_64.whl size=1189817 sha256=8464eb3c2d9f410fc255906d1494ef08bab803718d6d85a596c61361f5c37a2a
+  Stored in directory: /root/.cache/pip/wheels/a8/58/34/49c515be9e6dca081e5df26ba03205ae44892fa0f44e68ece0
+Successfully built sqlalchemy
+Installing collected packages: sqlalchemy
+Successfully installed sqlalchemy-1.3.3
+```
 
+**Retry:**
 
+```
+2024-02-07 19:02:03 [INFO] Deleting existing clones
+2024-02-07 19:02:03 [INFO] Generating task queue for subject 1
+2024-02-07 19:02:03 [INFO] Generated 399 total tasks
+2024-02-07 19:02:05 [INFO] Collapsing similar clones: dist=0, level=aa, genes=[]
+2024-02-07 19:02:05 [INFO] Collapsing similar clones in 24 buckets
+2024-02-07 19:02:05 [INFO] Reducing bucket 1 / 24 (4 clones)
+2024-02-07 19:02:05 [INFO] Reducing bucket 2 / 24 (3 clones)
+2024-02-07 19:02:05 [INFO] Reducing bucket 3 / 24 (7 clones)
+2024-02-07 19:02:05 [INFO] Reducing bucket 4 / 24 (11 clones)
+2024-02-07 19:02:05 [INFO] Reducing bucket 7 / 24 (22 clones)
+2024-02-07 19:02:05 [INFO] Reducing bucket 8 / 24 (33 clones)
+2024-02-07 19:02:05 [INFO] Reducing bucket 9 / 24 (31 clones)
+2024-02-07 19:02:05 [INFO] Reducing bucket 11 / 24 (25 clones)
+2024-02-07 19:02:05 [INFO] Reducing bucket 12 / 24 (22 clones)
+2024-02-07 19:02:05 [INFO] Reducing bucket 13 / 24 (24 clones)
+2024-02-07 19:02:05 [INFO] Reducing bucket 15 / 24 (18 clones)
+2024-02-07 19:02:05 [INFO] Reducing bucket 16 / 24 (2 clones)
+2024-02-07 19:02:05 [INFO] Reducing bucket 17 / 24 (14 clones)
+2024-02-07 19:02:05 [INFO] Reducing bucket 19 / 24 (8 clones)
+2024-02-07 19:02:05 [INFO] Reducing bucket 20 / 24 (4 clones)
+```
 
+## Statistics Generation
 
+Two sets of statistics can be calculated in ImmuneDB:
 
+* **Clone Statistics**: For each clone and sample combination, statistics on the clone’s size, mutation level, and top copy sequence
 
+* **Sample Statistics**: Distribution of sequence and clone features on a per-sample basis, including gene usage, mutation level, copy number, CDR3 length.
 
+These are calculated with the `immunedb_clone_stats` and `immunedb_sample_stats` commands and must be run in that order.
+
+```
+immunedb_clone_stats /share/configs/example_db.json
+immunedb_sample_stats /share/configs/example_db.json
+```
 
 ---
 
-[Running the Pipeline on Your Data](https://docs.immunedb.com/en/latest/pipeline_full.html#pipeline-full).
+# Running the Pipeline Using Our Data
+
+Derived from: [Running the Pipeline on Your Data](https://docs.immunedb.com/en/latest/pipeline_full.html#pipeline-full).
+
+## Copying your Sequence Data into Docker
+
+Unlike in the example pipeline where sequencing data was provided, you’ll need to copy your own FASTA/FASTQ sequencing data or AIRR-formatted IgBLAST output into the Docker container.
+
+To do so, on the host, we create a new directory in the shared directory into which we’ll copy your sequencing data. Here we’re calling it `sequences` but you’ll probably want to choose a more descriptive name. Replace `PATH_TO_SEQUENCES` with the path to your sequencing data.
+
+**To Run on Host**
+
+```
+mkdir -p $HOME/immunedb_share/input
+cp PATH_TO_SEQUENCES $HOME/immunedb_share/input
+```
+
+## Creating a Metadata Sheet
+
+Next, we’ll use the `immunedb_metadata` command to create a template metadata file for your sequencing data. In the Docker container run:
+
+**Run in Docker**
+
+```
+cd /share/input
+immunedb_metadata --use-filenames
+```
+
+This creates a `metadata.tsv` file in `/share/input` in Docker which is linked to $HOME/immunedb_share/input on the host.
+
+The `--use-filenames` flag is optional, and simply populates the `sample_name` field with the file names stripped of their extension.
+
+## Editing the Metadata Sheet
+
+On the host open the metadata file in Excel or your favorite spreadsheet editor. The headers included in the file are **required**. You may add additional headers as necessary for your dataset (e.g. `tissue`, `cell_subset`, `timepoint`) so long as they follow the following rules:
+
+* The headers must all be unique
+
+* Each header may only contain lowercase letters, numbers, and underscores
+
+* Each header must begin with a (lowercase) character
+
+* Each header must not exceed 32 characters in length
+
+* The values within each column cannot exceed 64 characters in length
+
+## Pipeline Steps
+
+Much of the rest of the pipeline follows from the example pipeline’s [instance creation](https://docs.immunedb.com/en/latest/pipeline_example.html#instance-creation) step. To start, create a database. Here we’ll call it `my_db` but you’ll probably want to give it a more descriptive name:
+
+**Run in Docker**
+
+```
+immunedb_admin create my_db /share/configs
+```
+
+Then we’ll identify or import the sequences. For this process the germline genes must be specified. The germlines are provided FASTA files in the Docker image at `/root/germlines`.
+
+For this segment we’ll assume human B-cell heavy chains, but the process is the same for any dataset. Depending on if you want to use IgBLAST input (recommended) or the built-in annotation method the command will be one of the following:
+
+### Option 1: Importing from IgBLAST output (recommended)
+
+```
+immunedb_import /share/configs/my_db.json airr /share/IMGT-gapped/IGHV.gapped.fasta /share/IMGT-gapped/IGHJ.gapped.fasta /share/input
+```
+
+**Doesn't work..**
+
+## Assigning Clones
+
+```{r}
+tmp <- read.csv("~/VHH/data/14_VecF1_R2_S14_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+
+tmp$v_alignment_start <- tmp$v_sequence_start + (tmp$v_germline_start - 1)
+tmp$v_alignment_end <- tmp$v_sequence_start + (tmp$v_germline_end - 1)
+
+tmp$j_alignment_start <- tmp$j_sequence_start + (tmp$j_germline_start - 1)
+tmp$j_alignment_end <- tmp$j_sequence_start + (tmp$j_germline_end - 1)
+
+write.table(tmp, file = "~/immunedb_share/input/14_VecF1_R2_S14_min_threshold_clone-pass.tsv", row.names = F, sep = '\t')
+```
+
+
+

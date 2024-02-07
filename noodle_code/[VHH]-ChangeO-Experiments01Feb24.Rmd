@@ -15,6 +15,8 @@ suppressPackageStartupMessages(library(tigger))
 suppressPackageStartupMessages(library(shazam))
 ```
 
+# F13
+
 ## Load Data
 
 #### Productive Sequences Only
@@ -152,4 +154,194 @@ RECORDS> 374815
     END> DefineClones
 ```
 
+
+#### Productive Sequences Only
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+ParseDb.py select -d /data/13_VecF1_R2_S13_atleast-1_db-pass.tsv \
+-f productive -u T --outname 13_VecF1_R2_S13
+  START> ParseDb
+COMMAND> select
+   FILE> 13_VecF1_R2_S13_atleast-1_db-pass.tsv
+ FIELDS> productive
+ VALUES> T
+  REGEX> False
+
+PROGRESS> 19:36:29 |####################| 100% (529,861) 3.6 min
+
+   OUTPUT> 13_VecF1_R2_S13_parse-select.tsv
+  RECORDS> 529861
+ SELECTED> 374815
+DISCARDED> 155046
+      END> ParseDb
+```
+
+
+
+
+
+
+
+# F14
+
+
+#### Productive Sequences Only
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+ParseDb.py select -d /data/14_VecF2_R2_S14_db-pass.tsv \
+-f productive -u T --outname 14_VecF2_R2_S14
+```
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+ParseDb.py select -d /data/14_VecF2_R2_S14_db-pass.tsv \
+-f productive -u T --outname 14_VecF2_R2_S14
+  START> ParseDb
+COMMAND> select
+   FILE> 14_VecF2_R2_S14_db-pass.tsv
+ FIELDS> productive
+ VALUES> T
+  REGEX> False
+
+PROGRESS> 01:56:09 |####################| 100% (299,218) 2.4 min
+
+   OUTPUT> 14_VecF2_R2_S14_parse-select.tsv
+  RECORDS> 299218
+ SELECTED> 213225
+DISCARDED> 85993
+      END> ParseDb
+```
+
+
+
+
+### Load DB
+
+```{r}
+db <- read_rearrangement(file.path("~/VHH/data/14_VecF2_R2_S14_parse-select.tsv"))
+```
+
+## Clonal diversity analysis
+
+### Clonal assignment using the CDR3 as a fingerprint
+
+Note: we will _decrease_ the threshold value by 25% (arbitrarily) in an effort to increase the specificity of the clonal grouping.
+
+```{r}
+db <- distToNearest(db, model = "ham", normalize = "len", 
+                    vCallColumn = "v_call", 
+                    jCallColumn = "j_call",
+                    nproc = 4)
+
+# determine the threshold
+threshold <- findThreshold(db$dist_nearest, method = "density")
+thr <- threshold@threshold
+
+print(thr)
+new_thr <- thr - (thr*0.25)
+print("25% Lower Threshold:")
+print(round(new_thr, 2))
+```
+
+
+
+```{r}
+# Plot histogram of non-NA distances
+p1 <- ggplot(data=subset(db, !is.na(dist_nearest))) + 
+      theme_bw() + 
+      ggtitle("F14 - Distance to nearest: Hamming") + 
+      xlab("Hamming distance") +
+      geom_histogram(aes(x=dist_nearest), binwidth=0.025, 
+                     fill="steelblue", color="white") +
+      geom_vline(xintercept = new_thr, linetype="dotted", size = 1, color = "red") #+
+      #geom_text(aes(x=thr, label="\nThreshold", y=35000), colour="red", angle=90)
+
+plot(p1)
+```
+
+#### We will use the estimated threshold (0.2232809) first
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+DefineClones.py -d /data/14_VecF2_R2_S14_parse-select.tsv --vf v_call \
+--model ham --norm len --dist 0.16 --format airr --nproc 4 \
+--outname 14_VecF1_R2_S14_min_threshold --outdir /data/
+```
+
+#### (Really first we'll QC)
+
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+DefineClones.py -d /data/14_VecF2_R2_S14_parse-select.tsv --vf v_call \
+--model ham --norm len --dist 0.16 --format airr --nproc 4 \
+--outname 14_VecF1_R2_S14_min_threshold --outdir /data/
+
+       START> DefineClones
+        FILE> 14_VecF2_R2_S14_parse-select.tsv
+   SEQ_FIELD> junction
+     V_FIELD> v_call
+     J_FIELD> j_call
+ MAX_MISSING> 0
+GROUP_FIELDS> None
+      ACTION> set
+        MODE> gene
+    DISTANCE> 0.16
+     LINKAGE> single
+       MODEL> ham
+        NORM> len
+         SYM> avg
+       NPROC> 4
+
+PROGRESS> [Grouping sequences] 02:46:56 (213225) 2.7 min
+
+PROGRESS> [Assigning clones] 06:21:12 |####################| 100% (213,225) 216.9 min
+
+ OUTPUT> 14_VecF1_R2_S14_min_threshold_clone-pass.tsv
+ CLONES> 12220
+RECORDS> 213225
+   PASS> 213225
+   FAIL> 0
+    END> DefineClones
+
+```
+
+
+
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+DefineClones.py -d /data/13_VecF1_R2_S13_parse-select.tsv --vf v_call \
+--model ham --norm len --dist 0.22 --format airr --nproc 4 \
+--outname 13_VecF1_R2_S13_min_threshold --outdir /data/
+
+       START> DefineClones
+        FILE> 13_VecF1_R2_S13_parse-select.tsv
+   SEQ_FIELD> junction
+     V_FIELD> v_call
+     J_FIELD> j_call
+ MAX_MISSING> 0
+GROUP_FIELDS> None
+      ACTION> set
+        MODE> gene
+    DISTANCE> 0.22
+     LINKAGE> single
+       MODEL> ham
+        NORM> len
+         SYM> avg
+       NPROC> 4
+
+PROGRESS> [Grouping sequences] 21:33:12 (374815) 10.8 min
+
+PROGRESS> [Assigning clones] 06:53:50 |####################| 100% (374,815) 571.1 min
+
+ OUTPUT> 13_VecF1_R2_S13_min_threshold_clone-pass.tsv
+ CLONES> 13070
+RECORDS> 374815
+   PASS> 374815
+   FAIL> 0
+    END> DefineClones
+```
 

@@ -1,0 +1,72 @@
+---
+title: "[VHH]-Top-25-Family-Logoplots05Feb24"
+output: html_document
+date: "2024-02-05"
+---
+
+```{r, echo = F, eval = T}
+suppressMessages(library(ggplot2))
+suppressMessages(library(ggseqlogo))
+suppressMessages(library(gridExtra))
+suppressMessages(library(msa))
+suppressMessages(library(Biostrings))
+knitr::opts_chunk$set(fig.width=12, fig.height=4) 
+
+#### Translate
+translate_DNA <- function(dna_data){
+  clean_dna <- gsub("[^ACTG]", "", dna_data)
+  DNA_strings <- Biostrings::DNAStringSet(clean_dna)
+  translations <- as.character(Biostrings::translate(DNA_strings))
+  return(translations)
+}
+
+#### Trim CDR3
+trim_CDR3 <- function(seq_vec){
+  return(substr(seq_vec, 2, nchar(seq_vec)-1))
+}
+
+top_groups <- function(results, clone_var){
+  return(table(results[[clone_var]])[order(table(results[[clone_var]]), decreasing = T)])
+}
+
+unproductive <- function(results){
+  return(results[which(!grepl("\\*", results$VHH, fixed = F)),])
+}
+```
+
+# Illumina Run: F14
+
+```{r, echo = F}
+#S3 <- read.csv("~/VHH/data/Old Data/S3_specificity_test_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+
+#S3$experiment <- rep("S3", each = nrow(S3))
+
+#df <- read.csv("~/VHH/data/13_VecF1_R2_S13_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+
+df <- read.csv("~/VHH/data/14_VecF1_R2_S14_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+#F14$experiment <- rep("F14", each = nrow(F14))
+```
+
+```{r, echo = F, warning=F}
+tab <- top_groups(df, "clone_id")
+tmp <- df[df$clone_id %in% head(as.numeric(names(tab)), 25),]
+  
+for (nm in unique(tmp$clone_id)){
+  tmp_frame <- tmp[tmp$clone_id == as.numeric(nm),]
+  
+  # Translate VHH
+  tmp_frame$VHH <- translate_DNA(tmp_frame$sequence_alignment)
+  # Trim CDR3
+  tmp_frame$junction_aa <- trim_CDR3(tmp_frame$junction_aa)
+  # Pull most frequent CDR3
+  common_CDR3 <- names(table(tmp_frame$junction_aa)[order(table(tmp_frame$junction_aa), decreasing = T)][1])
+  
+  cat("Group ID: ", unique(tmp_frame$clone_id), '\n', sep = '')
+  cat("Unique VHHs: ", length(unique(tmp_frame$VHH)), '\n', sep = '')
+  cat("Unique CDR3s: ", length(unique(tmp_frame$junction_aa)), '\n', sep = '')
+  cat("Most-frequent CDR3: ", common_CDR3, ' (with ',nrow(tmp_frame[tmp_frame$junction_aa == common_CDR3,]), ' CDR3 observations)\n', sep = '')
+  print(ggseqlogo(as.character(tmp_frame$junction_aa), seq_type='aa', method = 'p') + 
+    theme_classic() + ggtitle(paste(" CDR3 Logo Plot for cluster with the most common CDR3 sequence:\n               ", common_CDR3, sep = '')))
+}
+
+```
