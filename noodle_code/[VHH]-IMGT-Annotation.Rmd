@@ -1,0 +1,96 @@
+---
+title: "[VHH]-IMGT"
+output: html_document
+date: "2024-02-08"
+---
+
+Note: for [IgBLAST lastest releases](https://ftp.ncbi.nih.gov/blast/executables/igblast/release/LATEST/).
+
+### Prep for IMGT
+
+```
+# Move to VHH directory
+cd ~/VHH/data
+# Copy over the file
+cp *_atleast-1.fastq ~/ncbi-igblast-1.17.1/
+# Change the directory
+cd ~/ncbi-igblast-1.17.1
+```
+### Convert the file to fasta
+
+```{r, echo = T, eval = F}
+# Directory
+directory <- "~/VHH/data/"
+
+# Arguments (List the _atleast-1 files)
+args <- list.files(directory)[grepl("_atleast-1.fastq", list.files(directory))]
+# args = commandArgs(trailingOnly=TRUE)
+
+# Set current working directory to ncbi-igblast-1.17.1
+setwd("~/ncbi-igblast-1.17.1")
+
+file_origin <- paste("~/ncbi-igblast-1.17.1/", args, sep = '')
+file_output <- gsub(".fastq", ".fasta", file_origin)
+results <- gsub(".fastq", '.fmt7', args)
+
+
+for (i in 1:length(file_origin)){
+  # load the fastq
+  tmp <- ShortRead::readFastq(file_origin[i])
+
+  # write as fasta
+  ShortRead::writeFasta(tmp, file = file_output[i])
+}
+
+```
+
+### IMGT
+
+```{bash, eval = F}
+bin/igblastn -germline_db_V database/alpaca_vhh_clean/alpaca_V -germline_db_D database/alpaca_vhh_clean/alpaca_D -germline_db_J database/alpaca_vhh_clean/alpaca_J -domain_system imgt -ig_seqtype Ig -organism alpaca -auxiliary_data optional_file/alpaca_gl.aux -outfmt '7 std qseq sseq btop' -query ~/ncbi-igblast-1.17.1/S1-M02-TRIM_atleast-1.fasta -out ~/ncbi-igblast-1.17.1/S1-M02-TRIM_atleast-1.fmt7
+```
+
+```
+# Copy back to data
+cp S1-M02-TRIM_atleast-1.fmt7 ~/VHH/data
+cp S1-M02-TRIM_atleast-1.fasta ~/VHH/data
+```
+
+### Make Database
+
+```{bash, eval = F}
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+  MakeDb.py igblast -i /data/S1-M02-TRIM_atleast-1.fmt7 -s /data/S1-M02-TRIM_atleast-1.fasta \
+  -r /data/imgt-data/imgt_gapped_alpaca_IGHV.fasta \
+  /data/imgt-data/imgt_gapped_alpaca_IGHD.fasta  \
+  /data/imgt-data/imgt_gapped_alpaca_IGHJ.fasta \
+  --outdir /data/ --failed --format airr --extended
+```
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+  MakeDb.py igblast -i /data/S1-M02-TRIM_atleast-1.fmt7 -s /data/S1-M02-TRIM_atleast-1.fasta \
+  -r /data/imgt-data/imgt_gapped_alpaca_IGHV.fasta \
+  /data/imgt-data/imgt_gapped_alpaca_IGHD.fasta  \
+  /data/imgt-data/imgt_gapped_alpaca_IGHJ.fasta \
+  --outdir /data/ --failed --format airr --extended
+  
+         START> MakeDB
+       COMMAND> igblast
+  ALIGNER_FILE> S1-M02-TRIM_atleast-1.fmt7
+      SEQ_FILE> S1-M02-TRIM_atleast-1.fasta
+       ASIS_ID> False
+    ASIS_CALLS> False
+      VALIDATE> strict
+      EXTENDED> True
+INFER_JUNCTION> False
+
+PROGRESS> 14:25:43 |Done                | 0.0 min
+
+PROGRESS> 14:29:22 |####################| 100% (137,203) 3.6 min
+
+OUTPUT> S1-M02-TRIM_atleast-1_db-pass.tsv
+  PASS> 114459
+  FAIL> 22744
+   END> MakeDb
+```

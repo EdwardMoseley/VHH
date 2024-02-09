@@ -7,7 +7,7 @@ assembled_files <- gsub("_MPC_primers-pass.fastq", "", files)
 file_set <- assembled_files
 
 ## Iterate over each file
-for (f in file_set[1]){
+for (f in file_set){
   # Some elevator music
   print(f)
   
