@@ -1,0 +1,107 @@
+---
+title: "[VHH]-Query-Clone-Results"
+output: html_document
+date: "2024-02-09"
+---
+
+```{r, warning = F, echo = F, eval = T}
+suppressMessages(library(ggplot2))
+suppressMessages(library(ggseqlogo))
+suppressMessages(library(gridExtra))
+suppressMessages(library(msa))
+suppressMessages(library(Biostrings))
+knitr::opts_chunk$set(fig.width=12, fig.height=4) 
+
+#### Translate
+translate_DNA <- function(dna_data){
+  clean_dna <- gsub("[^ACTG]", "", dna_data)
+  DNA_strings <- Biostrings::DNAStringSet(clean_dna)
+  translations <- as.character(Biostrings::translate(DNA_strings))
+  return(translations)
+}
+
+#### Trim CDR3
+trim_CDR3 <- function(seq_vec){
+  return(substr(seq_vec, 2, nchar(seq_vec)-1))
+}
+
+top_groups <- function(results, clone_var){
+  return(table(results[[clone_var]])[order(table(results[[clone_var]]), decreasing = T)])
+}
+
+unproductive <- function(results){
+  return(results[which(!grepl("\\*", results$VHH, fixed = F)),])
+}
+
+```
+
+## Load Databases
+
+```{r}
+S3 <- read.csv("~/VHH/data/Old Data/S3_specificity_test_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+S3$experiment <- rep("S3", each = nrow(S3))
+S3$clone_id <- paste(S3$clone_id, "-S3", sep = '')
+
+F13 <- read.csv("~/VHH/data/13_VecF1_R2_S13_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+F13$experiment <- rep("F13", each = nrow(F13))
+F13$clone_id <- paste(F13$clone_id, "-F13", sep = '')
+
+F14 <- read.csv("~/VHH/data/14_VecF1_R2_S14_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+F14$experiment <- rep("F14", each = nrow(F14))
+F14$clone_id <- paste(F14$clone_id, "-F14", sep = '')
+
+S3$junction_aa <- trim_CDR3(S3$junction_aa)
+F13$junction_aa <- trim_CDR3(F13$junction_aa)
+F14$junction_aa <- trim_CDR3(F14$junction_aa)
+```
+
+
+```{r}
+results <- read.csv("~/Downloads/VHH-Query-Clone-Results09Feb24.csv", header = T, stringsAsFactors = F)
+
+tmp <- read.csv("~/Downloads/VHH-Query-Clone-Tallies09Feb24.csv", header = T, stringsAsFactors = F)
+```
+
+```{r}
+CDR3_id <- vector()
+CDR3_seq <- vector()
+clones <- vector()
+counts <- vector()
+
+
+for (nm in unique(tmp$Query_sequence_name)){
+  print(nm)
+  print(results[results$Query_sequence_name == nm,]$Query_junction_aa[1])
+  tmp_frame <- tmp[tmp$Query_sequence_name == nm,]
+  print(nrow(tmp_frame))
+  tmp_frame$clone_id <- factor(tmp_frame$clone_id)
+  print(table(tmp_frame$clone_id))
+  print(length(table(tmp_frame$clone_id)))
+  
+  CDR3_id <- c(CDR3_id, nm)
+  CDR3_seq <- c(CDR3_seq, results[results$Query_sequence_name == nm,]$Query_junction_aa[1])
+  clone_list <- as.vector(as.character(names(table(tmp_frame$clone_id))))
+  clones <- c(clones, paste(clone_list, collapse = ', '))
+  counts <- c(counts, length(as.numeric(table(tmp_frame$clone_id))))
+  
+  cat("\n")
+  cat("\n")
+  
+}
+
+results_frame <- as.data.frame(cbind(CDR3_id, CDR3_seq,clones, counts))
+results_frame$counts <- as.numeric(as.character(results_frame$counts))
+results_frame <- results_frame[order(results_frame$counts, decreasing = T),]
+```
+
+```{r}
+# write.csv(results_frame, file = "~/Downloads/Query-Seqs-Distribution09Feb24.csv", row.names = F)
+```
+
+## Simple Checks
+
+```{r}
+
+```
+
+
