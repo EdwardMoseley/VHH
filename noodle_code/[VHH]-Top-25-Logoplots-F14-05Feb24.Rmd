@@ -1,5 +1,5 @@
 ---
-title: "[VHH]-Top-25-Family-Logoplots05Feb24"
+title: "[VHH]-Top-25-Family-Logoplots11Feb24"
 output: html_document
 date: "2024-02-05"
 ---
@@ -34,7 +34,7 @@ unproductive <- function(results){
 }
 ```
 
-# Illumina Run: F14
+# Illumina Run: F17
 
 ```{r, echo = F}
 #S3 <- read.csv("~/VHH/data/Old Data/S3_specificity_test_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
@@ -43,8 +43,25 @@ unproductive <- function(results){
 
 #df <- read.csv("~/VHH/data/13_VecF1_R2_S13_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
 
-df <- read.csv("~/VHH/data/14_VecF1_R2_S14_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+# df <- read.csv("~/VHH/data/14_VecF1_R2_S14_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
 #F14$experiment <- rep("F14", each = nrow(F14))
+
+df <- read.csv("~/VHH/data/17_VecF3_R3_S17_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+
+# [1] "1_L1_sh2_S1_min_threshold_clone-pass.tsv"    
+# [2] "10_L3_lh2_S10_min_threshold_clone-pass.tsv"  
+# [3] "11_L3_sh3_S11_min_threshold_clone-pass.tsv"  
+# [4] "12_L3_lh3_S12_min_threshold_clone-pass.tsv"  
+# [5] "13_VecF1_R2_S13_min_threshold_clone-pass.tsv"
+# [6] "14_VecF1_R2_S14_min_threshold_clone-pass.tsv"
+# [7] "14_VecF2_R2_S14_min_threshold_clone-pass.tsv"
+# [8] "15_VecF3_R2_S15_min_threshold_clone-pass.tsv"
+# [9] "16_VecF4_R2_S16_min_threshold_clone-pass.tsv"
+#[10] "17_VecF3_R3_S17_min_threshold_clone-pass.tsv"
+#[11] "18_VecF3_R4_S18_min_threshold_clone-pass.tsv"
+#[12] "19_VecF1_R3_S19_min_threshold_clone-pass.tsv"
+#[13] "20_VecF2_R3_S20_min_threshold_clone-pass.tsv"
+#[14] "22_VecF4_R4_S22_min_threshold_clone-pass.tsv"
 ```
 
 ```{r, echo = F, warning=F}

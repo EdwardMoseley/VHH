@@ -49,59 +49,121 @@ F13$clone_id <- paste(F13$clone_id, "-F13", sep = '')
 F14 <- read.csv("~/VHH/data/14_VecF1_R2_S14_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
 F14$experiment <- rep("F14", each = nrow(F14))
 F14$clone_id <- paste(F14$clone_id, "-F14", sep = '')
+```
 
+```
+## New sample sets
+F17 <- read.csv("~/VHH/data/17_VecF3_R3_S17_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+F17$experiment <- rep("F17", each = nrow(F17))
+F17$clone_id <- paste(F17$clone_id, "-F17", sep = '')
+
+F18 <- read.csv("~/VHH/data/18_VecF3_R4_S18_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+F18$experiment <- rep("F18", each = nrow(F18))
+F18$clone_id <- paste(F18$clone_id, "-F18", sep = '')
+
+F20 <- read.csv("~/VHH/data/20_VecF2_R3_S20_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+F20$experiment <- rep("F20", each = nrow(F20))
+F20$clone_id <- paste(F20$clone_id, "-F20", sep = '')
+
+F22 <- read.csv("~/VHH/data/22_VecF4_R4_S22_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+F22$experiment <- rep("F22", each = nrow(F22))
+F22$clone_id <- paste(F22$clone_id, "-F22", sep = '')
+```
+
+```{r}
 S3$junction_aa <- trim_CDR3(S3$junction_aa)
 F13$junction_aa <- trim_CDR3(F13$junction_aa)
 F14$junction_aa <- trim_CDR3(F14$junction_aa)
 ```
 
+```
+# New sets
+F17$junction_aa <- trim_CDR3(F17$junction_aa)
+F17$dist_nearest <- NULL
+F18$junction_aa <- trim_CDR3(F18$junction_aa)
+F18$dist_nearest <- NULL
+F20$junction_aa <- trim_CDR3(F20$junction_aa)
+F20$dist_nearest <- NULL
+F22$junction_aa <- trim_CDR3(F22$junction_aa)
+F22$dist_nearest <- NULL
+```
+
+## Create Database
 
 ```{r}
-results <- read.csv("~/Downloads/VHH-Query-Clone-Results09Feb24.csv", header = T, stringsAsFactors = F)
+db <- rbind(S3, F13, F14)#, F17, F18, F20, F22)
+#rm(S3, F13, F14)
+#rm(F17, F18, F20, F22)
 
-tmp <- read.csv("~/Downloads/VHH-Query-Clone-Tallies09Feb24.csv", header = T, stringsAsFactors = F)
+# Pull only what we need
+db <- db[,c("sequence_id","junction_aa", "clone_id", "experiment")]#, "sequence_alignment")]
+```
+
+## Load Queries
+
+```{r}
+results <- read.csv("~/Downloads/VHH-Query-Clone-Results11Feb24.csv", header = T, stringsAsFactors = F)
+
+tmp <- read.csv("~/Downloads/VHH-Query-Clone-Tallies11Feb24.csv", header = T, stringsAsFactors = F)
+
+# Pull Sequences of Interst
+tmp <- tmp[tmp$Query_sequence_name %in% c("XLN-D7", "XLO-F8", "XLO-F4"),]
+
+results <- results[results$Query_sequence_name %in% c("XLN-D7", "XLO-F8", "XLO-F4"),]
+
+results <- merge(results, tmp, by = c("Query_sequence_name", "clone_id"), all.x = T)
+rm(tmp)
+
+# Create experiment varible
+#tmp$experiment <- gsub("^[^-]*-", '', tmp$clone_id)
+# Drop experiment info from clone ID
+#tmp$clone_id <- gsub("-.*", '', tmp$clone_id)
+
+# Store results in another variable
+# dat <- results
+```
+
+## Rename DB_junction_aa for merging
+
+```{r}
+colnames(results)[4] <- "junction_aa"
+results$Freq <- NULL
 ```
 
 ```{r}
-CDR3_id <- vector()
-CDR3_seq <- vector()
-clones <- vector()
-counts <- vector()
+dat <- merge(results, db, by = intersect(colnames(db), colnames(results)), all.x = T)
+```
 
-
-for (nm in unique(tmp$Query_sequence_name)){
-  print(nm)
-  print(results[results$Query_sequence_name == nm,]$Query_junction_aa[1])
-  tmp_frame <- tmp[tmp$Query_sequence_name == nm,]
-  print(nrow(tmp_frame))
-  tmp_frame$clone_id <- factor(tmp_frame$clone_id)
-  print(table(tmp_frame$clone_id))
-  print(length(table(tmp_frame$clone_id)))
-  
-  CDR3_id <- c(CDR3_id, nm)
-  CDR3_seq <- c(CDR3_seq, results[results$Query_sequence_name == nm,]$Query_junction_aa[1])
-  clone_list <- as.vector(as.character(names(table(tmp_frame$clone_id))))
-  clones <- c(clones, paste(clone_list, collapse = ', '))
-  counts <- c(counts, length(as.numeric(table(tmp_frame$clone_id))))
-  
-  cat("\n")
-  cat("\n")
-  
+```{r}
+for (query_nm in unique(dat$Query_sequence_name)){
+  for (exp_id in unique(dat$experiment)){
+    for (cutoff_val in c(40, 50, 60, 70, 80, 85)){
+      # Subset data satisfying requirements
+      tmp_frame <- results[results$Query_sequence_name == query_nm & results$experiment == exp_id & results$pct_identity >= cutoff_val,]
+      
+      tab <- top_groups(df, "clone_id")
+      tmp_frame <- tmp_frame[tmp_frame$clone_id %in% head(as.numeric(names(tab)), 25),]
+      
+      for (nm in unique(tmp_frame$clone_id)){
+        # Pull most frequent CDR3
+        common_CDR3 <- names(table(tmp_frame$junction_aa)[order(table(tmp_frame$junction_aa), decreasing = T)][1])
+        cat("Group ID: ", unique(tmp_frame$clone_id), '\n', sep = '')
+        cat("Overall VHHs: ", nrow(tmp_frame), '\n', sep = '')
+        cat("Unique VHHs: ", length(unique(tmp_frame$VHH)), '\n', sep = '')
+        cat("Unique CDR3s: ", length(unique(tmp_frame$junction_aa)), '\n', sep = '')
+        cat("Most-frequent CDR3: ", common_CDR3, ' (with ',
+            nrow(tmp_frame[tmp_frame$junction_aa == common_CDR3,]), 
+            ' CDR3 observations)\n', sep = '')
+  print(ggseqlogo(as.character(tmp_frame$junction_aa), seq_type='aa', method = 'p') + 
+    theme_classic() + ggtitle(paste(" CDR3 Logo Plot for cluster with the most common CDR3 sequence:\n               ", common_CDR3, sep = '')))
+      }
+    }
+  }
 }
-
-results_frame <- as.data.frame(cbind(CDR3_id, CDR3_seq,clones, counts))
-results_frame$counts <- as.numeric(as.character(results_frame$counts))
-results_frame <- results_frame[order(results_frame$counts, decreasing = T),]
 ```
+  
 
-```{r}
-# write.csv(results_frame, file = "~/Downloads/Query-Seqs-Distribution09Feb24.csv", row.names = F)
-```
 
-## Simple Checks
 
-```{r}
-
-```
 
 

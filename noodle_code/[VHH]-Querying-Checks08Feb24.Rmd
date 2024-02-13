@@ -138,12 +138,6 @@ for (nm in unique(tmp$clone_id)){
 
 ```
 
-
-
-
-
-
-
 # Query Experiments
 
 
@@ -180,6 +174,36 @@ F13$clone_id <- paste(F13$clone_id, "-F13", sep = '')
 F14 <- read.csv("~/VHH/data/14_VecF1_R2_S14_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
 F14$experiment <- rep("F14", each = nrow(F14))
 F14$clone_id <- paste(F14$clone_id, "-F14", sep = '')
+
+
+
+
+
+
+
+## New sample sets
+F17 <- read.csv("~/VHH/data/17_VecF3_R3_S17_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+F17$experiment <- rep("F17", each = nrow(F17))
+F17$clone_id <- paste(F17$clone_id, "-F17", sep = '')
+
+
+F18 <- read.csv("~/VHH/data/18_VecF3_R4_S18_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+F18$experiment <- rep("F18", each = nrow(F18))
+F18$clone_id <- paste(F18$clone_id, "-F18", sep = '')
+
+F20 <- read.csv("~/VHH/data/20_VecF2_R3_S20_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+F20$experiment <- rep("F20", each = nrow(F20))
+F20$clone_id <- paste(F20$clone_id, "-F20", sep = '')
+
+
+
+
+```
+
+
+
+
+```{r}
 
 S3$junction_aa <- trim_CDR3(S3$junction_aa)
 F13$junction_aa <- trim_CDR3(F13$junction_aa)

@@ -1,0 +1,180 @@
+---
+title: "[VHH]-Query-Clonal-Family-Logoplots"
+output: html_document
+date: "2024-02-11"
+---
+
+```{r, warning = F, echo = F, eval = T}
+suppressMessages(library(ggplot2))
+suppressMessages(library(ggseqlogo))
+suppressMessages(library(gridExtra))
+suppressMessages(library(msa))
+suppressMessages(library(Biostrings))
+knitr::opts_chunk$set(fig.width=12, fig.height=4) 
+
+#### Translate
+translate_DNA <- function(dna_data){
+  clean_dna <- gsub("[^ACTG]", "", dna_data)
+  DNA_strings <- Biostrings::DNAStringSet(clean_dna)
+  translations <- as.character(Biostrings::translate(DNA_strings))
+  return(translations)
+}
+
+#### Trim CDR3
+trim_CDR3 <- function(seq_vec){
+  return(substr(seq_vec, 2, nchar(seq_vec)-1))
+}
+
+top_groups <- function(results, clone_var){
+  return(table(results[[clone_var]])[order(table(results[[clone_var]]), decreasing = T)])
+}
+
+unproductive <- function(results){
+  return(results[which(!grepl("\\*", results$VHH, fixed = F)),])
+}
+
+```
+
+
+```{r, echo = F, eval = T}
+S3 <- read.csv("~/VHH/data/Old Data/S3_specificity_test_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+S3$experiment <- rep("S3", each = nrow(S3))
+S3$clone_id <- paste(S3$clone_id, "-S3", sep = '')
+
+F13 <- read.csv("~/VHH/data/13_VecF1_R2_S13_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+F13$experiment <- rep("F13", each = nrow(F13))
+F13$clone_id <- paste(F13$clone_id, "-F13", sep = '')
+
+F14 <- read.csv("~/VHH/data/14_VecF1_R2_S14_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+F14$experiment <- rep("F14", each = nrow(F14))
+F14$clone_id <- paste(F14$clone_id, "-F14", sep = '')
+```
+
+```{r, echo = F, eval = F}
+## New sample sets
+F17 <- read.csv("~/VHH/data/17_VecF3_R3_S17_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+F17$experiment <- rep("F17", each = nrow(F17))
+F17$clone_id <- paste(F17$clone_id, "-F17", sep = '')
+
+F18 <- read.csv("~/VHH/data/18_VecF3_R4_S18_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+F18$experiment <- rep("F18", each = nrow(F18))
+F18$clone_id <- paste(F18$clone_id, "-F18", sep = '')
+
+F20 <- read.csv("~/VHH/data/20_VecF2_R3_S20_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+F20$experiment <- rep("F20", each = nrow(F20))
+F20$clone_id <- paste(F20$clone_id, "-F20", sep = '')
+
+F22 <- read.csv("~/VHH/data/22_VecF4_R4_S22_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+F22$experiment <- rep("F22", each = nrow(F22))
+F22$clone_id <- paste(F22$clone_id, "-F22", sep = '')
+```
+
+```{r, echo = F, eval = T}
+S3$junction_aa <- trim_CDR3(S3$junction_aa)
+F13$junction_aa <- trim_CDR3(F13$junction_aa)
+F14$junction_aa <- trim_CDR3(F14$junction_aa)
+```
+
+```{r, echo = F, eval = F}
+# New sets
+F17$junction_aa <- trim_CDR3(F17$junction_aa)
+F17$dist_nearest <- NULL
+F18$junction_aa <- trim_CDR3(F18$junction_aa)
+F18$dist_nearest <- NULL
+F20$junction_aa <- trim_CDR3(F20$junction_aa)
+F20$dist_nearest <- NULL
+F22$junction_aa <- trim_CDR3(F22$junction_aa)
+F22$dist_nearest <- NULL
+```
+
+
+```{r, echo = F, eval = T}
+db <- rbind(S3, F13, F14)#, F17, F18, F20, F22)
+rm(S3, F13, F14)
+#rm(F17, F18, F20, F22)
+
+# Pull only what we need
+db <- db[,c("sequence_id","junction_aa", "clone_id", "experiment")]#, "sequence_alignment")]
+```
+
+
+```{r, echo = F, eval = T}
+results <- read.csv("~/Downloads/VHH-Query-Clone-Results11Feb24.csv", header = T, stringsAsFactors = F)
+
+tmp <- read.csv("~/Downloads/VHH-Query-Clone-Tallies11Feb24.csv", header = T, stringsAsFactors = F)
+
+# Pull Sequences of Interst
+tmp <- tmp[tmp$Query_sequence_name %in% c("XLN-D7", "XLO-F8", "XLO-F4"),]
+
+results <- results[results$Query_sequence_name %in% c("XLN-D7", "XLO-F8", "XLO-F4"),]
+
+results <- merge(results, tmp, by = c("Query_sequence_name", "clone_id"), all.x = T)
+rm(tmp)
+```
+
+
+```{r, echo = F, eval = T}
+colnames(results)[4] <- "junction_aa"
+results$Freq <- NULL
+
+dat <- merge(results, db, by = intersect(colnames(db), colnames(results)), all.x = T)
+```
+
+
+
+
+
+```{r, echo = F, eval = T}
+for (query_nm in unique(dat$Query_sequence_name)){
+  
+  for (exp_id in unique(dat$experiment)){
+
+    for (cutoff_val in c(40, 50, 60, 70, 80, 85)){
+      # Subset data satisfying requirements
+      tmp_frame <- results[results$Query_sequence_name == query_nm & 
+                             results$experiment == exp_id & 
+                             results$pct_identity >= cutoff_val,]
+      # Pull top groups
+      tab <- top_groups(tmp_frame, "clone_id")
+
+      for (nm in names(tab)[1:3]){
+        ## Note: if pull db here, is it necessary to bother with the big merge above?
+        # (Of course we won't have pct identity, but maybe a small price to pay)
+        tmp_frame <- na.omit(dat[dat$clone_id == nm,])
+
+        if (nrow(tmp_frame) >= 1){
+            print(paste("Illumina Run: ", exp_id, sep = ''))
+            cat("Query Name: ", query_nm, '\n', sep = '')
+            cat("Similarity Threshold Value: ", cutoff_val, '\n', sep = '')
+            cat("Query Sequence: ", tmp_frame$Query_junction_aa[1], '\n', sep = '')
+            cat("Similar Clone ID: ", nm, '\n', sep = '')
+            cat("Clone Similarity Value (Percent) Statistics:\n", sep = '')
+            # Pull most frequent CDR3
+            common_CDR3 <- names(table(tmp_frame$junction_aa)[order(table(tmp_frame$junction_aa), decreasing = T)][1])
+            print(summary(tmp_frame$pct_identity))
+            cat("Most-frequent CDR3: ", common_CDR3, ' (with ',
+                nrow(tmp_frame[tmp_frame$junction_aa == common_CDR3,]), 
+                ' CDR3 observations)\n', sep = '')
+    
+            cat("Overall VHHs: ", nrow(tmp_frame), '\n', sep = '')
+            # cat("Unique VHHs: ", length(unique(tmp_frame$VHH)), '\n', sep = '')
+            cat("Unique CDR3s: ", length(unique(tmp_frame$junction_aa)), '\n', sep = '')
+    
+            print(ggseqlogo(as.character(tmp_frame$junction_aa), seq_type='aa', method = 'p') + 
+            theme_classic() + 
+            ggtitle(paste(" CDR3 Logo Plot for cluster with the most common CDR3 sequence:\n               ", 
+                        common_CDR3, sep = '')))
+        }
+        
+
+      }
+    }
+  }
+}
+```
+  
+
+
+
+
+

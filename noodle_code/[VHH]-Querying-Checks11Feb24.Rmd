@@ -1,0 +1,961 @@
+---
+title: "[VHH]-Top-25-Family-Logoplots05Feb24"
+output: html_document
+date: "2024-02-05"
+---
+
+```{r, echo = F, eval = T}
+suppressMessages(library(ggplot2))
+suppressMessages(library(ggseqlogo))
+suppressMessages(library(gridExtra))
+suppressMessages(library(msa))
+suppressMessages(library(Biostrings))
+knitr::opts_chunk$set(fig.width=12, fig.height=4) 
+
+#### Translate
+translate_DNA <- function(dna_data){
+  clean_dna <- gsub("[^ACTG]", "", dna_data)
+  DNA_strings <- Biostrings::DNAStringSet(clean_dna)
+  translations <- as.character(Biostrings::translate(DNA_strings))
+  return(translations)
+}
+
+#### Trim CDR3
+trim_CDR3 <- function(seq_vec){
+  return(substr(seq_vec, 2, nchar(seq_vec)-1))
+}
+
+top_groups <- function(results, clone_var){
+  return(table(results[[clone_var]])[order(table(results[[clone_var]]), decreasing = T)])
+}
+
+unproductive <- function(results){
+  return(results[which(!grepl("\\*", results$VHH, fixed = F)),])
+}
+
+# function def
+simple_weighted_CDR3_Search <- function(dat, 
+                                        sequences,
+                                        insert_cost,
+                                        delete_cost,
+                                        substitute_cost){
+  # Count junction_aa length
+  dat$junction_aa_length <- nchar(dat$junction_aa)
+  
+  # For each Query CDR3
+  for (i in 1:length(seqs$sequence)){
+    # Pull the name
+    CDR3_ID <- seqs$sequence_id[i]
+    # Pull the junction_aa
+    CDR3 <- seqs$sequence[i]
+    
+    # calculate distance metric indexed by Query VHH name
+    dat[[CDR3_ID]] <- stringdist::stringdist(seqs$sequence[i], 
+                                             dat$junction_aa, 
+                                             method = "lv",
+                                        weight = c(insert_cost, 
+                                                   delete_cost, 
+                                                   substitute_cost))
+  }
+  
+  # Create a data frame for our results
+  results <- data.frame()
+  
+  print("Compiling results...")
+  
+  # Subset min-distance hits
+  for (i in 1:length(seqs$sequence)){
+    # For each CDR3 ID
+    CDR3_ID <- seqs$sequence_id[i]
+    # Pull CDR3
+    CDR3 <- seqs$sequence[i]
+    
+    # Pull minimum distance, add some amount
+    min_dist <- (min(dat[[CDR3_ID]])+5)
+    
+    tmp <- dat[dat[[CDR3_ID]] <= min_dist, 
+               c("sequence_id", 
+                 "junction_aa",
+                 #"cdr1_aa",
+                 #"cdr2_aa",
+                 "clone_id",
+                 "sequence_alignment")]
+    
+    tmp[["Query_junction_aa"]] <- rep(seqs$sequence[i], each = nrow(tmp))
+    tmp[["Query_sequence_name"]] <- rep(seqs$sequence_id[i], each = nrow(tmp))
+    #tmp[["Query_cdr1_aa"]] <- rep(seqs$cdr1_aa[i], each = nrow(tmp))
+    #tmp[["Query_cdr2_aa"]] <- rep(seqs$cdr2_aa[i], each = nrow(tmp))
+    tmp[["Query_CDR3_dist"]] <- rep(min_dist, each = nrow(tmp))
+
+    # print(head(tmp))
+    # print(colnames(tmp))
+
+    
+    # Rearrange columns
+    tmp <- tmp[,c("Query_sequence_name",
+                  "Query_junction_aa",
+                  "sequence_id",
+                  "junction_aa",
+                  "Query_CDR3_dist",
+                  #"cdr1_aa",
+                  #"Query_cdr1_aa",
+                  #"cdr2_aa",
+                  #"Query_cdr2_aa",
+                  "sequence_alignment",
+                  "clone_id")]
+    
+    colnames(tmp)[ncol(tmp)-1] <- "assembled_sequence_alignment"
+    
+    # We want to merge the closest match to Seqs
+    results <- rbind(results, tmp)
+  }
+  return(results)
+}
+```
+
+
+```
+tab <- top_groups(df, "clone_id")
+tmp <- df[df$clone_id %in% head(as.numeric(names(tab)), 25),]
+  
+for (nm in unique(tmp$clone_id)){
+  tmp_frame <- tmp[tmp$clone_id == as.numeric(nm),]
+  
+  # Translate VHH
+  tmp_frame$VHH <- translate_DNA(tmp_frame$sequence_alignment)
+  # Trim CDR3
+  tmp_frame$junction_aa <- trim_CDR3(tmp_frame$junction_aa)
+  # Pull most frequent CDR3
+  common_CDR3 <- names(table(tmp_frame$junction_aa)[order(table(tmp_frame$junction_aa), decreasing = T)][1])
+  
+  cat("Group ID: ", unique(tmp_frame$clone_id), '\n', sep = '')
+  cat("Unique VHHs: ", length(unique(tmp_frame$VHH)), '\n', sep = '')
+  cat("Unique CDR3s: ", length(unique(tmp_frame$junction_aa)), '\n', sep = '')
+  cat("Most-frequent CDR3: ", common_CDR3, ' (with ',nrow(tmp_frame[tmp_frame$junction_aa == common_CDR3,]), ' CDR3 observations)\n', sep = '')
+  print(ggseqlogo(as.character(tmp_frame$junction_aa), seq_type='aa', method = 'p') + 
+    theme_classic() + ggtitle(paste(" CDR3 Logo Plot for cluster with the most common CDR3 sequence:\n               ", common_CDR3, sep = '')))
+}
+
+```
+
+# Query Experiments
+
+
+## Load Query Sequences
+
+```{r}
+# seqs <- read.csv("~/Desktop/Shoemaker Lab/VHH_query_seqs15Jan24_db-pass.csv", header = T, stringsAsFactors = F)
+
+seqs <- read.csv("~/Desktop/Shoemaker Lab/VHH_all_query_CDR3s17Jan24.csv", header = T, stringsAsFactors = F)
+
+# Rename junction_aa
+colnames(seqs)[2] <- "sequence"
+colnames(seqs)[3] <- "sequence_id"
+
+# Trim
+seqs$sequence <- trim_CDR3(seqs$sequence)
+
+# Drop sequence alignment for readability
+# seqs$sequence_alignment <- NULL
+```
+
+
+## Load Databases
+
+```{r}
+S3 <- read.csv("~/VHH/data/Old Data/S3_specificity_test_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+S3$experiment <- rep("S3", each = nrow(S3))
+S3$clone_id <- paste(S3$clone_id, "-S3", sep = '')
+
+F13 <- read.csv("~/VHH/data/13_VecF1_R2_S13_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+F13$experiment <- rep("F13", each = nrow(F13))
+F13$clone_id <- paste(F13$clone_id, "-F13", sep = '')
+
+F14 <- read.csv("~/VHH/data/14_VecF1_R2_S14_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+F14$experiment <- rep("F14", each = nrow(F14))
+F14$clone_id <- paste(F14$clone_id, "-F14", sep = '')
+
+## New sample sets
+F17 <- read.csv("~/VHH/data/17_VecF3_R3_S17_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+F17$experiment <- rep("F17", each = nrow(F17))
+F17$clone_id <- paste(F17$clone_id, "-F17", sep = '')
+
+F18 <- read.csv("~/VHH/data/18_VecF3_R4_S18_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+F18$experiment <- rep("F18", each = nrow(F18))
+F18$clone_id <- paste(F18$clone_id, "-F18", sep = '')
+
+F20 <- read.csv("~/VHH/data/20_VecF2_R3_S20_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+F20$experiment <- rep("F20", each = nrow(F20))
+F20$clone_id <- paste(F20$clone_id, "-F20", sep = '')
+
+F22 <- read.csv("~/VHH/data/22_VecF4_R4_S22_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+F22$experiment <- rep("F22", each = nrow(F22))
+F22$clone_id <- paste(F22$clone_id, "-F22", sep = '')
+```
+
+```{r}
+S3$junction_aa <- trim_CDR3(S3$junction_aa)
+F13$junction_aa <- trim_CDR3(F13$junction_aa)
+F14$junction_aa <- trim_CDR3(F14$junction_aa)
+
+F17$junction_aa <- trim_CDR3(F17$junction_aa)
+F18$junction_aa <- trim_CDR3(F18$junction_aa)
+F20$junction_aa <- trim_CDR3(F20$junction_aa)
+F22$junction_aa <- trim_CDR3(F22$junction_aa)
+```
+
+## 1x insert-delete cost
+
+```{r}
+simple_weighted_S3_res <- simple_weighted_CDR3_Search(S3,
+                                                      seqs,
+                                                      insert_cost = 1,
+                                                      delete_cost = 1,
+                                                      substitute_cost = 1)
+
+simple_weighted_S3_res$experiment <- rep("S3", each = nrow(simple_weighted_S3_res))
+
+simple_weighted_F13_res <- simple_weighted_CDR3_Search(F13,
+                                        seqs,
+                                        insert_cost = 1,
+                                        delete_cost = 1,
+                                        substitute_cost = 1)
+
+simple_weighted_F13_res$experiment <- rep("F13", each = nrow(simple_weighted_F13_res))
+
+simple_weighted_F14_res <- simple_weighted_CDR3_Search(F14,
+                                        seqs,
+                                        insert_cost = 1,
+                                        delete_cost = 1,
+                                        substitute_cost = 1)
+
+simple_weighted_F14_res$experiment <- rep("F14", each = nrow(simple_weighted_F14_res))
+
+simple_weighted_F17_res <- simple_weighted_CDR3_Search(F17,
+                                        seqs,
+                                        insert_cost = 1,
+                                        delete_cost = 1,
+                                        substitute_cost = 1)
+
+simple_weighted_F17_res$experiment <- rep("F17", each = nrow(simple_weighted_F17_res))
+
+simple_weighted_F18_res <- simple_weighted_CDR3_Search(F18,
+                                        seqs,
+                                        insert_cost = 1,
+                                        delete_cost = 1,
+                                        substitute_cost = 1)
+
+simple_weighted_F18_res$experiment <- rep("F18", each = nrow(simple_weighted_F18_res))
+
+simple_weighted_F20_res <- simple_weighted_CDR3_Search(F20,
+                                        seqs,
+                                        insert_cost = 1,
+                                        delete_cost = 1,
+                                        substitute_cost = 1)
+
+simple_weighted_F20_res$experiment <- rep("F20", each = nrow(simple_weighted_F20_res))
+
+simple_weighted_F22_res <- simple_weighted_CDR3_Search(F22,
+                                        seqs,
+                                        insert_cost = 1,
+                                        delete_cost = 1,
+                                        substitute_cost = 1)
+
+simple_weighted_F22_res$experiment <- rep("F22", each = nrow(simple_weighted_F22_res))
+```
+
+
+```{r}
+simple_weighted_results <- rbind(simple_weighted_S3_res, 
+                                 simple_weighted_F13_res, 
+                                 simple_weighted_F14_res,
+                                 simple_weighted_F17_res,
+                                 simple_weighted_F18_res,
+                                 simple_weighted_F20_res,
+                                 simple_weighted_F22_res)
+
+results <- simple_weighted_results
+
+rm(list = ls()[grepl("simple_weighted", ls())])
+rm(S3, F13, F14, F17, F18, F20, F22)
+```
+
+### Remove CDR3s with different distances
+
+```{r}
+nrow(results)
+## Drop any results that do not have identical lengths
+results <- results[nchar(results$Query_junction_aa) == nchar(results$junction_aa),]
+nrow(results)
+```
+
+```{r}
+results$assembled_VHH <- translate_DNA(results$assembled_sequence_alignment)
+
+# Drop old DNA
+results$assembled_sequence_alignment <- NULL
+
+nrow(results)
+
+# Drop aa_sequences with different nt sequences
+results <- results[!duplicated(results[,c("Query_sequence_name",
+                                          "assembled_VHH")]),]
+
+nrow(results)
+
+results <- results[which(!grepl("\\*", results$assembled_VHH, fixed = F)),]#, fixed = T)),]
+
+nrow(results)
+```
+
+
+
+### Query Distances again for exact values (rather than the previous all min + 5)
+
+```{r}
+distances <- vector()
+
+system.time(
+for (i in 1:nrow(results)){
+  tmp <- stringdist::stringdist(results$Query_junction_aa[i], 
+                                results$junction_aa[i], 
+                                             method = "lv",
+                                        weight = c(1, 
+                                                   1, 
+                                                   1))
+  #distances <- c(tmp, distances)
+  distances[i] <- tmp
+}
+)
+
+results$distances <- distances
+
+# Drop old distances
+results$Query_CDR3_dist <- NULL
+
+rm(distances)
+```
+
+## Order and Rearrange
+
+```{r}
+## Convert CDR3 dist to percentage
+results$pct_identity <- 100 - (results$distances/nchar(results$junction_aa)*100)
+
+nrow(results)
+## Drop 0 identities
+## Drop those with less than 30% identity
+results <- results[results$pct_identity >= 30,]
+nrow(results)
+
+
+```
+
+```{r}
+results <- results[order(results$Query_sequence_name, results$pct_identity, decreasing = T),]
+```
+
+
+```{r}
+table(results$Query_sequence_name, results$experiment)
+```
+
+
+
+
+
+```
+            F13   F14   F17   F18   F20   F22    S3
+  XLL-E11  2826  1355     3    39     0 47656  1031
+  XLL-E12   363   152  1380     1     0  5101   126
+  XLL-E4   3239  1500    28     7 24012  7678  1159
+  XLL-H11   136    64     0     1     0    47     0
+  XLL-H6   3067  1352     6    35   120 71016  1064
+  XLM-C6      1     1     0   450     0     0     2
+  XLM-D1    276   117  1438     0     4   125    52
+  XLM-F4    155    57    11 44682     1     1    28
+  XLM-G4     28    22    24  3327     9     3     6
+  XLN-A2     67    30     3    46   830     6    20
+  XLN-D7   3253  1546    25     6 25438  7046  1206
+  XLN-G12     6     7     0     0    32     0     2
+  XLN-G7     85    35   275     0   681   347    11
+  XLN-G9   1784   839    10   113     6     1   393
+  XLN-H5   2288  1059    12    16 12557   367   827
+  XLO-F4   1447   656 43645     1    34     3   473
+  XLO-F8   2234   997 25908     1    14   139   910
+  XLO-H2     10     9   249     0     0     0     2
+  XLO-H6    166    59   551    82   824    34    40
+  XMA-H7   1194   569    16     0    19   799   367
+  XMB-A12   125    54     2  9281     1     0    40
+  XMB-C1     44    15     1 17947     0     1    10
+  XMD-G8   1081   465    27    27    33     5   160
+  XME-B2    137    68     0     0     0     0    45
+  XME-D4    247   133    92     0    95     1    54
+  XME-E8     16     6     0     0   267     0     4
+  XME-E9      1   331     0     0    26     0     1
+  XME-F11   221   113   116     0   592     0    55
+  XME-G6    779   311    54     0     0   581   143
+  XME-H12  2636  1112    13     7  7503     0   833
+  XME-H4   2254  1046    12    16 12555   359   823
+  XMF-A11    91    48    12     5   249   536    21
+  XMF-C4      7     3     1    30    67     2    37
+  XMF-D9      5     3     1     0    25     1     3
+  XMG-D12   204   121     3     1    74     0    48
+  XMH-D1     65    19  4552     1     1     4    13
+  XMH-G1     65    19  4550     1     1     4    13
+```
+
+### Update names
+
+```{r}
+# Rename sequence ID
+results$sequence_id  <- paste(results$Query_sequence_name, ':', results$sequence_id, sep = '')
+```
+### Trim VHH
+
+```{r}
+results$assembled_VHH <- substr(results$assembled_VHH, 7, nchar(results$assembled_VHH))
+```
+
+# Check Clonal Information
+
+## Enforce A 40 percent cutoff
+
+```{r}
+nrow(results)
+results <- results[results$pct_identity >= 40,]
+nrow(results)
+```
+
+```{r}
+table(results$Query_sequence_name, results$experiment)
+```
+
+```
+            F13   F14   F17   F18   F20   F22    S3
+  XLL-E11  2826  1355     3    39     0 47656  1031
+  XLL-E12   200    95    15     1     0  5100    73
+  XLL-E4   3239  1500    28     7 24012  7678  1159
+  XLL-H11     1     0     0     0     0    47     0
+  XLL-H6   3067  1352     6    35     7 71016  1064
+  XLM-C6      1     1     0   450     0     0     2
+  XLM-D1     64    30   917     0     0     2    12
+  XLM-F4    155    57    11 44682     0     1    28
+  XLM-G4     28    22     0  3327     0     0     6
+  XLN-A2     67    30     3     8   830     0    20
+  XLN-D7   3253  1546    25     6 25438  7046  1206
+  XLN-G12     6     7     0     0    32     0     2
+  XLN-G7     85    35     9     0   681     8    11
+  XLN-G9     46    22     0     0     6     0    11
+  XLN-H5   2288  1059    12    16 12557   367   827
+  XLO-F4   1447   656 43645     1    34     0   473
+  XLO-F8   2069   919 22457     1    10    10   851
+  XLO-H2     10     9   249     0     0     0     2
+  XLO-H6    166    59   551    33   154     0    40
+  XMA-H7   1194   569    16     0    19   799   367
+  XMB-A12   125    54     2  9281     0     0    40
+  XMB-C1     44    15     1 17947     0     1    10
+  XMD-G8     13     5     0    27     0     0     1
+  XME-B2      6     2     0     0     0     0     1
+  XME-D4     15    11     0     0     1     0     4
+  XME-E8     16     6     0     0   267     0     4
+  XME-E9      1     6     0     0    26     0     1
+  XME-F11    82    40     4     0   592     0    27
+  XME-G6    257    90    50     0     0   527    51
+  XME-H12  2636  1112    13     7  7503     0   833
+  XME-H4   2254  1046    12    16 12555   359   823
+  XMF-A11    91    48     0     0   249    21    21
+  XMF-C4      7     3     0     0    67     0    37
+  XMF-D9      5     3     0     0    25     0     3
+  XMG-D12     4     9     3     1     0     0     1
+  XMH-D1     65    19  4552     1     1     0    13
+  XMH-G1     65    19  4550     1     1     0    13
+```
+
+```{r}
+results <- results[,c("Query_sequence_name",
+                      "Query_junction_aa",
+                      "junction_aa",
+                      "pct_identity",
+                      "assembled_VHH",
+                      "sequence_id",
+                      "clone_id",
+                      "experiment")]
+
+
+colnames(results) <- c("Query_sequence_name",
+                      "Query_junction_aa",
+                      "DB_junction_aa",
+                      "pct_identity",
+                      "DB_VHH",
+                      "DB_sequence_id",
+                      "clone_id",
+                      "experiment")
+```
+
+
+
+## Check clones picked up with >= 40pct homology to queries
+
+
+```{r}
+tmp <- as.data.frame(table(results$clone_id, results$Query_sequence_name))
+
+tmp <- tmp[tmp$Freq != 0,]
+colnames(tmp) <- c("clone_id", "Query_sequence_name", "Freq")
+
+tmp <- tmp[order(tmp$Freq, decreasing = T),]
+```
+
+```{r}
+
+for (nm in unique(tmp$Query_sequence_name)){
+  print(nm)
+  print(results[results$Query_sequence_name == nm,]$Query_junction_aa[1])
+  tmp_frame <- tmp[tmp$Query_sequence_name == nm,]
+  print(nrow(tmp_frame))
+  tmp_frame$clone_id <- factor(tmp_frame$clone_id)
+  print(table(tmp_frame$clone_id))
+  print(length(table(tmp_frame$clone_id)))
+  cat("\n")
+  cat("\n")
+  
+}
+```
+
+
+```{r}
+write.csv(results, file = "~/Downloads/VHH-Query-Clone-Results11Feb24.csv", row.names = F)
+write.csv(tmp, file = "~/Downloads/VHH-Query-Clone-Tallies11Feb24.csv", row.names = F)
+```
+
+
+## Check clones picked up with >= 50pct homology to queries
+
+
+```{r}
+results <- results[results$pct_identity >= 50,]
+
+tmp <- as.data.frame(table(results$clone_id, results$Query_sequence_name))
+
+tmp <- tmp[tmp$Freq != 0,]
+colnames(tmp) <- c("clone_id", "Query_sequence_name", "Freq")
+
+tmp <- tmp[order(tmp$Freq, decreasing = T),]
+```
+
+```{r}
+CDR3_id <- vector()
+CDR3_seq <- vector()
+clones <- vector()
+counts <- vector()
+
+
+for (nm in unique(tmp$Query_sequence_name)){
+  print(nm)
+  print(results[results$Query_sequence_name == nm,]$Query_junction_aa[1])
+  tmp_frame <- tmp[tmp$Query_sequence_name == nm,]
+  print(nrow(tmp_frame))
+  tmp_frame$clone_id <- factor(tmp_frame$clone_id)
+  print(table(tmp_frame$clone_id))
+  print(length(table(tmp_frame$clone_id)))
+  
+  CDR3_id <- c(CDR3_id, nm)
+  CDR3_seq <- c(CDR3_seq, results[results$Query_sequence_name == nm,]$Query_junction_aa[1])
+  clone_list <- as.vector(as.character(names(table(tmp_frame$clone_id))))
+  clones <- c(clones, paste(clone_list, collapse = ', '))
+  counts <- c(counts, length(as.numeric(table(tmp_frame$clone_id))))
+  
+  cat("\n")
+  cat("\n")
+  
+}
+
+results_frame <- as.data.frame(cbind(CDR3_id, CDR3_seq,clones, counts))
+results_frame$counts <- as.numeric(as.character(results_frame$counts))
+results_frame <- results_frame[order(results_frame$counts, decreasing = T),]
+colnames(results_frame) <- c("CDR3_id", "CDR3_seq", "clones", "50%-counts")
+```
+
+
+```{r}
+df <- read.csv("~/Downloads/Query-Seqs-Distribution09Feb24.csv")
+df$clones <- NULL
+# write.csv(results, file = "~/Downloads/VHH-Query-Clone-Results09Feb24.csv", row.names = F)
+# write.csv(tmp, file = "~/Downloads/VHH-Query-Clone-Tallies09Feb24.csv", row.names = F)
+```
+
+```{r}
+results_frame$clones <- NULL
+res <- merge(df, results_frame, by = c("CDR3_id", "CDR3_seq"), all.x = T)
+```
+
+## 60
+
+```{r}
+results <- results[results$pct_identity >= 60,]
+
+tmp <- as.data.frame(table(results$clone_id, results$Query_sequence_name))
+
+tmp <- tmp[tmp$Freq != 0,]
+colnames(tmp) <- c("clone_id", "Query_sequence_name", "Freq")
+
+tmp <- tmp[order(tmp$Freq, decreasing = T),]
+```
+
+```{r}
+CDR3_id <- vector()
+CDR3_seq <- vector()
+clones <- vector()
+counts <- vector()
+
+
+for (nm in unique(tmp$Query_sequence_name)){
+  print(nm)
+  print(results[results$Query_sequence_name == nm,]$Query_junction_aa[1])
+  tmp_frame <- tmp[tmp$Query_sequence_name == nm,]
+  print(nrow(tmp_frame))
+  tmp_frame$clone_id <- factor(tmp_frame$clone_id)
+  print(table(tmp_frame$clone_id))
+  print(length(table(tmp_frame$clone_id)))
+  
+  CDR3_id <- c(CDR3_id, nm)
+  CDR3_seq <- c(CDR3_seq, results[results$Query_sequence_name == nm,]$Query_junction_aa[1])
+  clone_list <- as.vector(as.character(names(table(tmp_frame$clone_id))))
+  clones <- c(clones, paste(clone_list, collapse = ', '))
+  counts <- c(counts, length(as.numeric(table(tmp_frame$clone_id))))
+  
+  cat("\n")
+  cat("\n")
+  
+}
+
+results_frame <- as.data.frame(cbind(CDR3_id, CDR3_seq,clones, counts))
+results_frame$counts <- as.numeric(as.character(results_frame$counts))
+results_frame <- results_frame[order(results_frame$counts, decreasing = T),]
+colnames(results_frame) <- c("CDR3_id", "CDR3_seq", "clones", "60%-counts")
+results_frame$clones <- NULL
+```
+
+
+```{r}
+res <- merge(res, results_frame, by = c("CDR3_id", "CDR3_seq"), all.x = T)
+```
+
+
+
+## 70
+
+```{r}
+results <- results[results$pct_identity >= 70,]
+
+tmp <- as.data.frame(table(results$clone_id, results$Query_sequence_name))
+
+tmp <- tmp[tmp$Freq != 0,]
+colnames(tmp) <- c("clone_id", "Query_sequence_name", "Freq")
+
+tmp <- tmp[order(tmp$Freq, decreasing = T),]
+```
+
+```{r}
+CDR3_id <- vector()
+CDR3_seq <- vector()
+clones <- vector()
+counts <- vector()
+
+
+for (nm in unique(tmp$Query_sequence_name)){
+  print(nm)
+  print(results[results$Query_sequence_name == nm,]$Query_junction_aa[1])
+  tmp_frame <- tmp[tmp$Query_sequence_name == nm,]
+  print(nrow(tmp_frame))
+  tmp_frame$clone_id <- factor(tmp_frame$clone_id)
+  print(table(tmp_frame$clone_id))
+  print(length(table(tmp_frame$clone_id)))
+  
+  CDR3_id <- c(CDR3_id, nm)
+  CDR3_seq <- c(CDR3_seq, results[results$Query_sequence_name == nm,]$Query_junction_aa[1])
+  clone_list <- as.vector(as.character(names(table(tmp_frame$clone_id))))
+  clones <- c(clones, paste(clone_list, collapse = ', '))
+  counts <- c(counts, length(as.numeric(table(tmp_frame$clone_id))))
+  
+  cat("\n")
+  cat("\n")
+  
+}
+
+results_frame <- as.data.frame(cbind(CDR3_id, CDR3_seq,clones, counts))
+results_frame$counts <- as.numeric(as.character(results_frame$counts))
+results_frame <- results_frame[order(results_frame$counts, decreasing = T),]
+colnames(results_frame) <- c("CDR3_id", "CDR3_seq", "clones", "70%-counts")
+results_frame$clones <- NULL
+```
+
+
+```{r}
+res <- merge(res, results_frame, by = c("CDR3_id", "CDR3_seq"), all.x = T)
+```
+
+
+
+## 80
+
+```{r}
+results <- results[results$pct_identity >= 80,]
+
+tmp <- as.data.frame(table(results$clone_id, results$Query_sequence_name))
+
+tmp <- tmp[tmp$Freq != 0,]
+colnames(tmp) <- c("clone_id", "Query_sequence_name", "Freq")
+
+tmp <- tmp[order(tmp$Freq, decreasing = T),]
+```
+
+```{r}
+CDR3_id <- vector()
+CDR3_seq <- vector()
+clones <- vector()
+counts <- vector()
+
+
+for (nm in unique(tmp$Query_sequence_name)){
+  print(nm)
+  print(results[results$Query_sequence_name == nm,]$Query_junction_aa[1])
+  tmp_frame <- tmp[tmp$Query_sequence_name == nm,]
+  print(nrow(tmp_frame))
+  tmp_frame$clone_id <- factor(tmp_frame$clone_id)
+  print(table(tmp_frame$clone_id))
+  print(length(table(tmp_frame$clone_id)))
+  
+  CDR3_id <- c(CDR3_id, nm)
+  CDR3_seq <- c(CDR3_seq, results[results$Query_sequence_name == nm,]$Query_junction_aa[1])
+  clone_list <- as.vector(as.character(names(table(tmp_frame$clone_id))))
+  clones <- c(clones, paste(clone_list, collapse = ', '))
+  counts <- c(counts, length(as.numeric(table(tmp_frame$clone_id))))
+  
+  cat("\n")
+  cat("\n")
+  
+}
+
+results_frame <- as.data.frame(cbind(CDR3_id, CDR3_seq,clones, counts))
+results_frame$counts <- as.numeric(as.character(results_frame$counts))
+results_frame <- results_frame[order(results_frame$counts, decreasing = T),]
+colnames(results_frame) <- c("CDR3_id", "CDR3_seq", "clones", "80%-counts")
+results_frame$clones <- NULL
+```
+
+
+```{r}
+res <- merge(res, results_frame, by = c("CDR3_id", "CDR3_seq"), all.x = T)
+```
+
+
+
+## 85
+
+```{r}
+results <- results[results$pct_identity >= 85,]
+
+tmp <- as.data.frame(table(results$clone_id, results$Query_sequence_name))
+
+tmp <- tmp[tmp$Freq != 0,]
+colnames(tmp) <- c("clone_id", "Query_sequence_name", "Freq")
+
+tmp <- tmp[order(tmp$Freq, decreasing = T),]
+```
+
+```{r}
+CDR3_id <- vector()
+CDR3_seq <- vector()
+clones <- vector()
+counts <- vector()
+
+
+for (nm in unique(tmp$Query_sequence_name)){
+  print(nm)
+  print(results[results$Query_sequence_name == nm,]$Query_junction_aa[1])
+  tmp_frame <- tmp[tmp$Query_sequence_name == nm,]
+  print(nrow(tmp_frame))
+  tmp_frame$clone_id <- factor(tmp_frame$clone_id)
+  print(table(tmp_frame$clone_id))
+  print(length(table(tmp_frame$clone_id)))
+  
+  CDR3_id <- c(CDR3_id, nm)
+  CDR3_seq <- c(CDR3_seq, results[results$Query_sequence_name == nm,]$Query_junction_aa[1])
+  clone_list <- as.vector(as.character(names(table(tmp_frame$clone_id))))
+  clones <- c(clones, paste(clone_list, collapse = ', '))
+  counts <- c(counts, length(as.numeric(table(tmp_frame$clone_id))))
+  
+  cat("\n")
+  cat("\n")
+  
+}
+
+results_frame <- as.data.frame(cbind(CDR3_id, CDR3_seq,clones, counts))
+results_frame$counts <- as.numeric(as.character(results_frame$counts))
+results_frame <- results_frame[order(results_frame$counts, decreasing = T),]
+colnames(results_frame) <- c("CDR3_id", "CDR3_seq", "clones", "85%-counts")
+results_frame$clones <- NULL
+```
+
+
+```{r}
+res <- merge(res, results_frame, by = c("CDR3_id", "CDR3_seq"), all.x = T)
+```
+
+
+
+
+
+```{r}
+for (nm in colnames(res)){
+  res[[nm]] <- ifelse(is.na(res[[nm]]), 0, res[[nm]])
+}
+
+
+
+```
+
+
+```{r}
+res <- res[order(res$counts, res$`50%-counts`, res$`60%-counts`, res$`70%-counts`, res$`80%-counts`, res$`85%-counts`, decreasing = T),]
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+### Align sequences by query sequence
+
+#### Convert to fasta
+
+```{r}
+convert_to_fasta <- function(dat, file_name){
+  dat <- dat[,c("DB_sequence_id", "DB_VHH")]
+  dat$DB_sequence_id <- paste(">", dat$DB_sequence_id, sep = '')
+
+  D <- do.call(rbind, lapply(seq(nrow(dat)), function(i) t(dat[i, ])))
+
+  write.table(D, file = file_name, row.names = FALSE, col.names = FALSE, quote = FALSE)
+}
+```
+
+
+```{r}
+file_name <- "~/Desktop/Shoemaker Lab/VHH_all_query_CDR3_results17Jan24.fasta"
+
+convert_to_fasta(results, file_name)
+```
+
+### Load Fasta and MSA
+
+```{r}
+# Load for MSA
+mySequenceFile <- "~/Desktop/Shoemaker Lab/VHH_all_query_CDR3_results19Jan24.fasta"
+
+mySequences <- readAAStringSet(mySequenceFile)
+
+myFirstAlignment <- msa(mySequences, method = "ClustalOmega")
+```
+
+
+```{r}
+# dat <- results
+cluster_by_family <- function(dat, file_name){
+  # First, convert the file to fasta
+  convert_to_fasta(dat, file_name)
+  # Then, we reload the results
+  mySequences <- readAAStringSet(file_name)
+  
+  # Adjust the name for saving
+  file_name <- gsub(".fasta", ".csv", file_name)
+  
+  # Perform the alignment
+  
+  print("Beginning Alignment")
+  print(Sys.time())
+  myFirstAlignment <- msa(mySequences, method = "ClustalOmega")
+  print("Finished.")
+  print(Sys.time())
+  # Bind the data together
+  tmp <- as.data.frame(cbind(as.character(myFirstAlignment@unmasked), 
+                               myFirstAlignment@unmasked@ranges@NAMES))
+
+  row.names(tmp) <- NULL
+
+  colnames(tmp) <- c("Aligned_VHH", "DB_sequence_id")
+  
+  tmp$Aligned_VHH <- paste("'", tmp$Aligned_VHH, sep = '')
+  
+  tmp <- merge(dat, tmp, by = "DB_sequence_id")
+  
+  tmp <- na.omit(tmp)
+  
+  tmp <- tmp[order(tmp$pct_identity, decreasing = T),]
+  
+  write.csv(tmp[c("DB_sequence_id",
+                  "Query_junction_aa",
+                  "DB_junction_aa",
+                  "pct_identity",
+                  "experiment",
+                  "Aligned_VHH")], file = file_name, row.names = F)
+  
+  # return(tmp)
+}
+```
+
+
+```{r}
+
+for (nm in unique(results$Query_sequence_name)){
+  file_name <- paste("~/Desktop/Shoemaker Lab/VHH_",nm,"_query_CDR3_results19Jan24.fasta", sep = '')
+  cluster_by_family(results[results$Query_sequence_name == nm,], file_name)
+}
+
+```
+
+
+
+### Merge
+
+```{r}
+# test <- merge(results, tmp, by = "DB_sequence_id")
+
+```
+
+
+
+
+
+
+
+
+```{r}
+#write.csv(test, "~/Desktop/VHH-All-CDR3-Family-Results17Jan24.csv", row.names = F)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+

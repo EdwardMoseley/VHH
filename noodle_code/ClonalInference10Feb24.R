@@ -8,9 +8,24 @@ suppressPackageStartupMessages(library(shazam))
 
 directory <- "~/VHH/data"
 files <- list.files(directory)[grepl("db-pass.tsv", list.files(directory))]
+
+done_list <- c("~/VHH/data/17_VecF3_R3_S17_db-pass.tsv",
+               "~/VHH/data/18_VecF3_R4_S18_db-pass.tsv",
+               "~/VHH/data/20_VecF2_R3_S20_db-pass.tsv",
+               "~/VHH/data/22_VecF4_R4_S22_db-pass.tsv",
+               "~/VHH/data/Selected-XLN-XME-XMF-SmPDE-VHHs_9-23_db-pass.tsv",
+               "~/VHH/data/13_VecF1_R2_S13_atleast-1_db-pass.tsv",
+               #
+               "~/VHH/data/1_L1_sh2_S1_db-pass.tsv", 
+               "~/VHH/data/10_L3_lh2_S10_db-pass.tsv", 
+               "~/VHH/data/11_L3_sh3_S11_db-pass.tsv", 
+               "~/VHH/data/13_VecF1_R2_S13_db-pass.tsv",
+               "~/VHH/data/14_VecF1_R2_S14_db-pass.tsv")
+
+
 file_list <- paste(directory, files, sep = '/')
-file_list <- file_list[!(file_list %in% c("~/VHH/data/Selected-XLN-XME-XMF-SmPDE-VHHs_9-23_db-pass.tsv",
-                                          "~/VHH/data/13_VecF1_R2_S13_atleast-1_db-pass.tsv"))]
+file_list <- file_list[!(file_list %in% done_list)]
+
 
 # Drop unproductive sequences
 for (f in file_list){
