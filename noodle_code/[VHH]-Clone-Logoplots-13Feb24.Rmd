@@ -34,7 +34,7 @@ unproductive <- function(results){
 }
 ```
 
-# Illumina Run: 2_L1_lh2_S2
+# Illumina Run: 3_L1_sh3_S3
 
 ```{r, echo = F}
 # df <- read.csv("~/VHH/data/Old Data/S3_specificity_test_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
@@ -43,7 +43,7 @@ unproductive <- function(results){
 
 # df <- read.csv("~/VHH/data/13_VecF1_R2_S13_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
 
-df <- read.csv("~/VHH/data/2_L1_lh2_S2_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+df <- read.csv("~/VHH/data/3_L1_sh3_S3_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
 
 
 # [1] "1_L1_sh2_S1_min_threshold_clone-pass.tsv"    
