@@ -1,0 +1,458 @@
+---
+title: "QuickAssemble"
+output: html_document
+date: "2024-02-15"
+---
+
+# (1) Paired-End Assembly
+
+## 5_S3_L001_R1_001.fastq
+
+```{bash, eval = F}
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+  AssemblePairs.py align -1 /data/5_S3_L001_R2_001.fastq -2 /data/5_S3_L001_R1_001.fastq \
+  --coord illumina --rc tail --maxerror 0.2 \
+  --outname S3-M02-TRIM --log /data/S3-M02-TRIM-AP.log
+```
+
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+  AssemblePairs.py align -1 /data/5_S3_L001_R2_001.fastq -2 /data/5_S3_L001_R1_001.fastq \
+  --coord illumina --rc tail --maxerror 0.2 \
+  --outname S3-M02-TRIM --log S3-M02-TRIM-AP
+       START> AssemblePairs
+     COMMAND> align
+       FILE1> 5_S3_L001_R2_001.fastq
+       FILE2> 5_S3_L001_R1_001.fastq
+  COORD_TYPE> illumina
+       ALPHA> 1e-05
+   MAX_ERROR> 0.2
+     MIN_LEN> 8
+     MAX_LEN> 1000
+SCAN_REVERSE> False
+       NPROC> 6
+
+PROGRESS> 16:07:00 |####################| 100% (159,502) 7.7 min
+
+OUTPUT> S3-M02-TRIM_assemble-pass.fastq
+ PAIRS> 159502
+  PASS> 133109
+  FAIL> 26393
+   END> AssemblePairs
+```
+## 14_VecF2_R2_S14_L001_R1_001.fastq
+
+```{bash, eval = F}
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+  AssemblePairs.py align -1 /data/14_VecF2_R2_S14_L001_R2_001.fastq -2 /data/14_VecF2_R2_S14_L001_R1_001.fastq \
+  --coord illumina --rc tail --maxerror 0.2 \
+  --outname S14-M02-TRIM --log /data/S14-M02-TRIM-AP.log
+```
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+  AssemblePairs.py align -1 /data/14_VecF2_R2_S14_L001_R2_001.fastq -2 /data/14_VecF2_R2_S14_L001_R1_001.fastq \
+  --coord illumina --rc tail --maxerror 0.2 \
+  --outname S14-M02-TRIM --log S14-M02-TRIM-AP
+       START> AssemblePairs
+     COMMAND> align
+       FILE1> 14_VecF2_R2_S14_L001_R2_001.fastq
+       FILE2> 14_VecF2_R2_S14_L001_R1_001.fastq
+  COORD_TYPE> illumina
+       ALPHA> 1e-05
+   MAX_ERROR> 0.2
+     MIN_LEN> 8
+     MAX_LEN> 1000
+SCAN_REVERSE> False
+       NPROC> 6
+
+PROGRESS> 16:45:45 |####################| 100% (483,915) 31.7 min
+
+OUTPUT> S14-M02-TRIM_assemble-pass.fastq
+ PAIRS> 483915
+  PASS> 451902
+  FAIL> 32013
+   END> AssemblePairs
+```
+
+# (2) Filter Poor Alignments
+
+## 5_S3_L001_R1_001.fastq
+
+```{bash, eval = F}
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+  FilterSeq.py quality -s /data/S3-M02-TRIM_assemble-pass.fastq -q 20 --outname S3-M02-TRIM --log /data/S3-M02-TRIM-FS.log
+```
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+  FilterSeq.py quality -s /data/S3-M02-TRIM_assemble-pass.fastq -q 20 --outname S3-M02-TRIM --log S3-M02-TRIM-FS.log
+  
+   START> FilterSeq
+ COMMAND> quality
+    FILE> S3-M02-TRIM_assemble-pass.fastq
+   INNER> False
+MIN_QUAL> 20.0
+   NPROC> 6
+
+PROGRESS> 16:51:00 |####################| 100% (133,109) 1.1 min
+
+   OUTPUT> S3-M02-TRIM_quality-pass.fastq
+SEQUENCES> 133109
+     PASS> 125442
+     FAIL> 7667
+      END> FilterSeq
+```
+
+## 14_VecF2_R2_S14_L001_R1_001.fastq
+
+```{bash, eval = F}
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+  FilterSeq.py quality -s /data/S14-M02-TRIM_assemble-pass.fastq -q 20 --outname S14-M02-TRIM --log S14-M02-TRIM-FS.log
+```
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+  FilterSeq.py quality -s /data/S14-M02-TRIM_assemble-pass.fastq -q 20 --outname S14-M02-TRIM --log S14-M02-TRIM-FS.log
+   START> FilterSeq
+ COMMAND> quality
+    FILE> S14-M02-TRIM_assemble-pass.fastq
+   INNER> False
+MIN_QUAL> 20.0
+   NPROC> 6
+
+PROGRESS> 16:56:20 |####################| 100% (451,902) 4.1 min
+
+   OUTPUT> S14-M02-TRIM_quality-pass.fastq
+SEQUENCES> 451902
+     PASS> 435496
+     FAIL> 16406
+      END> FilterSeq
+```
+
+# (3) Mask Primers
+
+Note: "read 2 is VPRIMER region"
+
+## S3
+
+```{bash, eval = F}
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+MaskPrimers.py score -s /data/S3-M02-TRIM_quality-pass.fastq -p /data/AlpVHH_R2_primers_05Feb24.fasta \
+    --start 0 --mode cut --pf VPRIMER --outname S3-M02-TRIM-MPV --log /data/S3-M02-TRIM-MPV.log
+```
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+MaskPrimers.py score -s /data/S3-M02-TRIM_quality-pass.fastq -p /data/AlpVHH_R2_primers_05Feb24.fasta \
+    --start 0 --mode cut --pf VPRIMER --outname S3-M02-TRIM-MPV --log /data/S3-M02-TRIM-MPV.log
+       START> MaskPrimers
+     COMMAND> score
+    SEQ_FILE> S3-M02-TRIM_quality-pass.fastq
+ PRIMER_FILE> AlpVHH_R2_primers_05Feb24.fasta
+        MODE> cut
+   MAX_ERROR> 0.2
+   START_POS> 0
+  REV_PRIMER> False
+     BARCODE> False
+PRIMER_FIELD> VPRIMER
+       NPROC> 6
+
+PROGRESS> 17:40:42 |####################| 100% (125,442) 1.9 min
+
+   OUTPUT> S3-M02-TRIM-MPV_primers-pass.fastq
+SEQUENCES> 125442
+     PASS> 124446
+     FAIL> 996
+      END> MaskPrimers
+```
+
+```{bash, eval = F}
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+MaskPrimers.py score -s /data/S3-M02-TRIM-MPV_primers-pass.fastq -p /data/AlpVHH_R1_primers_05Feb24.fasta\
+    --start 0 --mode cut --revpr --pf CPRIMER --outname S3-M02-TRIM-MPC --log /data/S3-M02-TRIM-MPC.log
+```
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+MaskPrimers.py score -s /data/S3-M02-TRIM-MPV_primers-pass.fastq -p /data/AlpVHH_R1_primers_05Feb24.fasta\
+    --start 0 --mode cut --revpr --pf CPRIMER --outname S3-M02-TRIM-MPC --log /data/S3-M02-TRIM-MPC.log
+       START> MaskPrimers
+     COMMAND> score
+    SEQ_FILE> S3-M02-TRIM-MPV_primers-pass.fastq
+ PRIMER_FILE> AlpVHH_R1_primers_05Feb24.fasta
+        MODE> cut
+   MAX_ERROR> 0.2
+   START_POS> 0
+  REV_PRIMER> True
+     BARCODE> False
+PRIMER_FIELD> CPRIMER
+       NPROC> 6
+
+PROGRESS> 17:43:48 |####################| 100% (124,446) 2.1 min
+
+   OUTPUT> S3-M02-TRIM-MPC_primers-pass.fastq
+SEQUENCES> 124446
+     PASS> 123444
+     FAIL> 1002
+      END> MaskPrimers
+```
+
+---
+
+### Parse logs for a sanity check
+
+```{bash, eval = F}
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+  ParseLog.py -l /data/MPV-S3-M02-TRIM.log /data/MPC-S3-M02-TRIM.log -f ID PRIMER ERROR
+```
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+  ParseLog.py -l /data/MPV-S3-M02-TRIM.log /data/MPC-S3-M02-TRIM.log -f ID PRIMER ERROR
+START> ParseLog
+ FILE> MPV-S3-M02-TRIM.log
+
+PROGRESS> 23:29:49 (125442) 0.1 min
+
+ OUTPUT> MPV-S3-M02-TRIM_table.tab
+RECORDS> 125442
+   PASS> 125442
+   FAIL> 0
+    END> ParseLog
+
+START> ParseLog
+ FILE> MPC-S3-M02-TRIM.log
+
+PROGRESS> 23:29:54 (124447) 0.1 min
+
+ OUTPUT> MPC-S3-M02-TRIM_table.tab
+RECORDS> 124447
+   PASS> 124447
+   FAIL> 0
+    END> ParseLog
+```
+
+```{r}
+tmp <- read.csv("~/VHH/data/MPC-S3-M02-TRIM_table.tab", sep = '\t', header = T, stringsAsFactors = F)
+tableone::CreateTableOne("ERROR", "PRIMER", tmp)
+#rm(tmp)
+```
+
+```
+                   Stratified by PRIMER
+                    unknown_poly_a vhh_forward VHH-VecF1     p      test
+  n                   22              2        124423                   
+  ERROR (mean (SD)) 0.50 (0.21)    0.73 (0.00)   0.00 (0.04) <0.001 
+```
+
+```{r}
+tmp <- read.csv("~/VHH/data/MPV-S3-M02-TRIM_table.tab", sep = '\t', header = T, stringsAsFactors = F)
+tableone::CreateTableOne("ERROR", "PRIMER", tmp)
+rm(tmp)
+```
+
+```
+                   Stratified by PRIMER
+                    long_hinge  poly_a    poly_t      short_hinge   p   test
+  n                   13           1       556        124872                
+  ERROR (mean (SD)) 0.54 (0.12) 0.64 (NA) 0.53 (0.08)   0.01 (0.03)  NA  
+```
+
+---
+
+### (4) Deduplication and Filtering
+
+The last stage of the workflow involves two filtering steps to yield the final repertoire. First, the set of unique sequences is identified using the `CollapseSeq.py `tool, allowing for up to 20 interior N-valued positions (`-n 20` and `--inner`), and **you requiring that all reads considered duplicates share the same C-region primer annotation (`--uf CPRIMER`)**. Additionally, the V-segment primer annotations of the set of duplicate reads are propagated into the annotation of each retained unique sequence (`--cf VPRIMER` and `--act set`):
+
+```{bash, eval = F}
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+CollapseSeq.py -s /data/S3-M02-TRIM-MPC_primers-pass.fastq -n 20 --inner --uf CPRIMER \
+    --cf VPRIMER --act set --outname S3-M02-TRIM
+```
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+CollapseSeq.py -s /data/S3-M02-TRIM-MPC_primers-pass.fastq -n 20 --inner --uf CPRIMER \
+    --cf VPRIMER --act set --outname S3-M02-TRIM
+       START> CollapseSeq
+        FILE> S3-M02-TRIM-MPC_primers-pass.fastq
+ MAX_MISSING> 20
+ UNIQ_FIELDS> CPRIMER
+ COPY_FIELDS> VPRIMER
+COPY_ACTIONS> set
+   MAX_FIELD> None
+   MIN_FIELD> None
+       INNER> True
+KEEP_MISSING> False
+
+PROGRESS> [0 missing] 17:46:04 |####################| 100% (123,444) 0.1 min
+
+      OUTPUT> S3-M02-TRIM_collapse-unique.fastq
+   SEQUENCES> 123444
+      UNIQUE> 120913
+   DUPLICATE> 2531
+UNDETERMINED> 0
+         END> CollapseSeq
+```
+
+`CollapseSeq` stores the count of duplicate reads for each sequence in the `DUPCOUNT` annotation. Following duplicate removal, the data is subset to only those unique sequence with at least two representative reads by using the group subcommand of `SplitSeq.py` on the count field (`-f DUPCOUNT`) and specifying a numeric threshold (`--num 2`):
+
+```{bash, eval = F}
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+  SplitSeq.py group -s /data/S3-M02-TRIM_collapse-unique.fastq -f DUPCOUNT --num 1 --outname S3-M02-TRIM
+```
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+  SplitSeq.py group -s /data/S3-M02-TRIM_collapse-unique.fastq -f DUPCOUNT --num 1 --outname S3-M02-TRIM
+    START> SplitSeq
+  COMMAND> group
+     FILE> S3-M02-TRIM_collapse-unique.fastq
+    FIELD> DUPCOUNT
+THRESHOLD> 1.0
+
+PROGRESS> 23:36:08 |####################| 100% (120,914) 0.5 min
+
+  OUTPUT1> S3-M02-TRIM_under-1.fastq
+  OUTPUT2> S3-M02-TRIM_atleast-1.fastq
+SEQUENCES> 120914
+    PARTS> 2
+      END> SplitSeq
+```
+
+
+### (5) Creating an annotation table
+
+Finally, the annotations, including duplicate read count (`DUPCOUNT`), isotype (`CPRIMER`) and V-segment primer (`VPRIMER`), of the final repertoire are then extracted from the `SplitSeq.py` output into a tab-delimited file using the table subcommand of `ParseHeaders.py`:
+
+```{bash, eval = F}
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+  ParseHeaders.py table -s /data/S3-M02-TRIM_atleast-1.fastq -f ID DUPCOUNT CPRIMER VPRIMER
+```
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+  ParseHeaders.py table -s /data/S3-M02-TRIM_atleast-1.fastq -f ID DUPCOUNT CPRIMER VPRIMER
+  START> ParseHeaders
+COMMAND> table
+   FILE> S3-M02-TRIM_atleast-1.fastq
+
+PROGRESS> 23:37:23 |####################| 100% (120,914) 0.1 min
+
+   OUTPUT> S3-M02-TRIM_atleast-1_headers.tab
+SEQUENCES> 120914
+     PASS> 120914
+     FAIL> 0
+      END> ParseHeaders
+```
+
+### Check log
+
+```{r}
+tmp <- read.csv("~/VHH/data/S3-M02-TRIM_atleast-1_headers.tab", sep = '\t', header = T, stringsAsFactors = F)
+
+# CPrimer is unmasked
+table(tmp$CPRIMER)
+# VPrimer is masked
+table(tmp$VPRIMER)
+```
+
+```
+> table(tmp$CPRIMER)
+
+VHH-VecF1 
+   120914 
+   
+> # VPrimer is masked
+> table(tmp$VPRIMER)
+
+     poly_t short_hinge 
+          1      120913
+```
+
+### Prep for IMGT
+
+```
+# Make sure we are where we need to be
+cd ~/VHH/data
+# Copy over the file
+cp S3-M02-TRIM_atleast-1.fastq ~/ncbi-igblast-1.17.1/
+# Change the directory
+cd ~/ncbi-igblast-1.17.1
+```
+## Convert the file to fasta
+
+```{r, echo = T, eval = F}
+# Arguments
+args <- c("S3-M02-TRIM_atleast-1.fastq")
+# args = commandArgs(trailingOnly=TRUE)
+
+# Directory
+directory <- "/Users/emoseley/VHH/data/"
+
+# Set current working directory to ncbi-igblast-1.17.1
+setwd("~/ncbi-igblast-1.17.1")
+
+file_origin <- paste("~/ncbi-igblast-1.17.1/", args[1], sep = '')
+file_output <- gsub(".fastq", ".fasta", file_origin)
+results <- gsub(".fastq", '.fmt7', args)
+
+# load the fastq
+tmp <- ShortRead::readFastq(file_origin)
+
+# write as fasta
+ShortRead::writeFasta(tmp, file = file_output)
+```
+
+### IMGT
+
+```{bash, eval = F}
+bin/igblastn -germline_db_V database/alpaca_vhh_clean/alpaca_V -germline_db_D database/alpaca_vhh_clean/alpaca_D -germline_db_J database/alpaca_vhh_clean/alpaca_J -domain_system imgt -ig_seqtype Ig -organism alpaca -auxiliary_data optional_file/alpaca_gl.aux -outfmt '7 std qseq sseq btop' -query ~/ncbi-igblast-1.17.1/S3-M02-TRIM_atleast-1.fasta -out ~/ncbi-igblast-1.17.1/S3-M02-TRIM_atleast-1.fmt7
+```
+
+```
+# Copy back to data
+cp S3-M02-TRIM_atleast-1.fmt7 ~/VHH/data
+cp S3-M02-TRIM_atleast-1.fasta ~/VHH/data
+```
+
+### Make Database
+
+```{bash, eval = F}
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+  MakeDb.py igblast -i /data/S3-M02-TRIM_atleast-1.fmt7 -s /data/S3-M02-TRIM_atleast-1.fasta \
+  -r /data/imgt-data/imgt_gapped_alpaca_IGHV.fasta \
+  /data/imgt-data/imgt_gapped_alpaca_IGHD.fasta  \
+  /data/imgt-data/imgt_gapped_alpaca_IGHJ.fasta \
+  --outdir /data/ --failed --format airr --extended
+```
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+  MakeDb.py igblast -i /data/S3-M02-TRIM_atleast-1.fmt7 -s /data/S3-M02-TRIM_atleast-1.fasta \
+  -r /data/imgt-data/imgt_gapped_alpaca_IGHV.fasta \
+  /data/imgt-data/imgt_gapped_alpaca_IGHD.fasta  \
+  /data/imgt-data/imgt_gapped_alpaca_IGHJ.fasta \
+  --outdir /data/ --failed --format airr --extended
+         START> MakeDB
+       COMMAND> igblast
+  ALIGNER_FILE> S3-M02-TRIM_atleast-1.fmt7
+      SEQ_FILE> S3-M02-TRIM_atleast-1.fasta
+       ASIS_ID> False
+    ASIS_CALLS> False
+      VALIDATE> strict
+      EXTENDED> True
+INFER_JUNCTION> False
+
+PROGRESS> 00:02:32 |Done                | 0.0 min
+
+PROGRESS> 00:05:31 |####################| 100% (120,914) 3.0 min
+
+OUTPUT> S3-M02-TRIM_atleast-1_db-pass.tsv
+  PASS> 99958
+  FAIL> 20956
+   END> MakeDb
+```
+
