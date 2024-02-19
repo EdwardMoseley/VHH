@@ -1,0 +1,150 @@
+---
+title: "[VHH]-AA-Hierarchical-Clustering19Feb24"
+output: html_document
+date: "2024-02-19"
+---
+
+```{r}
+suppressPackageStartupMessages(library(airr))
+suppressPackageStartupMessages(library(alakazam))
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(ggplot2))
+suppressPackageStartupMessages(library(tigger))
+# get the distance to nearest neighbors
+suppressPackageStartupMessages(library(shazam))
+suppressPackageStartupMessages(library(scoper))
+```
+
+```{r}
+# db <- read_rearrangement("~/VHH/data/19_VecF1_R3_S19_min_threshold_clone-pass.tsv")
+db <- read.csv("~/VHH/data/19_VecF1_R3_S19_min_threshold_clone-pass.tsv", 
+               header = T, stringsAsFactors = F, sep = '\t')
+
+colnames(db) # show the column names in the database
+```
+
+```{r}
+db <- distToNearest(db, 
+                    model = "aa", 
+                    normalize = "len",
+                    vCallColumn = "v_call", 
+                    nproc = 4)
+
+# determine the threshold
+threshold <- findThreshold(db$dist_nearest, method = "density")
+thr <- round(threshold@threshold, 2)
+print(thr)
+
+new_thr <- thr - (thr*0.25)
+print("25% Lower Threshold:")
+print(round(new_thr, 2))
+```
+
+```{r}
+colnames(db)[ncol(db)] <- "nt_clone_id"
+
+# Clonal assignment using hierarchical clustering
+results <- hierarchicalClones(db, threshold=new_thr, v_call="v_call")
+
+# Plot a histogram of inter and intra clonal distances
+plot(results, binwidth=0.02)
+```
+
+```{r}
+tmp <- as.data.frame(results)
+```
+
+
+```{r}
+
+```
+
+
+
+---
+
+```{r}
+directory <- "~/VHH/data"
+files <- list.files(directory)[grepl("db-pass.tsv", list.files(directory))]
+
+done_list <- c("~/VHH/data/17_VecF3_R3_S17_db-pass.tsv",
+               "~/VHH/data/18_VecF3_R4_S18_db-pass.tsv",
+               "~/VHH/data/20_VecF2_R3_S20_db-pass.tsv",
+               "~/VHH/data/22_VecF4_R4_S22_db-pass.tsv",
+               "~/VHH/data/Selected-XLN-XME-XMF-SmPDE-VHHs_9-23_db-pass.tsv",
+               "~/VHH/data/13_VecF1_R2_S13_atleast-1_db-pass.tsv",
+               #"~/VHH/data/4_L1_lh3_S4_db-pass.tsv",
+               "~/VHH/data/1_L1_sh2_S1_db-pass.tsv", 
+               "~/VHH/data/10_L3_lh2_S10_db-pass.tsv", 
+               "~/VHH/data/11_L3_sh3_S11_db-pass.tsv", 
+               "~/VHH/data/13_VecF1_R2_S13_db-pass.tsv",
+               "~/VHH/data/14_VecF1_R2_S14_db-pass.tsv",
+               "~/VHH/data/14_VecF2_R2_S14_db-pass.tsv",
+               "~/VHH/data/2_L1_lh2_S2_db-pass.tsv",
+               "~/VHH/data/3_L1_sh3_S3_db-pass.tsv" ,
+               "~/VHH/data/16_VecF4_R2_S16_db-pass.tsv",
+               "~/VHH/data/19_VecF1_R3_S19_db-pass.tsv",
+               "~/VHH/data/21_VecF4_R3_S21_db-pass.tsv",
+               "~/VHH/data/15_VecF3_R2_S15_db-pass.tsv",
+               "~/VHH/data/12_L3_lh3_S12_db-pass.tsv",
+               "~/VHH/data/5_L2_sh2_S5_db-pass.tsv",
+               "~/VHH/data/6_L2_lh2_S6_db-pass.tsv",
+               "~/VHH/data/7_L2_sh3_S7_db-pass.tsv",
+               "~/VHH/data/8_L2_lh3_S8_db-pass.tsv",
+               "~/VHH/data/S3-M02-TRIM_atleast-1_db-pass.tsv"
+               )
+
+
+file_list <- paste(directory, files, sep = '/')
+file_list <- file_list[!(file_list %in% done_list)]
+
+# Drop unproductive sequences
+for (f in file_list){
+  # Read the dataset
+  db <- read_rearrangement(file.path(f))
+  # Subset productive clones
+  cat("Input:", nrow(db),'\n')
+  db <- db[db$productive == T,]
+  cat("Productive:", nrow(db), '\n')
+  
+  file_out <- gsub("_db-", "_productive-", f)
+  cat('\n')
+  cat("Writing: ", f, '\n')
+  write.table(db, file = file_out, sep = '\t')
+  
+  cat("Calculating distToNearest...\n")
+  
+  db <- distToNearest(db, model = "ham", normalize = "len", 
+                      vCallColumn = "v_call", 
+                      jCallColumn = "j_call",
+                      nproc = 4)
+  
+  # determine the threshold
+  threshold <- findThreshold(db$dist_nearest, method = "density")
+  thr <- threshold@threshold
+  
+  print("Threshold Data:")
+  print(thr)
+  new_thr <- thr - (thr*0.25)
+  print("25% Lower Threshold:")
+  print(round(new_thr, 2))
+  
+  cat('\n')
+  
+  # Outfile prefix
+  prefix <- gsub("_db-pass.tsv", '', gsub("~/VHH/data/", "", f))
+  prefix <- paste(prefix, "_min_threshold", sep = '')
+  
+  
+  cat("Inferring Clones:\n")
+  system.time(
+  # Clonal assignment using hierarchical clustering
+  db <- hierarchicalClones(db, threshold=thr, v_call="v_call", j_call = "j_call")
+  )
+  
+  cat("Writing: ", gsub("_productive-pass.tsv", "_min_threshold_clone-pass.tsv", file_out), '\n')
+  write.table(db@db, file = gsub("_productive-pass.tsv", "_min_threshold_clone-pass.tsv", file_out), sep = '\t')
+  
+}
+
+```

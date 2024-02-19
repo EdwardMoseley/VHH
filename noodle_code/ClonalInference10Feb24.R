@@ -15,17 +15,25 @@ done_list <- c("~/VHH/data/17_VecF3_R3_S17_db-pass.tsv",
                "~/VHH/data/22_VecF4_R4_S22_db-pass.tsv",
                "~/VHH/data/Selected-XLN-XME-XMF-SmPDE-VHHs_9-23_db-pass.tsv",
                "~/VHH/data/13_VecF1_R2_S13_atleast-1_db-pass.tsv",
-               #
+               "~/VHH/data/4_L1_lh3_S4_db-pass.tsv",
                "~/VHH/data/1_L1_sh2_S1_db-pass.tsv", 
                "~/VHH/data/10_L3_lh2_S10_db-pass.tsv", 
                "~/VHH/data/11_L3_sh3_S11_db-pass.tsv", 
                "~/VHH/data/13_VecF1_R2_S13_db-pass.tsv",
-               "~/VHH/data/14_VecF1_R2_S14_db-pass.tsv")
+               "~/VHH/data/14_VecF1_R2_S14_db-pass.tsv",
+               "~/VHH/data/14_VecF2_R2_S14_db-pass.tsv",
+               "~/VHH/data/2_L1_lh2_S2_db-pass.tsv",
+               "~/VHH/data/3_L1_sh3_S3_db-pass.tsv" ,
+               "~/VHH/data/16_VecF4_R2_S16_db-pass.tsv",
+               "~/VHH/data/19_VecF1_R3_S19_db-pass.tsv",
+               "~/VHH/data/21_VecF4_R3_S21_db-pass.tsv",
+               "~/VHH/data/15_VecF3_R2_S15_db-pass.tsv",
+               "~/VHH/data/12_L3_lh3_S12_db-pass.tsv"
+               )
 
 
 file_list <- paste(directory, files, sep = '/')
 file_list <- file_list[!(file_list %in% done_list)]
-
 
 # Drop unproductive sequences
 for (f in file_list){
