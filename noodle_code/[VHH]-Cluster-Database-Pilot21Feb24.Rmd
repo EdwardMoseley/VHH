@@ -1,0 +1,207 @@
+---
+title: "[VHH]-Cluster-Database-Pilot"
+output: html_document
+date: "2024-02-21"
+---
+
+### Utility Functions
+
+```{r}
+# library(msa)
+
+strict_consensus <- function(char_vec) {
+  # Check if all character vectors have the same length
+  if (!all(sapply(char_vec, function(x) nchar(x) == nchar(char_vec[1])))) {
+    stop("All character vectors must have the same length.")
+  }
+
+  # Initialize an empty character vector to store the result
+  result_sequence <- character(nchar(char_vec[1]))
+
+  # Iterate over each position in the character vectors
+  for (i in seq_len(nchar(char_vec[1]))) {
+    # Get the characters at the current index for all vectors
+    characters_at_position <- sapply(char_vec, function(x) substr(x, i, i))
+
+    # Find the most common character at the current index
+    most_common_char <- names(which.max(table(characters_at_position)))
+
+    # Store 
+    result_sequence[i] <- most_common_char
+  }
+
+  # Return
+  return(paste(result_sequence, collapse = ""))
+}
+
+translate_DNA <- function(dna_data){
+  clean_dna <- gsub("[^ACTG]", "", dna_data)
+  DNA_strings <- Biostrings::DNAStringSet(clean_dna)
+  translations <- as.character(Biostrings::translate(DNA_strings))
+  return(translations)
+}
+
+#### Trim CDR3
+trim_CDR3 <- function(seq_vec){
+  return(substr(seq_vec, 2, nchar(seq_vec)-1))
+}
+
+top_groups <- function(results, clone_var){
+  return(table(results[[clone_var]])[order(table(results[[clone_var]]), decreasing = T)])
+}
+
+```
+
+
+```{r}
+df <- read.csv("~/VHH/data/to-cluster/21_VecF4_R3_S21_min_AA_threshold.tsv", header = T, stringsAsFactors = F, sep = '\t')
+```
+
+## MSA Test
+
+```{r}
+# tmp <- df[df$clone_id == 133,]
+# tmp$VHH <- translate_DNA(tmp$sequence_alignment)
+
+# sequences <- Biostrings::AAStringSet(tmp$VHH)
+# Perform multiple sequence alignment
+# msa_result <- msa::msa(sequences, method = "ClustalOmega")
+# Store aligned results
+# tmp$Aligned_VHHs <- as.character(msa_result@unmasked)
+
+# (Takes WAY too long for 13,000 strings of ~100 AAs!)
+```
+
+# Pilot
+
+For each clonal family in `{S19, S20, S21}` (S19 is 241 families- pick largest)
+  Generate Consensus Sequence (for all n families)
+  Search each other database (m) of k sequences
+    (N x M) Matrix of Closest Clusters
+      Each cell contain the COUNT of members within `X%` homology
+        We can titrate the homology `{60, 70, 80, 85}`
+        If there are identically-close families, aggregate them
+        Bonus points: Consensus sequences too
+
+## Strategy
+
+1. Maintain all databases (with clones inferred) in a subdirectory of the `VHH/data/Cluster-DBs` folder
+
+2. Maintain a `VHH/data/Cluster-DBs/results` folder for Cluster Databases
+
+### Algorithm
+
+```{r}
+data_dir <- "~/VHH/data/Cluster-DBs"
+res_dir <- "~/VHH/data/Cluster-DBs/results"
+
+files <- list.files(data_dir)[grepl(".tsv", list.files(data_dir))]
+
+consensus_clusters <- data.frame()
+tmp_res <- data.frame()
+
+# For each database file
+for (f in files){
+  
+  dat <- read.csv(paste(data_dir, f, sep = '/'), header = T, stringsAsFactors = F, sep = '\t')
+  cat("Loading file: ", f, '\n')
+  # for each family in the database
+  tab <- top_groups(dat, "clone_id")
+  
+  for (nm in names(tab)){
+    # Subset the clones of interest
+    tmp_frame <- dat[dat$clone_id == as.numeric(nm),]
+    tmp_frame$junction_aa <- trim_CDR3(tmp_frame$junction_aa)
+    cluster_id <- nm
+    consensus_sequence <- strict_consensus(tmp_frame$junction_aa)
+    DNA_seqs_in_cluster <- length(unique(tmp_frame$sequence))
+    CDR3s_in_cluster <- length(unique(tmp_frame$junction_aa))
+    
+    # Bind results
+    tmp_res <- rbind(tmp_res, cbind(f,
+                                    cluster_id,
+                                    consensus_sequence,
+                                    DNA_seqs_in_cluster,
+                                    CDR3s_in_cluster))
+    
+  }
+  
+  cat("Completed file: ", f, '\n')
+  file_out <- paste(res_dir, gsub('.tsv', '-consensuses.csv', f), sep = '/')
+  write.csv(tmp_res, file_out, row.names = F)
+  # consensus_clusters <- rbind(consensus_clusters, tmp_res)
+}
+```
+
+## Reload Databases (long data)
+
+```{r}
+res_dir <- "~/VHH/data/Cluster-DBs/results"
+files <- list.files(res_dir)
+
+results <- data.frame()
+
+for (f in files){
+  results <- rbind(results, 
+                   read.csv(paste(res_dir, f, sep = '/'), header = T, stringsAsFactors = F))
+}
+
+
+# Note: results has duplicates
+# tmp <- results[results$f == "1_L1_sh2_S1_min_threshold_clone-pass.tsv",]
+# tmp_two <- tmp[tmp$cluster_id == 1,]
+
+nrow(results)
+results <- results[!duplicated(results),]
+nrow(results)
+```
+
+### Query Aggregate Databases
+
+```{r}
+library(parallel)
+```
+
+```{r}
+calculate_levenshtein <- function(query_seq, strings) {
+  distances <- adist(query_seq, strings)
+  return(distances)
+}
+
+# Set the number of cores to use in parallel
+num_cores <- detectCores()
+
+# Specify your query sequence
+query_seq <- results[results$f == "19_VecF1_R3_S19_min_threshold_clone-pass.tsv",]$consensus_sequence[1]
+
+# Perform parallel computation of Levenshtein distances
+cl <- makeCluster(num_cores)
+clusterExport(cl, c("query_seq", "results"))
+distances <- parSapply(cl, results$consensus_sequence, calculate_levenshtein, query_seq)
+stopCluster(cl)
+
+# Print the resulting distances
+results$query_dist <- distances
+```
+
+
+```{r}
+# Assuming your data frame is named df
+result <- results[ave(results$query_dist, results$f, FUN = function(x) x == min(x)) == 1, ]
+
+# Print the result
+print(result)
+```
+
+
+
+```{r}
+# Assuming your data frame is named df
+error_margin <- 0  # Adjust the error margin as needed
+
+result <- df[ave(df$query_dist, df$f, FUN = function(x) x <= min(x) + error_margin) == 1, ]
+
+# Print the result
+print(result)
+
+```
