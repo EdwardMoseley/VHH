@@ -200,7 +200,8 @@ res <- res[c("1_L1_sh2_S1",
 
 ```{r}
 # df <- df[df$f == "19_VecF1_R3_S19_min_threshold_clone-pass.tsv",]
-df <- res
+df <- read.csv("~/VHH/data/Cluster-DBs/results/V600-Cluster-DB26Feb24.csv",
+               header = T, stringsAsFactors = F)
 ```
 
 
@@ -225,8 +226,6 @@ for (i in 1:50){
   
   result_set <- list()
   counter <- 1
-  
-
   
   # This needs to be performed for each query sequence
   for (rate in error_tolerance){
@@ -295,7 +294,7 @@ for (i in 1:50){
   
   cat("Writing...", i, '\n')
   
-  write.csv(res, file = paste("~/VHH/data/Cluster-DBs/result_tables/", i, '_', query_seq,"_Cluster-DB_Query_24Feb24.csv", sep = ''), row.names = F)
+  # write.csv(res, file = paste("~/VHH/data/Cluster-DBs/result_tables/", i, '_', query_seq,"_Cluster-DB_Query_24Feb24.csv", sep = ''), row.names = F)
   
   res_frame <- rbind(res_frame, res)
   
@@ -306,6 +305,5 @@ for (i in 1:50){
 
 ```{r}
 # write.csv(res_frame, file = "~/Downloads/all_res26Feb24.csv",row.names = F)
-
-res <- read.csv("~/Downloads/all_res26Feb24.csv", header = T, stringsAsFactors = F)
+# res <- read.csv("~/Downloads/all_res27Feb24.csv", header = T, stringsAsFactors = F)
 ```
