@@ -307,3 +307,106 @@ for (i in 1:50){
 # write.csv(res_frame, file = "~/Downloads/all_res26Feb24.csv",row.names = F)
 # res <- read.csv("~/Downloads/all_res27Feb24.csv", header = T, stringsAsFactors = F)
 ```
+
+
+
+### Query Aggregate Databases for sum of clone_ids (rather than DNA sequences)
+
+```{r}
+res_frame <- data.frame()
+# For index i in top 50 clonal families
+for (i in 1:50){
+  
+  cat("Beginning...", i, '\n')
+  # Specify query sequence
+  query_seq <- df[df$f == "19_VecF1_R3_S19_min_threshold_clone-pass.tsv",]$consensus_sequence[i]
+
+  # Store the resulting distances
+  df$query_dist <- as.vector(adist(query_seq, df$consensus_sequence))
+  
+  # Percent similarity
+  df$percent_sim <- 1 - (df$query_dist/nchar(query_seq))
+  
+  error_tolerance <- seq(1, 0.1, -0.1)
+  
+  result_set <- list()
+  counter <- 1
+  
+  # This needs to be performed for each query sequence
+  for (rate in error_tolerance){
+    tmp_frame <- df[df$percent_sim >= rate,]
+    # Aggregate by sum for counts
+    tmp_frame <- aggregate(cluster_id ~ f, data = tmp_frame, FUN = function(x) length(unique(x)))
+    # Store cutoff
+    tmp_frame$cutoff <- rep(rate, each = nrow(tmp_frame))
+    result_set[[counter]] <- tmp_frame
+    counter <- counter + 1
+  }
+  
+  results_frame <- result_set[[length(result_set)]]
+  
+  for (j in (length(result_set)-1):1){
+    tmp_frame <- result_set[[j]]
+    colnames(tmp_frame)[2:3] <- paste(colnames(tmp_frame)[2:3], tmp_frame$cutoff[1]) 
+    results_frame <- merge(results_frame, tmp_frame, by = "f", all.x = T)
+  }
+  
+  results_frame <- results_frame[ , c("f", colnames(results_frame)[!grepl("cutoff", colnames(results_frame))])]
+  
+  # Cleanup
+  for (nm in colnames(results_frame)){
+    results_frame[[nm]] <- ifelse(is.na(results_frame[[nm]]), 0, results_frame[[nm]])
+  }
+  
+  res <- results_frame
+  
+  res$f.1 <- NULL
+  # res
+  
+  res$f <- gsub("_min_threshold_clone-pass.tsv", '', res$f)
+  
+  res <- res[,c("f", rev(colnames(res)[2:ncol(res)]))]
+  
+  colnames(res) <- gsub("cluster_id", "Clonal Groups at Threshold ", colnames(res))
+  
+  res$query <- rep(query_seq, each = nrow(res))
+  
+  ordering <- c("1_L1_sh2_S1",
+              "2_L1_lh2_S2",
+              "3_L1_sh3_S3",
+              "5_L2_sh2_S5",
+              "6_L2_lh2_S6",
+              "7_L2_sh3_S7",
+              "8_L2_lh3_S8",
+              "9_L3_sh2_S9",
+              "10_L3_lh2_S10",
+              "11_L3_sh3_S11",
+              "12_L3_lh3_S12",
+              "13_VecF1_R2_S13",
+              "14_VecF1_R2_S14",
+              "15_VecF3_R2_S15",
+              "16_VecF4_R2_S16",
+              "17_VecF3_R3_S17",
+              "18_VecF3_R4_S18",
+              "19_VecF1_R3_S19",
+              "20_VecF2_R3_S20",
+              "21_VecF4_R3_S21",
+              "22_VecF4_R4_S22")
+
+  res$f <- factor(res$f, levels = ordering)
+  
+  res <- res[order(res$f),]
+  
+  cat("Writing...", i, '\n')
+  
+  # write.csv(res, file = paste("~/VHH/data/Cluster-DBs/result_tables/", i, '_', query_seq,"_Cluster-DB_Query_24Feb24.csv", sep = ''), row.names = F)
+  
+  res_frame <- rbind(res_frame, res)
+  
+}
+```
+
+
+```{r}
+#write.csv(res_frame, file = "~/Downloads/all_clone_groups27Feb24.csv",row.names = F)
+```
