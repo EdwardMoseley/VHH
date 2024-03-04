@@ -1,0 +1,22 @@
+---
+title: '[VHH] Failure Checks'
+output: html_document
+date: "2024-03-04"
+---
+
+```{r}
+list.files("~/VHH/data")[grepl("fail", list.files("~/VHH/data"))]
+```
+
+```
+"13_VecF1_R2_S13_db-fail.tsv"
+"14_VecF2_R2_S14_db-fail.tsv"
+
+"19_VecF1_R3_S19_db-fail.tsv"
+"20_VecF2_R3_S20_db-fail.tsv"           
+"21_VecF4_R3_S21_db-fail.tsv" 
+```
+
+```{r}
+test <- read.csv("~/VHH/data")
+```

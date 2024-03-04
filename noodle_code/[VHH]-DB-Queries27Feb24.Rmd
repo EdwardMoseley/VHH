@@ -1,0 +1,830 @@
+---
+title: "[VHH]-DB-Queries"
+output: html_document
+date: "2024-02-27"
+---
+
+```{r, echo = F, eval = T}
+library(msa)
+
+# Translate DNA
+translate_DNA <- function(dna_data){
+  clean_dna <- gsub("[^ACTG]", "", dna_data)
+  DNA_strings <- Biostrings::DNAStringSet(clean_dna)
+  translations <- as.character(Biostrings::translate(DNA_strings))
+  return(translations)
+}
+
+#### Trim CDR3
+trim_CDR3 <- function(seq_vec){
+  return(substr(seq_vec, 2, nchar(seq_vec)-1))
+}
+
+top_groups <- function(results, clone_var){
+  return(table(results[[clone_var]])[order(table(results[[clone_var]]), decreasing = T)])
+}
+
+```
+
+## Why are NTGAV, QQGLHDSAGA, and KRTYIGRDY represented multiple times in S19?
+
+First we load the data
+
+```{r}
+df <- read.csv("~/VHH/data/Cluster-DBs/19_VecF1_R3_S19_min_threshold_clone-pass.tsv", 
+               header = T, stringsAsFactors = F, sep = '\t')
+
+# Trim C and W from CDR3s
+df$junction_aa <- trim_CDR3(df$junction_aa)
+```
+
+We will subset clonal groups associated with the CDR3s, and then check their `V` and `J` genes.
+
+```{r}
+tmp <- df[df$junction_aa == "NADLLVPYGGLDETD",]
+```
+
+**Note:** _"First, sequences are split into groups that share the same V-gene annotation, J-gene annotation, and number of nucleotides in their junction region. Next, these groups are hierarchically clustered based on the nucleotide similarity of their junction quantified by Hamming distance, and partitioned by cutting the dendrogram at a fixed distance threshold."_
+
+
+```{r}
+table(tmp$j_call, tmp$clone_id)
+table(tmp$v_call, tmp$clone_id)
+```
+
+**V-Genes**
+
+* Clones `3` and `4` share `IGHV3S53*01`, while clone `207` has `IGHVS53*01`. 
+
+* Clone `3` is partitioned into `IGHJ2*01`
+
+* Clone `4` is partitioned into `IGHJ3*01`, `IGHJ4*01`, and `IGHJ6*01`
+
+* Clone `207` is associated solely with `IGHJ4*01`
+
+### Cleanup
+
+```{r}
+rm(df, tmp)
+```
+
+## Query
+
+```{r}
+df <- read.csv("~/VHH/data/Cluster-DBs/3_L1_sh3_S3_min_threshold_clone-pass.tsv", 
+               header = T, stringsAsFactors = F, sep = '\t')
+
+# df$junction_aa <- trim_CDR3(df$junction_aa)
+```
+
+
+```{r}
+calculate_levenshtein <- function(query_seq, strings) {
+  distances <- adist(query_seq, strings)
+  return(distances)
+}
+
+library(parallel)
+
+# Set the number of cores to use in parallel
+num_cores <- detectCores()
+
+# Specify your query sequence
+query_seq <- "AADPWRPGSGWPDEYAY"
+
+# Perform parallel computation of Levenshtein distances
+cl <- makeCluster(num_cores)
+clusterExport(cl, c("query_seq", "df"))
+distances <- parSapply(cl, df$junction_aa, calculate_levenshtein, query_seq)
+stopCluster(cl)
+
+# Store the resulting distances
+df$query_dist <- as.numeric(distances)
+
+# Percent similarity
+df$percent_sim <- 1 - (df$query_dist/nchar(query_seq))
+```
+
+```{r}
+df[which.max(df$percent_sim),]$junction_aa
+```
+
+```
+df[which.max(df$percent_sim),]$junction_aa
+[1] "KRTYIGRDY"
+
+      duplicate_count     cprimer     vprimer dist_nearest clone_id query_dist percent_sim
+34458               1 vhh_forward short_hinge       0.0303      925          0           1
+```
+
+```{r}
+df <- read.csv("~/VHH/data/Cluster-DBs/19_VecF1_R3_S19_min_threshold_clone-pass.tsv", 
+               header = T, stringsAsFactors = F, sep = '\t')
+
+```
+
+```{r}
+calculate_levenshtein <- function(query_seq, strings) {
+  distances <- adist(query_seq, strings)
+  return(distances)
+}
+
+library(parallel)
+
+# Set the number of cores to use in parallel
+num_cores <- detectCores()
+
+# Specify your query sequence
+query_seq <- "KREGMFGHPDY"
+
+# Perform parallel computation of Levenshtein distances
+cl <- makeCluster(num_cores)
+clusterExport(cl, c("query_seq", "df"))
+distances <- parSapply(cl, df$junction_aa, calculate_levenshtein, query_seq)
+stopCluster(cl)
+
+# Store the resulting distances
+df$query_dist <- as.numeric(distances)
+
+# Percent similarity
+df$percent_sim <- 1 - (df$query_dist/nchar(query_seq))
+```
+
+```{r}
+df[which.max(df$percent_sim),]$junction_aa
+```
+
+```
+> df[which.max(df$percent_sim),]$junction_aa
+[1] "CKREGMFGHPDYW"
+```
+```
+                                   cdr3 duplicate_count     cprimer     vprimer dist_nearest clone_id query_dist percent_sim
+27419 AAGAGGGAAGGCATGTTCGGCCACCCTGACTAC               1 vhh_forward short_hinge       0.0256      460          2   0.8181818
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Queries and MSA
+
+1. Take Run S19’s Clones: 
+  * `{3x "KRTYIGRDY", 2x "NTGAV", and 2x "YTDYSDYPGGFGS"}`
+  * Run MSA on translated VHHs from these clonal families (in S19)
+  * De-duplicate before running alignment
+  * Remember V-genes, J-genes, clone IDs
+  * If there are too many, perform random sampling of ~50-100
+
+```{r}
+df <- read.csv("~/VHH/data/Cluster-DBs/19_VecF1_R3_S19_min_threshold_clone-pass.tsv", 
+               header = T, stringsAsFactors = F, sep = '\t')
+
+# Translate VHHs
+df$VHH <- translate_DNA(df$sequence_alignment)
+```
+
+## Locate clones of interest
+
+```{r}
+tmp <- df[df$junction_aa == "CKRTYIGRDYW",]
+
+tmp <- df[df$clone_id %in% as.numeric(names(table(tmp$clone_id))),]
+
+fails <- tmp[which(grepl("\\*", tmp$VHH, fixed = F)),]
+pass <- tmp[which(!grepl("\\*", tmp$VHH, fixed = F)),]
+```
+
+```{r}
+dedup_pass <- data.frame()
+
+for (i in 1:nrow(pass)){
+  for (j in 1:pass$duplicate_count[i]){
+    dedup_pass <- rbind(dedup_pass, pass[i,])
+  }
+}
+```
+
+For each clone, let's cluster them
+
+```{r}
+results <- data.frame()
+for (clone_id in unique(dedup_pass$clone_id)){
+  tmp_frame <- dedup_pass[dedup_pass$clone_id == clone_id,]
+  sequences <- Biostrings::AAStringSet(tmp_frame$VHH)
+  # Perform multiple sequence alignment
+  msa_result <- msa::msa(sequences, method = "ClustalOmega", verbose = T, order = "input")
+  # Store aligned results
+  tmp_frame$Aligned_VHHs <- as.character(msa_result@unmasked)
+  results <- rbind(results, tmp_frame)
+}
+```
+
+Write file
+
+```{r}
+tmp <- results[,c("sequence_id", "v_call", "d_call", "j_call", "clone_id", "Aligned_VHHs")]
+
+write.csv(tmp, file = "~/Downloads/S19-KRTYIGRDYW-all-clones29Feb24.csv", row.names = F)
+```
+
+## Locate clones of interest again
+
+```{r}
+tmp <- df[df$junction_aa == "CNTGAVW",]
+
+fails <- tmp[which(grepl("\\*", tmp$VHH, fixed = F)),]
+pass <- tmp[which(!grepl("\\*", tmp$VHH, fixed = F)),]
+```
+
+
+```{r}
+dedup_pass <- data.frame()
+
+for (i in 1:nrow(pass)){
+  for (j in 1:pass$duplicate_count[i]){
+    dedup_pass <- rbind(dedup_pass, pass[i,])
+  }
+}
+```
+
+For each clone, let's cluster them
+
+```{r}
+results <- data.frame()
+for (clone_id in unique(dedup_pass$clone_id)){
+  tmp_frame <- dedup_pass[dedup_pass$clone_id == clone_id,]
+  sequences <- Biostrings::AAStringSet(tmp_frame$VHH)
+  # Perform multiple sequence alignment
+  msa_result <- msa::msa(sequences, method = "ClustalOmega", verbose = T, order = "input")
+  # Store aligned results
+  tmp_frame$Aligned_VHHs <- as.character(msa_result@unmasked)
+  results <- rbind(results, tmp_frame)
+}
+```
+
+Write file
+
+```{r}
+tmp <- results[,c("sequence_id", "v_call", "d_call", "j_call", "clone_id", "Aligned_VHHs")]
+
+write.csv(tmp, file = "~/Downloads/S19-NTGAV-all-families29Feb24.csv", row.names = F)
+```
+
+
+## Locate clones of interest again
+
+```{r}
+tmp <- df[df$junction_aa == "CYTDYSDYPGGFGSW",]
+
+fails <- tmp[which(grepl("\\*", tmp$VHH, fixed = F)),]
+pass <- tmp[which(!grepl("\\*", tmp$VHH, fixed = F)),]
+```
+
+
+```{r}
+dedup_pass <- data.frame()
+
+for (i in 1:nrow(pass)){
+  for (j in 1:pass$duplicate_count[i]){
+    dedup_pass <- rbind(dedup_pass, pass[i,])
+  }
+}
+```
+
+For each clone, let's cluster them
+
+```{r}
+results <- data.frame()
+for (clone_id in unique(dedup_pass$clone_id)){
+  tmp_frame <- dedup_pass[dedup_pass$clone_id == clone_id,]
+  sequences <- Biostrings::AAStringSet(tmp_frame$VHH)
+  # Perform multiple sequence alignment
+  msa_result <- msa::msa(sequences, method = "ClustalOmega", verbose = T, order = "input")
+  # Store aligned results
+  tmp_frame$Aligned_VHHs <- as.character(msa_result@unmasked)
+  results <- rbind(results, tmp_frame)
+}
+```
+
+Write file
+
+```{r}
+tmp <- results[,c("sequence_id", "v_call", "d_call", "j_call", "clone_id", "Aligned_VHHs")]
+
+write.csv(tmp, file = "~/Downloads/S19-NTGAV-all-families29Feb24.csv", row.names = F)
+```
+
+
+## Locate clones of interest again
+
+```{r}
+tmp <- df[df$junction_aa == "CNTGAVW",]
+
+fails <- tmp[which(grepl("\\*", tmp$VHH, fixed = F)),]
+pass <- tmp[which(!grepl("\\*", tmp$VHH, fixed = F)),]
+```
+
+
+```{r}
+dedup_pass <- data.frame()
+
+for (i in 1:nrow(pass)){
+  for (j in 1:pass$duplicate_count[i]){
+    dedup_pass <- rbind(dedup_pass, pass[i,])
+  }
+}
+```
+
+For each clone, let's cluster them
+
+```{r}
+results <- data.frame()
+for (clone_id in unique(dedup_pass$clone_id)){
+  tmp_frame <- dedup_pass[dedup_pass$clone_id == clone_id,]
+  sequences <- Biostrings::AAStringSet(tmp_frame$VHH)
+  # Perform multiple sequence alignment
+  msa_result <- msa::msa(sequences, method = "ClustalOmega", verbose = T, order = "input")
+  # Store aligned results
+  tmp_frame$Aligned_VHHs <- as.character(msa_result@unmasked)
+  results <- rbind(results, tmp_frame)
+}
+```
+
+Write file
+
+```{r}
+tmp <- results[,c("sequence_id", "v_call", "d_call", "j_call", "clone_id", "Aligned_VHHs")]
+
+write.csv(tmp, file = "~/Downloads/S19-NTGAV-all-families29Feb24.csv", row.names = F)
+```
+
+
+## Locate clones of interest again
+
+```{r}
+tmp <- df[df$junction_aa == "CYTDYSDYPGGFGSW",]
+
+fails <- tmp[which(grepl("\\*", tmp$VHH, fixed = F)),]
+pass <- tmp[which(!grepl("\\*", tmp$VHH, fixed = F)),]
+```
+
+
+```{r}
+dedup_pass <- data.frame()
+
+for (i in 1:nrow(pass)){
+  for (j in 1:pass$duplicate_count[i]){
+    dedup_pass <- rbind(dedup_pass, pass[i,])
+  }
+}
+```
+
+For each clone, let's cluster them
+
+```{r}
+results <- data.frame()
+for (clone_id in unique(dedup_pass$clone_id)){
+  tmp_frame <- dedup_pass[dedup_pass$clone_id == clone_id,]
+  sequences <- Biostrings::AAStringSet(tmp_frame$VHH)
+  # Perform multiple sequence alignment
+  msa_result <- msa::msa(sequences, method = "ClustalOmega", verbose = T, order = "input")
+  # Store aligned results
+  tmp_frame$Aligned_VHHs <- as.character(msa_result@unmasked)
+  results <- rbind(results, tmp_frame)
+}
+```
+
+Write file
+
+```{r}
+tmp <- results[,c("sequence_id", "v_call", "d_call", "j_call", "clone_id", "Aligned_VHHs")]
+
+write.csv(tmp, file = "~/Downloads/S19-YTDYSDYPGGFG-all-families29Feb24.csv", row.names = F)
+```
+
+
+
+
+
+
+
+
+
+# Again, removing duplicates
+
+```{r}
+df <- read.csv("~/VHH/data/Cluster-DBs/19_VecF1_R3_S19_min_threshold_clone-pass.tsv", 
+               header = T, stringsAsFactors = F, sep = '\t')
+
+# Translate VHHs
+df$VHH <- translate_DNA(df$sequence_alignment)
+```
+
+## Locate clones of interest
+
+```{r}
+tmp <- df[df$junction_aa == "CKRTYIGRDYW",]
+tmp <- tmp[!duplicated(tmp$VHH),]
+
+fails <- tmp[which(grepl("\\*", tmp$VHH, fixed = F)),]
+pass <- tmp[which(!grepl("\\*", tmp$VHH, fixed = F)),]
+```
+
+For each clone, let's cluster them
+
+```{r}
+results <- data.frame()
+for (clone_id in unique(pass$clone_id)){
+  tmp_frame <- pass[pass$clone_id == clone_id,]
+  sequences <- Biostrings::AAStringSet(tmp_frame$VHH)
+  # Perform multiple sequence alignment
+  msa_result <- msa::msa(sequences, method = "ClustalOmega", verbose = T, order = "input")
+  # Store aligned results
+  tmp_frame$Aligned_VHHs <- as.character(msa_result@unmasked)
+  results <- rbind(results, tmp_frame)
+}
+```
+
+Write file
+
+```{r}
+tmp <- results[,c("sequence_id", "v_call", "d_call", "j_call", "clone_id", "Aligned_VHHs")]
+
+write.csv(tmp, file = "~/Downloads/S19-KRTYIGRDYW-deduped-clones29Feb24.csv", row.names = F)
+```
+
+## Locate clones of interest
+
+```{r}
+tmp <- df[df$junction_aa == "CNTGAVW",]
+tmp <- tmp[!duplicated(tmp$VHH),]
+
+fails <- tmp[which(grepl("\\*", tmp$VHH, fixed = F)),]
+pass <- tmp[which(!grepl("\\*", tmp$VHH, fixed = F)),]
+```
+
+For each clone, let's cluster them
+
+```{r}
+results <- data.frame()
+for (clone_id in unique(pass$clone_id)){
+  tmp_frame <- pass[pass$clone_id == clone_id,]
+  sequences <- Biostrings::AAStringSet(tmp_frame$VHH)
+  # Perform multiple sequence alignment
+  msa_result <- msa::msa(sequences, method = "ClustalOmega", verbose = T, order = "input")
+  # Store aligned results
+  tmp_frame$Aligned_VHHs <- as.character(msa_result@unmasked)
+  results <- rbind(results, tmp_frame)
+}
+```
+
+Write file
+
+```{r}
+tmp <- results[,c("sequence_id", "v_call", "d_call", "j_call", "clone_id", "Aligned_VHHs")]
+
+write.csv(tmp, file = "~/Downloads/S19-NTGAV-deduped-clones29Feb24.csv", row.names = F)
+```
+
+
+## Locate clones of interest
+
+```{r}
+tmp <- df[df$junction_aa == "CYTDYSDYPGGFGSW",]
+tmp <- tmp[!duplicated(tmp$VHH),]
+
+fails <- tmp[which(grepl("\\*", tmp$VHH, fixed = F)),]
+pass <- tmp[which(!grepl("\\*", tmp$VHH, fixed = F)),]
+```
+
+For each clone, let's cluster them
+
+```{r}
+results <- data.frame()
+for (clone_id in unique(pass$clone_id)){
+  tmp_frame <- pass[pass$clone_id == clone_id,]
+  sequences <- Biostrings::AAStringSet(tmp_frame$VHH)
+  # Perform multiple sequence alignment
+  msa_result <- msa::msa(sequences, method = "ClustalOmega", verbose = T, order = "input")
+  # Store aligned results
+  tmp_frame$Aligned_VHHs <- as.character(msa_result@unmasked)
+  results <- rbind(results, tmp_frame)
+}
+```
+
+Write file
+
+```{r}
+tmp <- results[,c("sequence_id", "v_call", "d_call", "j_call", "clone_id", "Aligned_VHHs")]
+
+write.csv(tmp, file = "~/Downloads/S19-CYTDYSDYPGGFGSW-deduped-families29Feb24.csv", row.names = F)
+```
+
+
+---
+
+
+```{r}
+tmp <- df[df$junction_aa == "CKRTYIGRDYW",]
+
+tmp <- df[df$clone_id %in% as.numeric(names(table(tmp$clone_id))),]
+tmp <- tmp[!duplicated(tmp$VHH),]
+
+fails <- tmp[which(grepl("\\*", tmp$VHH, fixed = F)),]
+pass <- tmp[which(!grepl("\\*", tmp$VHH, fixed = F)),]
+```
+
+For each clone, let's cluster them
+
+```{r}
+results <- data.frame()
+for (clone_id in unique(pass$clone_id)){
+  tmp_frame <- pass[pass$clone_id == clone_id,]
+  sequences <- Biostrings::AAStringSet(tmp_frame$VHH)
+  # Perform multiple sequence alignment
+  msa_result <- msa::msa(sequences, method = "ClustalOmega", verbose = T, order = "input")
+  # Store aligned results
+  tmp_frame$Aligned_VHHs <- as.character(msa_result@unmasked)
+  results <- rbind(results, tmp_frame)
+}
+
+results$Aligned_VHHs <- gsub("-", " ", results$Aligned_VHHs)
+```
+
+Write file
+
+```{r}
+tmp <- results[,c("sequence_id", "v_call", "d_call", "j_call", "clone_id", "Aligned_VHHs")]
+
+write.csv(tmp, file = "~/Downloads/S19-KRTYIGRDY-all-clones-no-dupes29Feb24.csv", row.names = F)
+```
+
+---
+
+## Locate clones of interest
+
+```{r}
+tmp <- df[df$junction_aa == "CYTDYSDYPGGFGSW",]
+
+tmp <- df[df$clone_id %in% as.numeric(names(table(tmp$clone_id))),]
+tmp <- tmp[!duplicated(tmp$VHH),]
+
+fails <- tmp[which(grepl("\\*", tmp$VHH, fixed = F)),]
+pass <- tmp[which(!grepl("\\*", tmp$VHH, fixed = F)),]
+```
+
+For each clone, let's cluster them
+
+```{r}
+results <- data.frame()
+for (clone_id in unique(pass$clone_id)){
+  tmp_frame <- pass[pass$clone_id == clone_id,]
+  sequences <- Biostrings::AAStringSet(tmp_frame$VHH)
+  # Perform multiple sequence alignment
+  msa_result <- msa::msa(sequences, method = "ClustalOmega", verbose = T, order = "input")
+  # Store aligned results
+  tmp_frame$Aligned_VHHs <- as.character(msa_result@unmasked)
+  results <- rbind(results, tmp_frame)
+}
+
+results$Aligned_VHHs <- gsub("-", " ", results$Aligned_VHHs)
+```
+
+Write file
+
+```{r}
+tmp <- results[,c("sequence_id", "v_call", "d_call", "j_call", "clone_id", "Aligned_VHHs")]
+
+write.csv(tmp, file = "~/Downloads/S19-YTDYSDYPGGFGS-all-clones-no-dupes29Feb2429Feb24.csv", row.names = F)
+```
+
+## Locate clones of interest
+
+```{r}
+tmp <- df[df$junction_aa == "CNTGAVW",]
+
+tmp <- df[df$clone_id %in% as.numeric(names(table(tmp$clone_id))),]
+tmp <- tmp[!duplicated(tmp$VHH),]
+
+fails <- tmp[which(grepl("\\*", tmp$VHH, fixed = F)),]
+pass <- tmp[which(!grepl("\\*", tmp$VHH, fixed = F)),]
+```
+
+For each clone, let's cluster them
+
+```{r}
+results <- data.frame()
+for (clone_id in unique(pass$clone_id)){
+  tmp_frame <- pass[pass$clone_id == clone_id,]
+  sequences <- Biostrings::AAStringSet(tmp_frame$VHH)
+  # Perform multiple sequence alignment
+  msa_result <- msa::msa(sequences, method = "ClustalOmega", verbose = T, order = "input")
+  # Store aligned results
+  tmp_frame$Aligned_VHHs <- as.character(msa_result@unmasked)
+  results <- rbind(results, tmp_frame)
+}
+
+results$Aligned_VHHs <- gsub("-", " ", results$Aligned_VHHs)
+```
+
+Write file
+
+```{r}
+tmp <- results[,c("sequence_id", "v_call", "d_call", "j_call", "clone_id", "Aligned_VHHs")]
+
+write.csv(tmp, file = "~/Downloads/S19-NTGAV-all-clones-no-dupes29Feb2429Feb24.csv", row.names = F)
+```
+
+# Functionalize
+
+```{r}
+rollout_dupes <- function(pass){
+  dedup_pass <- data.frame()
+  for (i in 1:nrow(pass)){
+    for (j in 1:pass$duplicate_count[i]){
+      dedup_pass <- rbind(dedup_pass, pass[i,])
+    }
+  }
+  return(dedup_pass)
+}
+
+pull_all_clones <- function(df, cdr_seq, deduplicate = TRUE){
+  tmp <- df[df$junction_aa == cdr_seq,]
+  tmp <- df[df$clone_id %in% as.numeric(names(table(tmp$clone_id))),]
+  if (deduplicate){
+    tmp <- tmp[!duplicated(tmp$VHH),]
+  } else {
+    ## Unroll duplicates
+    tmp <- rollout_dupes(tmp[which(!grepl("\\*", tmp$VHH, fixed = F)),])
+  }
+  return(tmp)
+}
+
+
+run_alignment <- function(dat){
+  results <- data.frame()
+  for (clone_id in unique(dat$clone_id)){
+    # Cluster by clone id
+    tmp_frame <- dat[dat$clone_id == clone_id,]
+    sequences <- Biostrings::AAStringSet(tmp_frame$VHH)
+    # Perform multiple sequence alignment
+    msa_result <- msa::msa(sequences, method = "ClustalOmega", verbose = T, order = "input")
+    # Store aligned results
+    tmp_frame$Aligned_VHHs <- as.character(msa_result@unmasked)
+    results <- rbind(results, tmp_frame)
+  }
+  return(results)
+}
+
+write_results <- function(dat, file_folder, consensus_seq, columns){
+  tmp <- dat[,columns]
+  write.csv(tmp, file = paste(file_folder, consensus_seq, "-clone-alignment02Mar24.csv", sep = ''), row.names = F)
+}
+```
+
+### Queries
+
+```{r}
+queries <- c("CNTGAVW", "CKRTYIGRDYW", "CYTDYSDYPGGFGSW")
+```
+
+## Load Data
+
+```{r}
+df <- read.csv("~/VHH/data/Cluster-DBs/19_VecF1_R3_S19_min_threshold_clone-pass.tsv", 
+               header = T, stringsAsFactors = F, sep = '\t')
+
+# Translate VHHs
+df$VHH <- translate_DNA(df$sequence_alignment)
+```
+
+## Locate clones of interest
+
+```{r}
+columns <- c("sequence_id", "v_call", "d_call", "j_call", "clone_id", "Aligned_VHHs")
+file_folder <- "~/Downloads/"
+consensus_seq <- queries[3]
+
+# Pull clones of interest
+tmp <- pull_all_clones(df, consensus_seq, deduplicate = T)
+
+fails <- tmp[which(grepl("\\*", tmp$VHH, fixed = F)),]
+pass <- tmp[which(!grepl("\\*", tmp$VHH, fixed = F)),]
+
+results <- run_alignment(pass)
+
+write_results(results, file_folder, consensus_seq, columns)
+```
+
+---
+
+## Spot Checks
+
+```{r}
+S19 <-  read.csv("~/VHH/data/Cluster-DBs/19_VecF1_R3_S19_min_threshold_clone-pass.tsv", 
+               header = T, stringsAsFactors = F, sep = '\t')
+
+S19$junction_aa <- trim_CDR3(S19$junction_aa)
+```
+
+1. "KRTYIGRDY"
+
+2. "NTGAV"
+
+3. "YTDYSDYPGGFGS"
+
+### "KRTYIGRDY"
+
+```{r}
+tmp <- S19[S19$junction_aa == "KRTYIGRDY",]
+table(tmp$clone_id)
+```
+
+### "NTGAV"
+
+```{r}
+tmp <- S19[S19$junction_aa == "NTGAV",]
+table(tmp$clone_id)
+```
+
+```{r}
+tmp <- S19[S19$junction_aa == "NEQDY",]
+table(tmp$clone_id)
+```
+
+### "YTDYSDYPGGFGS"
+
+```{r}
+tmp <- S19[S19$junction_aa == "YTDYSDYPGGFGS",]
+table(tmp$clone_id)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+df <- read.csv("~/VHH/data/Cluster-DBs/19_VecF1_R3_S19_min_threshold_clone-pass.tsv", 
+               header = T, stringsAsFactors = F, sep = '\t')
+
+# Translate VHHs
+df$VHH <- translate_DNA(df$sequence_alignment)
+```
+
+## Locate clones of interest
+
+```{r}
+columns <- c("sequence_id", "v_call", "d_call", "j_call", "clone_id", "Aligned_VHHs")
+file_folder <- "~/Downloads/"
+consensus_seq <- queries[3]
+
+# Pull clones of interest
+tmp <- pull_all_clones(df, consensus_seq, deduplicate = T)
+
+fails <- tmp[which(grepl("\\*", tmp$VHH, fixed = F)),]
+pass <- tmp[which(!grepl("\\*", tmp$VHH, fixed = F)),]
+
+results <- run_alignment(pass)
+
+write_results(results, file_folder, consensus_seq, columns)
+```

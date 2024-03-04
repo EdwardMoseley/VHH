@@ -1,0 +1,623 @@
+---
+title: '[VHH] Contamination Checks'
+output: html_document
+date: "2024-03-02"
+---
+
+Problem: Same clonal families in different alpacas (Sets: {S1, S2, S3,…,S12})
+
+Excel file (`Copy of S19-Consensus-CDR3-Query-Comparisons27Feb24`) indices: [70 vs. 72], [133 vs. 135], [280 vs. 282]
+
+Are the DNA sequences very similar, or are the genes very similar?
+
+How does their sequence alignment look together and separately?
+
+#### Imports
+
+```{r}
+library(tableone)
+library(msa)
+
+source("~/VHH/lib/utilities.R")
+
+# Translate DNA
+translate_DNA <- function(dna_data){
+  clean_dna <- gsub("[^ACTG]", "", dna_data)
+  DNA_strings <- Biostrings::DNAStringSet(clean_dna)
+  translations <- as.character(Biostrings::translate(DNA_strings))
+  return(translations)
+}
+
+# Trim CDR3
+trim_CDR3 <- function(seq_vec){
+  return(substr(seq_vec, 2, nchar(seq_vec)-1))
+}
+
+top_groups <- function(results, clone_var){
+  return(table(results[[clone_var]])[order(table(results[[clone_var]]), decreasing = T)])
+}
+
+## ###
+## New Functions
+## ###
+
+rollout_dupes <- function(pass){
+  dedup_pass <- data.frame()
+  for (i in 1:nrow(pass)){
+    for (j in 1:pass$duplicate_count[i]){
+      dedup_pass <- rbind(dedup_pass, pass[i,])
+    }
+  }
+  return(dedup_pass)
+}
+
+pull_all_clones <- function(df, cdr_seq, deduplicate = TRUE){
+  tmp <- df[df$junction_aa == cdr_seq,]
+  tmp <- df[df$clone_id %in% as.numeric(names(table(tmp$clone_id))),]
+  #if (deduplicate){
+  # print(nrow(tmp))
+  tmp <- tmp[!duplicated(tmp$VHH),]
+    #print(nrow(tmp))
+  #} else {
+    ## Unroll duplicates
+    #tmp <- rollout_dupes(tmp[which(!grepl("\\*", tmp$VHH, fixed = F)),])
+  #}
+  return(tmp)
+}
+
+run_alignment <- function(dat){
+  results <- data.frame()
+  for (clone_id in unique(dat$clone_id)){
+    # Cluster by clone id
+    tmp_frame <- dat[dat$clone_id == clone_id,]
+    sequences <- Biostrings::AAStringSet(tmp_frame$VHH)
+    # Perform multiple sequence alignment
+    msa_result <- msa::msa(sequences, method = "ClustalOmega", verbose = T, order = "input")
+    # Store aligned results
+    tmp_frame$Aligned_VHHs <- as.character(msa_result@unmasked)
+    results <- rbind(results, tmp_frame)
+  }
+  return(results)
+}
+
+write_results <- function(dat, file_folder, consensus_seq, columns){
+  tmp <- dat[,columns]
+  write.csv(tmp, file = paste(file_folder, consensus_seq, "-clone-alignment02Mar24.csv", sep = ''), row.names = F)
+}
+
+plotDat <- function(dat, column, x_col, bs, mn, xl, yl){
+  tmp <- as.matrix(table(dat[[column]], dat[[x_col]]))
+  prop <- prop.table(tmp, margin = 2)#2 for column-wise proportions
+  par(mar = c(5.0, 4.0, 4.0, 15), xpd = TRUE)
+  barplot(prop, col = cm.colors(length(rownames(prop))), beside = bs, width = 2, main = mn, xlab = xl, ylab = yl)
+  legend("topright", inset = c(-0.90,0), fill = cm.colors(length(rownames(prop))), legend=rownames(prop))
+}
+```
+
+### Groups of interst
+
+1. `70` (`7_L2_sh3_S7`, `KRTYIGRDY`) vs. `72` (`9_L3_sh2_S9`, `KRTYIGRDY`)
+
+2. `133` (`7_L2_sh3_S7`, `YAEGIMTRRQY`) vs `135`(`9_L3_sh2_S9`, `YAEGIMTRRQY`)
+
+3. `280` (`7_L2_sh3_S7`, `YLRRWENTY`) vs. `282` (`9_L3_sh2_S9`, `YLRRWENTY`)
+
+```{r}
+
+#S1 <- read.csv("~/VHH/data/Cluster-DBs/1_L1_sh2_S1_min_threshold_clone-pass.tsv", 
+#               header = T, stringsAsFactors = F, sep = '\t')
+#S1$study_id <- rep("S1-Marvel", each = nrow(S1))
+
+## S2 <- read.csv("~/VHH/data/Cluster-DBs/2_L1_lh2_S2_min_threshold_clone-pass.tsv", 
+#               header = T, stringsAsFactors = F, sep = '\t')
+
+#S3 <- read.csv("~/VHH/data/Cluster-DBs/3_L1_sh3_S3_min_threshold_clone-pass.tsv", 
+#               header = T, stringsAsFactors = F, sep = '\t')
+#S3$study_id <- rep("S3-Mikka", each = nrow(S1))
+
+
+# S4 <- read.csv("~/VHH/data/Cluster-DBs/3_L1_sh3_S3_min_threshold_clone-pass.tsv", 
+#               header = T, stringsAsFactors = F, sep = '\t')
+
+#S5 <- read.csv("~/VHH/data/Cluster-DBs/5_L2_sh2_S5_min_threshold_clone-pass.tsv", 
+#               header = T, stringsAsFactors = F, sep = '\t')
+
+#S6 <- read.csv("~/VHH/data/Cluster-DBs/6_L2_lh2_S6_min_threshold_clone-pass.tsv", 
+#               header = T, stringsAsFactors = F, sep = '\t')
+
+S7 <- read.csv("~/VHH/data/Cluster-DBs/7_L2_sh3_S7_min_threshold_clone-pass.tsv", 
+               header = T, stringsAsFactors = F, sep = '\t')
+S7$study_id <- rep("S7-Mikka", each = nrow(S7))
+
+#S8 <- read.csv("~/VHH/data/Cluster-DBs/8_L2_lh3_S8_min_threshold_clone-pass.tsv", 
+#               header = T, stringsAsFactors = F, sep = '\t')
+
+S9 <- read.csv("~/VHH/data/Cluster-DBs/9_L3_sh2_S9_min_threshold_clone-pass.tsv", 
+               header = T, stringsAsFactors = F, sep = '\t')
+S9$study_id <- rep("S9-Marvel", each = nrow(S9))
+
+
+#S10 <- read.csv("~/VHH/data/Cluster-DBs/10_L3_lh2_S10_min_threshold_clone-pass.tsv", 
+#               header = T, stringsAsFactors = F, sep = '\t')
+
+#S11 <- read.csv("~/VHH/data/Cluster-DBs/11_L3_sh3_S11_min_threshold_clone-pass.tsv", 
+#               header = T, stringsAsFactors = F, sep = '\t')
+
+#S12 <- read.csv("~/VHH/data/Cluster-DBs/12_L3_lh3_S12_min_threshold_clone-pass.tsv", 
+#               header = T, stringsAsFactors = F, sep = '\t')
+```
+
+#### Merge, Trim and Translate
+
+```{r}
+df <- rbind(#S1, 
+            #S2, 
+            #S3,
+            #S4,
+            #S5,
+            #S6,
+            S7,
+            #S8,
+            S9)#,
+            #S10,
+            #S11,
+            #S12)
+
+df$VHH <- translate_DNA(df$sequence_alignment)
+
+df$junction_aa <- trim_CDR3(df$junction_aa)
+
+#S7$junction_aa <- trim_CDR3(S7$junction_aa)
+#S9$junction_aa <- trim_CDR3(S9$junction_aa)
+
+#S7$VHH <- translate_DNA(S7$sequence_alignment)
+#S9$VHH <- translate_DNA(S9$sequence_alignment)
+
+rm(list = ls()[grepl("S[[:digit:]]", ls())])
+```
+
+#### TEST: Translate sequence vs. alignment
+
+```{r}
+# tmp_seq <- translate_DNA(S7$sequence)
+# tmp_seq_align <- translate_DNA(S7$sequence_alignment)
+
+# df <- cbind(tmp_seq, tmp_seq_align)
+
+# Looking at sequences, sequence alignments are the preferred data
+```
+
+## KRTYIGRDY
+
+### Pull all clones for query sequence
+
+```{r}
+cdr_seq <- "KRTYIGRDY"
+tmp <- df[df$junction_aa == cdr_seq,]
+
+tmp <- tmp[!duplicated(tmp$VHH),]
+
+# as.matrix(table(tmp$study_id, tmp$j_call))
+```
+
+### EDA (All Sequences)
+
+```{r}
+# boxplot(tmp$junction_length ~ tmp$study_id)
+# boxplot(tmp$duplicate_count ~ tmp$study_id)
+
+# plotDat(tmp, "study_id", "j_call", bs = F, mn = "Alleles by Experiment-Alpaca", xl = "J-gene", yl = "Proportion")
+```
+
+```
+test <- table(dat$CG_DESCRIPTION, dat$CIM.machine)
+test
+chisq.test(test)
+#pairwiseNominalIndependence(
+#  as.matrix(test), 
+#  fisher = F, gtest = F, chisq = T, method = "fdr")
+```
+
+## Create Variables for Testing
+
+```{r}
+create_len_vars <- function(tmp){
+  tmp$DNA_length <- nchar(tmp$sequence)
+  tmp$cdr1_length <- nchar(tmp$cdr1)
+  tmp$cdr2_length <- nchar(tmp$cdr2)
+  tmp$cdr3_length <- nchar(tmp$cdr3)
+  tmp$fwr1_length <- nchar(tmp$fwr1)
+  tmp$fwr2_length <- nchar(tmp$fwr2)
+  tmp$fwr3_length <- nchar(tmp$fwr3)
+  tmp$fwr4_length <- nchar(tmp$fwr4)
+  return(tmp)
+}
+
+tmp <- create_len_vars(tmp)
+
+fail <- tmp[which(grepl("\\*", tmp$VHH, fixed = F)),]
+pass <- tmp[which(!grepl("\\*", tmp$VHH, fixed = F)),]
+
+tmp <- pass
+```
+
+#### Tabulate Variables for A B Testing
+
+1. Check for identical VHH's in both groups
+2. Compare V-D-J Genes (including v_identity, j_identity)
+3. duplicate count
+4. For each gene region, calculate length and compare
+
+
+```{r}
+any(tmp$VHH[tmp$study_id == "S7-Mikka"] %in% tmp$VHH[tmp$study_id == "S9-Marvel"])
+any(tmp$VHH[tmp$study_id == "S9-Marvel"] %in% tmp$VHH[tmp$study_id == "S7-Mikka"])
+```
+
+```{r}
+any(tmp$sequence[tmp$study_id == "S7-Mikka"] %in% tmp$sequence[tmp$study_id == "S9-Marvel"])
+any(tmp$sequence[tmp$study_id == "S9-Marvel"] %in% tmp$sequence[tmp$study_id == "S7-Mikka"])
+```
+
+```{r}
+columns <- c("DNA_length",
+             "cdr1_length",
+             "cdr2_length",
+             "cdr3_length",
+             "fwr1_length",
+             "fwr2_length",
+             "fwr3_length",
+             "fwr4_length",
+             "v_identity",
+             "d_identity",
+             "j_identity",
+             "duplicate_count",
+             "v_call",
+             "d_call",
+             "j_call",
+             "cdr3",
+             "fwr4")
+
+cat_cols <- c("v_call",
+             "d_call",
+             "j_call",
+             "cdr3",
+             "fwr4")
+
+tab <- CreateTableOne(vars = columns,
+                      factorVars = cat_cols, 
+                      strata = "study_id", data = tmp)
+
+```
+
+```{r}
+#boxplot(tmp$v_identity ~ tmp$study_id)
+#t.test(tmp$v_identity ~ tmp$study_id)
+table(tmp$study_id)
+```
+
+```{r}
+write.csv(print(tab, nonnormal = columns, quote = FALSE, noSpaces = T), file = "~/Downloads/S7-S9-KRTYIGRDY.csv")
+```
+
+## Perform MSA and compute consensus sequence for both Mikka and Marvel
+
+```{r}
+align_VHHs <- function(df){
+  results <- data.frame()
+  for (nm in unique(df$study_id)){
+    tmp_frame <- df[df$study_id == nm,]
+    sequences <- Biostrings::AAStringSet(tmp_frame$VHH)
+    # Perform multiple sequence alignment
+    msa_result <- msa::msa(sequences, method = "ClustalOmega", verbose = T, order = "input")
+    # Store aligned results
+    tmp_frame$Aligned_VHHs <- as.character(msa_result@unmasked)
+    results <- rbind(results, tmp_frame)
+  }
+  return(results)
+}
+```
+
+```{r}
+tmp <- align_VHHs(tmp)
+
+tmp$Aligned_VHHs <- gsub("-", ' ', tmp$Aligned_VHHs)
+```
+
+```{r}
+write.csv(tmp[ ,c("sequence_id", "study_id", "clone_id", "Aligned_VHHs")], file = "~/Downloads/S7-S9-KRTYIGRDY-Contamination-Check-Alignments.csv", row.names = F)
+```
+
+---
+
+## KRTYIGRDY
+
+### Pull all clones for query sequence
+
+1. `70` (`7_L2_sh3_S7`, `KRTYIGRDY`) vs. `72` (`9_L3_sh2_S9`, `KRTYIGRDY`)
+
+2. `133` (`7_L2_sh3_S7`, `YAEGIMTRRQY`) vs `135`(`9_L3_sh2_S9`, `YAEGIMTRRQY`)
+
+3. `280` (`7_L2_sh3_S7`, `YLRRWENTY`) vs. `282` (`9_L3_sh2_S9`, `YLRRWENTY`)
+
+
+```{r}
+cdr_seq <- "YAEGIMTRRQY"
+tmp <- df[df$junction_aa == cdr_seq,]
+
+tmp <- tmp[!duplicated(tmp$VHH),]
+
+# as.matrix(table(tmp$study_id, tmp$j_call))
+```
+
+### EDA (All Sequences)
+
+```{r}
+# boxplot(tmp$junction_length ~ tmp$study_id)
+# boxplot(tmp$duplicate_count ~ tmp$study_id)
+
+# plotDat(tmp, "study_id", "j_call", bs = F, mn = "Alleles by Experiment-Alpaca", xl = "J-gene", yl = "Proportion")
+```
+
+```
+test <- table(dat$CG_DESCRIPTION, dat$CIM.machine)
+test
+chisq.test(test)
+#pairwiseNominalIndependence(
+#  as.matrix(test), 
+#  fisher = F, gtest = F, chisq = T, method = "fdr")
+```
+
+## Create Variables for Testing
+
+```{r}
+create_len_vars <- function(tmp){
+  tmp$DNA_length <- nchar(tmp$sequence)
+  tmp$cdr1_length <- nchar(tmp$cdr1)
+  tmp$cdr2_length <- nchar(tmp$cdr2)
+  tmp$cdr3_length <- nchar(tmp$cdr3)
+  tmp$fwr1_length <- nchar(tmp$fwr1)
+  tmp$fwr2_length <- nchar(tmp$fwr2)
+  tmp$fwr3_length <- nchar(tmp$fwr3)
+  tmp$fwr4_length <- nchar(tmp$fwr4)
+  return(tmp)
+}
+
+tmp <- create_len_vars(tmp)
+
+fail <- tmp[which(grepl("\\*", tmp$VHH, fixed = F)),]
+pass <- tmp[which(!grepl("\\*", tmp$VHH, fixed = F)),]
+
+tmp <- pass
+```
+
+#### Tabulate Variables for A B Testing
+
+1. Check for identical VHH's in both groups
+2. Compare V-D-J Genes (including v_identity, j_identity)
+3. duplicate count
+4. For each gene region, calculate length and compare
+
+
+```{r}
+any(tmp$VHH[tmp$study_id == "S7-Mikka"] %in% tmp$VHH[tmp$study_id == "S9-Marvel"])
+any(tmp$VHH[tmp$study_id == "S9-Marvel"] %in% tmp$VHH[tmp$study_id == "S7-Mikka"])
+```
+
+```{r}
+any(tmp$sequence[tmp$study_id == "S7-Mikka"] %in% tmp$sequence[tmp$study_id == "S9-Marvel"])
+any(tmp$sequence[tmp$study_id == "S9-Marvel"] %in% tmp$sequence[tmp$study_id == "S7-Mikka"])
+```
+
+```{r}
+columns <- c("DNA_length",
+             "cdr1_length",
+             "cdr2_length",
+             "cdr3_length",
+             "fwr1_length",
+             "fwr2_length",
+             "fwr3_length",
+             "fwr4_length",
+             "v_identity",
+             "d_identity",
+             "j_identity",
+             "duplicate_count",
+             "v_call",
+             "d_call",
+             "j_call",
+             "cdr3",
+             "fwr4")
+
+cat_cols <- c("v_call",
+             "d_call",
+             "j_call",
+             "cdr3",
+             "fwr4")
+
+tab <- CreateTableOne(vars = columns,
+                      factorVars = cat_cols, 
+                      strata = "study_id", data = tmp)
+
+```
+
+```{r}
+#boxplot(tmp$v_identity ~ tmp$study_id)
+#t.test(tmp$v_identity ~ tmp$study_id)
+table(tmp$study_id)
+```
+
+```{r}
+write.csv(print(tab, nonnormal = columns, quote = FALSE, noSpaces = T), file = "~/Downloads/S7-S9-YAEGIMTRRQY.csv")
+```
+
+## Perform MSA and compute consensus sequence for both Mikka and Marvel
+
+```{r}
+align_VHHs <- function(df){
+  results <- data.frame()
+  for (nm in unique(df$study_id)){
+    tmp_frame <- df[df$study_id == nm,]
+    sequences <- Biostrings::AAStringSet(tmp_frame$VHH)
+    # Perform multiple sequence alignment
+    msa_result <- msa::msa(sequences, method = "ClustalOmega", verbose = T, order = "input")
+    # Store aligned results
+    tmp_frame$Aligned_VHHs <- as.character(msa_result@unmasked)
+    results <- rbind(results, tmp_frame)
+  }
+  return(results)
+}
+```
+
+```{r}
+tmp <- align_VHHs(tmp)
+
+tmp$Aligned_VHHs <- gsub("-", ' ', tmp$Aligned_VHHs)
+```
+
+```{r}
+write.csv(tmp[ ,c("sequence_id", "study_id", "clone_id", "Aligned_VHHs")], file = "~/Downloads/S7-S9-YAEGIMTRRQY-Contamination-Check-Alignments.csv", row.names = F)
+```
+
+
+## YLRRWENTY
+
+3. `280` (`7_L2_sh3_S7`, `YLRRWENTY`) vs. `282` (`9_L3_sh2_S9`, `YLRRWENTY`)
+
+
+```{r}
+cdr_seq <- "YLRRWENTY"
+tmp <- df[df$junction_aa == cdr_seq,]
+
+tmp <- tmp[!duplicated(tmp$VHH),]
+
+# as.matrix(table(tmp$study_id, tmp$j_call))
+```
+
+### EDA (All Sequences)
+
+```{r}
+# boxplot(tmp$junction_length ~ tmp$study_id)
+# boxplot(tmp$duplicate_count ~ tmp$study_id)
+
+# plotDat(tmp, "study_id", "j_call", bs = F, mn = "Alleles by Experiment-Alpaca", xl = "J-gene", yl = "Proportion")
+```
+
+```
+test <- table(dat$CG_DESCRIPTION, dat$CIM.machine)
+test
+chisq.test(test)
+#pairwiseNominalIndependence(
+#  as.matrix(test), 
+#  fisher = F, gtest = F, chisq = T, method = "fdr")
+```
+
+## Create Variables for Testing
+
+```{r}
+create_len_vars <- function(tmp){
+  tmp$DNA_length <- nchar(tmp$sequence)
+  tmp$cdr1_length <- nchar(tmp$cdr1)
+  tmp$cdr2_length <- nchar(tmp$cdr2)
+  tmp$cdr3_length <- nchar(tmp$cdr3)
+  tmp$fwr1_length <- nchar(tmp$fwr1)
+  tmp$fwr2_length <- nchar(tmp$fwr2)
+  tmp$fwr3_length <- nchar(tmp$fwr3)
+  tmp$fwr4_length <- nchar(tmp$fwr4)
+  return(tmp)
+}
+
+tmp <- create_len_vars(tmp)
+
+fail <- tmp[which(grepl("\\*", tmp$VHH, fixed = F)),]
+pass <- tmp[which(!grepl("\\*", tmp$VHH, fixed = F)),]
+
+tmp <- pass
+```
+
+#### Tabulate Variables for A B Testing
+
+1. Check for identical VHH's in both groups
+2. Compare V-D-J Genes (including v_identity, j_identity)
+3. duplicate count
+4. For each gene region, calculate length and compare
+
+
+```{r}
+any(tmp$VHH[tmp$study_id == "S7-Mikka"] %in% tmp$VHH[tmp$study_id == "S9-Marvel"])
+any(tmp$VHH[tmp$study_id == "S9-Marvel"] %in% tmp$VHH[tmp$study_id == "S7-Mikka"])
+```
+
+```{r}
+any(tmp$sequence[tmp$study_id == "S7-Mikka"] %in% tmp$sequence[tmp$study_id == "S9-Marvel"])
+any(tmp$sequence[tmp$study_id == "S9-Marvel"] %in% tmp$sequence[tmp$study_id == "S7-Mikka"])
+```
+
+```{r}
+columns <- c("DNA_length",
+             "cdr1_length",
+             "cdr2_length",
+             "cdr3_length",
+             "fwr1_length",
+             "fwr2_length",
+             "fwr3_length",
+             "fwr4_length",
+             "v_identity",
+             "d_identity",
+             "j_identity",
+             "duplicate_count",
+             "v_call",
+             "d_call",
+             "j_call",
+             "cdr3",
+             "fwr4")
+
+cat_cols <- c("v_call",
+             "d_call",
+             "j_call",
+             "cdr3",
+             "fwr4")
+
+tab <- CreateTableOne(vars = columns,
+                      factorVars = cat_cols, 
+                      strata = "study_id", data = tmp)
+
+```
+
+```{r}
+#boxplot(tmp$v_identity ~ tmp$study_id)
+#t.test(tmp$v_identity ~ tmp$study_id)
+table(tmp$study_id)
+```
+
+```{r}
+write.csv(print(tab, nonnormal = columns, quote = FALSE, noSpaces = T), file = "~/Downloads/S7-S9-YLRRWENTY.csv")
+```
+
+## Perform MSA and compute consensus sequence for both Mikka and Marvel
+
+```{r}
+align_VHHs <- function(df){
+  results <- data.frame()
+  for (nm in unique(df$study_id)){
+    tmp_frame <- df[df$study_id == nm,]
+    sequences <- Biostrings::AAStringSet(tmp_frame$VHH)
+    # Perform multiple sequence alignment
+    msa_result <- msa::msa(sequences, method = "ClustalOmega", verbose = T, order = "input")
+    # Store aligned results
+    tmp_frame$Aligned_VHHs <- as.character(msa_result@unmasked)
+    results <- rbind(results, tmp_frame)
+  }
+  return(results)
+}
+```
+
+```{r}
+tmp <- align_VHHs(tmp)
+
+tmp$Aligned_VHHs <- gsub("-", ' ', tmp$Aligned_VHHs)
+```
+
+```{r}
+write.csv(tmp[ ,c("sequence_id", "study_id", "clone_id", "Aligned_VHHs")], file = "~/Downloads/S7-S9-YLRRWENTY-Contamination-Check-Alignments.csv", row.names = F)
+```
+
