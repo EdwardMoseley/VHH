@@ -1,0 +1,213 @@
+---
+title: "[VHH]-Cluster-Dendrogram-Pilot"
+output: html_document
+date: "2024-03-04"
+---
+
+Sequences of interest include clones from with >= 50% homology to: `RLLSVTNPKGIY`, from Illumina run: `19_VecF1_R3_S19`.
+
+Strategy: identify all `clone_id`s with consensus sequences within 50% homology of `RLLSVTNPKGIY`.
+
+Present data:
+
+1. Name of clone
+
+2. DB source
+
+3. sequence
+
+4. sequence alignment
+
+5. Percent homology to consensus
+
+
+
+# Demand same length!
+
+
+
+
+
+## Cluster Database Queries
+
+### Query Clonal Databases
+
+Load `df` as the derived consensus sequence database.
+
+```{r}
+df <- read.csv("~/VHH/data/Cluster-DBs/results/V600-Cluster-DB26Feb24.csv",
+               header = T, stringsAsFactors = F)
+```
+
+### Cleanup Clone Databases (they have row names)
+
+```{r}
+root_dir <- "~/VHH/data/Cluster-DBs/"
+
+for (f in unique(df$f)){
+  tmp <- read.csv(paste(root_dir, f, sep = ''), header = T, stringsAsFactors = F, sep = '\t')
+  # Write table without row.names
+  write.table(tmp, 
+              file = paste(root_dir, "clean_results/", f, sep = ''),
+              sep = '\t',
+              row.names = F)
+}
+```
+
+### Ensure that it worked
+
+```{r}
+root_dir <- "~/VHH/data/Cluster-DBs/clean_results/"
+
+for (f in unique(df$f)){
+  tmp <- airr::read_rearrangement(paste(root_dir, f, sep = ''))
+  print(f)
+  print(head(tmp))
+}
+
+# Looks good!
+```
+
+### Query Clonal Consensus Sequences
+
+We will query the aggregate clonal database for consensus sequences with close matches.
+
+```{r}
+i <- 15 # (for "RLLSVTNPKGIY") 
+
+# Specify query sequence
+query_seq <- df[df$f == "19_VecF1_R3_S19_min_threshold_clone-pass.tsv",]$consensus_sequence[i]
+
+# Store the resulting distances
+df$query_dist <- as.vector(adist(query_seq, df$consensus_sequence))
+
+df$percent_sim <- 1 - (df$query_dist/nchar(query_seq))
+
+rate <- 0.5
+
+# tmp_frame 
+tmp_frame <- df[df$percent_sim >= rate,]
+```
+
+Now that we have the clones whose consensus sequences is within 50% of the consensus of our query sequence, we can load the data from the databases (Illumina Runs), and begin to hierarchically cluster from there.
+
+## Pull Identified Clonal Groups
+
+```{r}
+# db <- airr::read_rearrangement("~/VHH/data/Cluster-DBs/19_VecF1_R3_S19_min_threshold_clone-pass_clean.tsv")
+
+root_dir <- "~/VHH/data/Cluster-DBs/clean_results/"
+
+results <- data.frame()
+
+for (f in unique(tmp_frame$f)){
+  tmp <- tmp_frame[tmp_frame$f == f,]
+  # Pull observations from the database itself
+  db <- read_rearrangement(paste(root_dir, f, sep = ''))
+  # Subset clones of interest (specific to the file)
+  db <- db[db$clone_id %in% tmp$cluster_id,]
+  # Keep file name
+  db$f <- rep(f, each = nrow(db))
+  print(f)
+  print(head(db))
+  if (ncol(db) == 55){
+      # rbind data to results
+      results <- rbind(results, db)
+  } else {
+    cat("The following database may be missing dist_nearest values:\n")
+    cat(f, '\n')
+  }
+
+}
+
+```
+
+```
+The following database may be missing dist_nearest values:
+14_VecF1_R2_S14_min_threshold_clone-pass.tsv 
+```
+## Load Germline Sequences
+
+```{r}
+library(dowser)
+
+# Read in IMGT-gapped sequences
+references <- readIMGT(dir = "/Users/emoseley/Desktop/Tufts/Cowen Lab/alpaca/rawseqdata/igblast/vdj")
+
+# Reconstruct germline sequences
+results <- createGermlines(results, references, nproc=4)
+```
+
+## Format Clones
+
+Before trees can be built, data must be formatted into a data table of AIRR clone objects. This is accomplished using the formatClones function. This function will:
+
+1. Change non-nucleotide characters to N characters.
+
+2. By default, collapse sequences that are either identical or differ only by ambiguous characters.
+
+3. Sequences will not be collapsed if they differ by columns specified in the traits option, or if the `collapse` option is set to `FALSE`.
+
+4. Include data columns specified by num_fields or text_fields.
+
+5. Remove uninformative sequence sites in which all sequences have N characters.
+
+```{r}
+# Process example data keeping samples from different times
+# distinct, adding duplicate_count among collapsed sequences,
+# and show the sample_id within each clone in the tibble.
+clones <- formatClones(results, traits=c("junction_aa"),
+    num_fields=c("duplicate_count"), columns=c("f", "duplicate_count"))
+
+print(clones)
+```
+
+
+```{r}
+# Add tree info
+clones <- getTrees(clones, nproc=4)
+```
+
+
+## Plot Trees
+
+```{r}
+library(ggtree)
+```
+
+```{r}
+plots = plotTrees(clones, 
+                  #tips = "junction_aa", 
+                  #tips = "v_call",
+                  #tips = "locus",
+                  #tipsize = "duplicate_count", 
+                  scale = 0.01)
+```
+
+Change plot names
+
+```{r}
+for (i in 1:length(plots)){
+  plots[[i]]$labels$title <- paste("Run: S", gsub("_.*", '',clones$f[i]), ", Clone ID: ", clones$clone_id[i], sep = '')
+}
+```
+
+
+```{r}
+#Plot the largest tree
+#To plot second largest tree, use plots[[2]], and so on
+#plots[[1]]#Plot the largest tree
+treeplot  <- plots[[10]] + ggtree::geom_tiplab(aes(label=junction_aa)) + 
+    #geom_vline(xintercept=c(0.05,0.1,0.15,0.2,0.25),
+    #    linetype="dashed",color="grey") + xlim(0,0.3) +
+  #  ggtitle("Example B cell tree") + 
+  xlim(0, 2)
+
+print(treeplot)
+```
+
+
+
+```{r}
+treesToPDF(plots, file="trees.pdf", nrow=1, ncol=1)
+```

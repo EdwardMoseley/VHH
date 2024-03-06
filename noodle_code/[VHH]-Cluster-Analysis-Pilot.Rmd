@@ -229,7 +229,10 @@ for (i in 1:50){
   
   # This needs to be performed for each query sequence
   for (rate in error_tolerance){
+    # Subset based on error tolerance
     tmp_frame <- df[df$percent_sim >= rate,]
+    # Ensure all cdr3 lengths are the same
+    tmp_frame <- tmp_frame[nchar(tmp_frame$consensus_sequence) == nchar(query_seq),]
     # Aggregate by sum for counts
     tmp_frame <- aggregate(Dup_count ~ f, data = tmp_frame, FUN = sum)
     # Store cutoff
@@ -334,7 +337,10 @@ for (i in 1:50){
   
   # This needs to be performed for each query sequence
   for (rate in error_tolerance){
+    # Subset based on similarity
     tmp_frame <- df[df$percent_sim >= rate,]
+    # Demand identical sequence lengths
+    tmp_frame <- tmp_frame[nchar(tmp_frame$consensus_sequence) == nchar(query_seq),]
     # Aggregate by sum for counts
     tmp_frame <- aggregate(cluster_id ~ f, data = tmp_frame, FUN = function(x) length(unique(x)))
     # Store cutoff
@@ -408,5 +414,5 @@ for (i in 1:50){
 
 
 ```{r}
-#write.csv(res_frame, file = "~/Downloads/all_clone_groups27Feb24.csv",row.names = F)
+write.csv(res_frame, file = "~/Downloads/all_clone_groups06Mar24.csv",row.names = F)
 ```
