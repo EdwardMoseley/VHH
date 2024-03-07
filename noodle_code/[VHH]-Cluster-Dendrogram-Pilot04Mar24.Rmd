@@ -20,13 +20,7 @@ Present data:
 
 5. Percent homology to consensus
 
-
-
 # Demand same length!
-
-
-
-
 
 ## Cluster Database Queries
 
@@ -35,37 +29,13 @@ Present data:
 Load `df` as the derived consensus sequence database.
 
 ```{r}
+library(airr)
+library(shazam)
+library(ggtree)
+
 df <- read.csv("~/VHH/data/Cluster-DBs/results/V600-Cluster-DB26Feb24.csv",
                header = T, stringsAsFactors = F)
-```
 
-### Cleanup Clone Databases (they have row names)
-
-```{r}
-root_dir <- "~/VHH/data/Cluster-DBs/"
-
-for (f in unique(df$f)){
-  tmp <- read.csv(paste(root_dir, f, sep = ''), header = T, stringsAsFactors = F, sep = '\t')
-  # Write table without row.names
-  write.table(tmp, 
-              file = paste(root_dir, "clean_results/", f, sep = ''),
-              sep = '\t',
-              row.names = F)
-}
-```
-
-### Ensure that it worked
-
-```{r}
-root_dir <- "~/VHH/data/Cluster-DBs/clean_results/"
-
-for (f in unique(df$f)){
-  tmp <- airr::read_rearrangement(paste(root_dir, f, sep = ''))
-  print(f)
-  print(head(tmp))
-}
-
-# Looks good!
 ```
 
 ### Query Clonal Consensus Sequences
@@ -87,6 +57,9 @@ rate <- 0.5
 
 # tmp_frame 
 tmp_frame <- df[df$percent_sim >= rate,]
+
+# Demand identical sequence length
+tmp_frame <- tmp_frame[nchar(tmp_frame$consensus_sequence) == nchar(query_seq),]
 ```
 
 Now that we have the clones whose consensus sequences is within 50% of the consensus of our query sequence, we can load the data from the databases (Illumina Runs), and begin to hierarchically cluster from there.
@@ -99,6 +72,9 @@ Now that we have the clones whose consensus sequences is within 50% of the conse
 root_dir <- "~/VHH/data/Cluster-DBs/clean_results/"
 
 results <- data.frame()
+
+failed_res <- list()
+counter <- 1
 
 for (f in unique(tmp_frame$f)){
   tmp <- tmp_frame[tmp_frame$f == f,]
@@ -116,21 +92,32 @@ for (f in unique(tmp_frame$f)){
   } else {
     cat("The following database may be missing dist_nearest values:\n")
     cat(f, '\n')
+    #failed_res[[counter]] <- db
+    #counter <- counter + 1
+    db <- distToNearest(db, model = "ham", normalize = "len", 
+                      vCallColumn = "v_call", 
+                      jCallColumn = "j_call",
+                      nproc = 4)
+    results <- rbind(results, db)
   }
 
 }
 
+#### Trim CDR3
+trim_CDR3 <- function(seq_vec){
+  return(substr(seq_vec, 2, nchar(seq_vec)-1))
+}
+
+results$junction_aa <- trim_CDR3(results$junction_aa)
 ```
 
 ```
 The following database may be missing dist_nearest values:
-14_VecF1_R2_S14_min_threshold_clone-pass.tsv 
+14_VecF1_R2_S14_min_threshold_clone-pass.tsv
 ```
 ## Load Germline Sequences
 
 ```{r}
-library(dowser)
-
 # Read in IMGT-gapped sequences
 references <- readIMGT(dir = "/Users/emoseley/Desktop/Tufts/Cowen Lab/alpaca/rawseqdata/igblast/vdj")
 
@@ -157,7 +144,8 @@ Before trees can be built, data must be formatted into a data table of AIRR clon
 # distinct, adding duplicate_count among collapsed sequences,
 # and show the sample_id within each clone in the tibble.
 clones <- formatClones(results, traits=c("junction_aa"),
-    num_fields=c("duplicate_count"), columns=c("f", "duplicate_count"))
+    # num_fields=c("duplicate_count"), 
+    columns=c("f"))
 
 print(clones)
 ```
@@ -172,15 +160,11 @@ clones <- getTrees(clones, nproc=4)
 ## Plot Trees
 
 ```{r}
-library(ggtree)
-```
-
-```{r}
 plots = plotTrees(clones, 
                   #tips = "junction_aa", 
                   #tips = "v_call",
                   #tips = "locus",
-                  #tipsize = "duplicate_count", 
+                  tipsize = "seqs", 
                   scale = 0.01)
 ```
 
@@ -188,7 +172,14 @@ Change plot names
 
 ```{r}
 for (i in 1:length(plots)){
-  plots[[i]]$labels$title <- paste("Run: S", gsub("_.*", '',clones$f[i]), ", Clone ID: ", clones$clone_id[i], sep = '')
+  plots[[i]]$labels$title <- paste("Run: S", 
+                                   gsub("_.*", '',
+                                        clones$f[i]), 
+                                   ", Clone ID: ", 
+                                   clones$clone_id[i], 
+                                   ' --- ',
+                                   "Consensus: ", df[df$cluster_id == clones$clone_id[i] & df$f == clones$f[i],]$consensus_sequence,
+                                   sep = '')
 }
 ```
 
@@ -197,7 +188,7 @@ for (i in 1:length(plots)){
 #Plot the largest tree
 #To plot second largest tree, use plots[[2]], and so on
 #plots[[1]]#Plot the largest tree
-treeplot  <- plots[[10]] + ggtree::geom_tiplab(aes(label=junction_aa)) + 
+treeplot  <- plots[[9]] + ggtree::geom_tiplab(aes(label=junction_aa)) + 
     #geom_vline(xintercept=c(0.05,0.1,0.15,0.2,0.25),
     #    linetype="dashed",color="grey") + xlim(0,0.3) +
   #  ggtitle("Example B cell tree") + 
@@ -206,8 +197,145 @@ treeplot  <- plots[[10]] + ggtree::geom_tiplab(aes(label=junction_aa)) +
 print(treeplot)
 ```
 
+```{r}
+treesToPDF(plots, file="trees06Mar24.pdf", nrow=1, ncol=1)
+```
+
+## Do again, but drop duplicate CDR3s
 
 
 ```{r}
-treesToPDF(plots, file="trees.pdf", nrow=1, ncol=1)
+results <- results[!duplicated(results$junction_aa),]
+# Process example data keeping samples from different times
+# distinct, adding duplicate_count among collapsed sequences,
+# and show the sample_id within each clone in the tibble.
+clones <- formatClones(results, traits=c("junction_aa"),
+    # num_fields=c("duplicate_count"), 
+    columns=c("f"))
+
+print(clones)
+```
+
+
+```{r}
+# Add tree info
+clones <- getTrees(clones, nproc=4)
+```
+
+
+## Plot Trees
+
+```{r}
+plots = plotTrees(clones, 
+                  #tips = "junction_aa", 
+                  #tips = "v_call",
+                  #tips = "locus",
+                  tipsize = "seqs", 
+                  scale = 0.01)
+```
+
+Change plot names
+
+```{r}
+for (i in 1:length(plots)){
+  plots[[i]]$labels$title <- paste("Run: S", 
+                                   gsub("_.*", '',
+                                        clones$f[i]), 
+                                   ", Clone ID: ", 
+                                   clones$clone_id[i], 
+                                   ' --- ',
+                                   "Consensus: ", df[df$cluster_id == clones$clone_id[i] & df$f == clones$f[i],]$consensus_sequence,
+                                   sep = '')
+}
+```
+
+
+```{r}
+#Plot the largest tree
+#To plot second largest tree, use plots[[2]], and so on
+#plots[[1]]#Plot the largest tree
+treeplot  <- plots[[3]] + ggtree::geom_tiplab(aes(label=junction_aa)) + 
+    #geom_vline(xintercept=c(0.05,0.1,0.15,0.2,0.25),
+    #    linetype="dashed",color="grey") + xlim(0,0.3) +
+  #  ggtitle("Example B cell tree") + 
+  xlim(0, 2)
+
+print(treeplot)
+```
+
+```{r}
+treesToPDF(plots, file="trees-no-repeats-06Mar24.pdf", nrow=1, ncol=1)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Clonal Consensus Cluster Dendrograms (Non-Hierarchical)
+
+35in seems to work for width with portrait orientation
+
+Note: Complete Linkage: Merges clusters based on the maximum pairwise dissimilarity.
+
+```{r}
+# Install and load necessary packages
+#install.packages("stringdist")
+library(stringdist)
+
+strings <- df[df$f == "19_VecF1_R3_S19_min_threshold_clone-pass.tsv",]$consensus_sequence
+
+strings <- strings[!duplicated(strings)]
+
+# strings <- strings[nchar(strings) < 20]
+
+# Compute the distance matrix using Jaccard distance
+dist_matrix <- stringdistmatrix(strings, method = "jaccard")
+
+# Perform hierarchical clustering
+cluster_tree <- hclust(as.dist(dist_matrix), method = "complete")
+
+# Plot the dendrogram with labels
+plot(cluster_tree, main = "Cluster Dendrogram of 19_VecF1_R3_S19\nDistance Metric: Jaccard Similarity", xlab = "Clonal Family Consensus CDR3s", sub = NULL, labels = strings, ylab = "Distance (Jaccard Similarity)")
+```
+
+
+
+```{r}
+# Install and load necessary packages
+#install.packages("stringdist")
+library(stringdist)
+
+# Sample character strings
+# strings <- c("apple", "appla", "orange", "banana", "appld", "orqnge", "banxna")
+strings <- df[df$f == "19_VecF1_R3_S19_min_threshold_clone-pass.tsv",]$consensus_sequence
+
+strings <- strings[!duplicated(strings)]
+
+# strings <- strings[nchar(strings) < 20]
+
+# Compute the distance matrix using Jaccard distance
+dist_matrix <- stringdistmatrix(strings, method = "lv")
+
+# Perform hierarchical clustering
+cluster_tree <- hclust(as.dist(dist_matrix), method = "complete")
+
+# Plot the dendrogram with labels
+plot(cluster_tree, main = "Cluster Dendrogram of 19_VecF1_R3_S19\nDistance Metric: Levenshtein", xlab = "Clonal Family Consensus CDR3s", sub = NULL, labels = strings, ylab = "Distance (Levenshtein)")
 ```
