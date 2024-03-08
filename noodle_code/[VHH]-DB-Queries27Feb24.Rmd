@@ -5,6 +5,7 @@ date: "2024-02-27"
 ---
 
 ```{r, echo = F, eval = T}
+# 
 library(msa)
 
 # Translate DNA
@@ -15,11 +16,12 @@ translate_DNA <- function(dna_data){
   return(translations)
 }
 
-#### Trim CDR3
+# Trim CDR3
 trim_CDR3 <- function(seq_vec){
   return(substr(seq_vec, 2, nchar(seq_vec)-1))
 }
 
+# Top groups
 top_groups <- function(results, clone_var){
   return(table(results[[clone_var]])[order(table(results[[clone_var]]), decreasing = T)])
 }
