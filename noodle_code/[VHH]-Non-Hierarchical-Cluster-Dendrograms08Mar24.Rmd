@@ -1,0 +1,44 @@
+---
+title: "[VHH]-Non-Hierarchical-Cluster-Dendrogram"
+output: html_document
+date: "2024-03-08"
+---
+
+# Clonal Consensus Cluster Dendrograms (Non-Hierarchical)
+
+35in seems to work for width with portrait orientation
+
+Note: Complete Linkage: Merges clusters based on the maximum pairwise dissimilarity.
+
+```{r, echo = F, eval = T, warning = F}
+# Install and load necessary packages
+#install.packages("stringdist")
+library(stringdist)
+
+# Here we load our results file
+df <- read.csv("~/Downloads/Consensus-Query-NTGAV-Threshold-0.5-08Mar24.csv", header = T, stringsAsFactors = F)
+
+# For `NTGAV`, we will look at clonal family: `51`.
+df <- df[df$clone_id == 51,]
+```
+
+```{r}
+# Sample character strings
+strings <- df[df$clone_id == 51,]$Aligned_VHHs
+
+strings <- df$strings
+
+strings <- strings[!duplicated(strings)]
+
+# Compute the distance matrix using Jaccard distance
+dist_matrix <- stringdistmatrix(strings, method = "lv")
+
+# Perform hierarchical clustering
+cluster_tree <- hclust(as.dist(dist_matrix), method = "complete")
+
+# Set the font family to Courier
+par(family = "Courier")
+
+# Plot the dendrogram with labels
+plot(cluster_tree, main = "Cluster Dendrogram of 19_VecF1_R3_S19\nDistance Metric: Levenshtein", xlab = "Clonal Family Consensus CDR3s", sub = NULL, labels = strings, ylab = "Distance (Levenshtein)")
+```

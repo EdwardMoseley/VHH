@@ -1,0 +1,247 @@
+---
+title: "[VHH]-Cluster-Analysis-Pilot"
+output: html_document
+date: "2024-03-07"
+---
+
+We are interested in querying: `NTGAV` within `13_VecF1_R2_S13`, `14_VecF1_R2_S14`, and `15_VecF3_R2_S15`, `16_VecF4_R2_S16`, and `19_VecF1_R3_S19`, `20_VecF2_R3_S20`, `21_VecF4_R3_S21`.
+
+#### Imports
+
+```{r}
+calculate_levenshtein <- function(query_seq, strings) {
+  distances <- adist(query_seq, strings)
+  return(distances)
+}
+
+# Translate DNA
+translate_DNA <- function(dna_data){
+  clean_dna <- gsub("[^ACTG]", "", dna_data)
+  DNA_strings <- Biostrings::DNAStringSet(clean_dna)
+  translations <- as.character(Biostrings::translate(DNA_strings))
+  return(translations)
+}
+
+# Trim CDR3
+trim_CDR3 <- function(seq_vec){
+  return(substr(seq_vec, 2, nchar(seq_vec)-1))
+}
+
+# Top groups
+top_groups <- function(results, clone_var){
+  return(table(results[[clone_var]])[order(table(results[[clone_var]]), decreasing = T)])
+}
+```
+
+## Load Data
+
+```{r}
+df <- read.csv("~/VHH/data/Cluster-DBs/results/V600-Cluster-DB26Feb24.csv",
+               header = T, stringsAsFactors = F)
+```
+
+### Query Aggregate Databases
+
+First, we parallelize the computations.
+
+```{r}
+library(parallel)
+
+# Set the number of cores to use in parallel
+num_cores <- detectCores()
+
+# Define Query Sequence id
+query_seq <- "NTGAV"
+
+# Perform parallel computation of Levenshtein distances
+cl <- makeCluster(num_cores)
+clusterExport(cl, c("query_seq", "df"))
+distances <- parSapply(cl, df$consensus_sequence, calculate_levenshtein, query_seq)
+stopCluster(cl)
+
+# Store the resulting distances
+df$query_dist <- distances
+
+# Percent similarity
+df$percent_sim <- 1 - (distances/nchar(query_seq))
+```
+
+### Iterate over percent cutoffs, merging data
+
+**We are interested in NTGAV, esp in S14 at 50% of homology.**
+
+```{r}
+error_tolerance <- 0.5 # seq(0.4, 0.3, -0.1)
+
+f_vals <- c("13_VecF1_R2_S13_min_threshold_clone-pass.tsv",
+            "14_VecF1_R2_S14_min_threshold_clone-pass.tsv",
+            "15_VecF3_R2_S15_min_threshold_clone-pass.tsv",
+            "16_VecF4_R2_S16_min_threshold_clone-pass.tsv",
+            "19_VecF1_R3_S19_min_threshold_clone-pass.tsv",
+            "20_VecF2_R3_S20_min_threshold_clone-pass.tsv",
+            "21_VecF4_R3_S21_min_threshold_clone-pass.tsv")
+
+res_frame <- data.frame()
+
+for (rate in error_tolerance){
+  # Subset based on similarity
+  tmp_frame <- df[df$percent_sim >= rate,]
+  # Demand identical lengths
+  tmp_frame <- tmp_frame[nchar(tmp_frame$consensus_sequence) == nchar(query_seq),]
+  # Store cutoff value
+  tmp_frame$cutoff <- rep(rate, each = nrow(tmp_frame))
+  res_frame <- rbind(res_frame, tmp_frame)
+}
+
+# Drop any runs we are not interested in
+res_frame <- res_frame[(res_frame$f %in% f_vals),]
+
+res_frame <- res_frame[order(res_frame$cutoff, res_frame$percent_sim, decreasing = T),]
+```
+
+## Load Data, Align Sequences, etc.
+
+Now that we have subset clones within some % homology, we will load all clonal families and, for each, we will create:
+
+1. Sequence Alignments **Bonus: order by similarity to consensus**
+
+2. Logo Plots
+
+```{r}
+root_dir <- "~/VHH/data/Cluster-DBs/clean_results/"
+
+results <- data.frame()
+
+# Iterate over files
+for (file_name in unique(res_frame$f)){
+  # Load the VHH database
+  tmp <- read.csv(paste(root_dir, file_name, sep = ''), sep = '\t', header = T, stringsAsFactors = F)
+  
+  # iterate over thresholds
+  for (threshold in unique(res_frame$cutoff)){
+    tmp_frame <- res_frame[res_frame$f == file_name & res_frame$cutoff == threshold,
+                           c("f", "consensus_sequence", "cluster_id", "cutoff")]
+    colnames(tmp_frame) <- c("f", "consensus_sequence", "clone_id", "cutoff")
+    
+    # Pull all clones by merging
+    tmp_frame <- merge(tmp, tmp_frame, by = "clone_id")
+    # Dist nearest isn't defined on all
+    tmp_frame$dist_nearest <- NULL
+    print(file_name)
+    print(colnames(tmp_frame))
+    # Bind results
+    results <- rbind(results, tmp_frame)
+  }
+  
+  # Subset only clones of interest
+}
+```
+
+## Cleanup for Presentation
+
+1. Trim CDR3s
+
+2. Translate VHHs
+
+3. Drop unproductive sequences
+
+```{r}
+results$junction_aa <- trim_CDR3(results$junction_aa)
+
+# Define Query Sequence id
+query_seq <- "NTGAV"
+
+distances <- as.vector(adist(results$junction_aa, query_seq))
+
+# Store the resulting distances
+#results$query_dist <- distances
+
+# Percent similarity
+results$percent_sim_to_query <- 1 - (distances/nchar(query_seq))
+
+# VHHs
+results$VHH <- translate_DNA(results$sequence_alignment)
+
+# take passes, drop fails
+fails <- results[which(grepl("\\*", results$VHH, fixed = F)),]
+nrow(fails)
+pass <- results[which(!grepl("\\*", results$VHH, fixed = F)),]
+nrow(pass)
+```
+
+## Align and Order by cutoff, and save
+
+```{r}
+res_out <- list()
+counter <- 1
+
+for (threshold in unique(pass$cutoff)){
+  tmp_frame <- pass[pass$cutoff == threshold,]
+  sequences <- Biostrings::AAStringSet(tmp_frame$VHH)
+  # Perform multiple sequence alignment
+  msa_result <- msa::msa(sequences, method = "ClustalOmega", order = "input")
+  # Store aligned results
+  tmp_frame$Aligned_VHHs <- as.character(msa_result@unmasked)
+  res_out[[counter]] <- tmp_frame
+  counter <- counter + 1
+}
+```
+
+
+```{r}
+for (i in 1:length(res_out)){
+  tmp_frame <- res_out[[i]]
+  tmp_frame$query_seq <- rep(query_seq, each = nrow(tmp_frame))
+  tmp_frame <- tmp_frame[,c("f", 
+                "sequence_id",
+                "duplicate_count",
+                "clone_id",
+                "v_call",
+                "d_call",
+                "j_call",
+                "junction_aa",
+                "consensus_sequence",
+                "query_seq",
+                "percent_sim_to_query",
+                "cutoff",
+                "Aligned_VHHs")]
+  
+  # Gsub spaces
+  tmp_frame$Aligned_VHHs <- gsub("-", " ", tmp_frame$Aligned_VHHs)
+  
+  tmp_frame$Aligned_VHHs <- substr(tmp_frame$Aligned_VHHs, 11, nchar(tmp_frame$Aligned_VHHs))
+  
+  write.csv(tmp_frame, file = paste("~/Downloads/Consensus-Query-", query_seq, "-Threshold-", tmp_frame$cutoff[1], '-08Mar24.csv', sep = ''), row.names = F)
+}
+```
+
+## Top-50 Clonal Family (2+ Members) Logo Plots
+
+```{r, echo = F, warning=F}
+tab <- top_groups(df, "clone_id")
+
+for (nm in head(names(tab), 50)){
+  tmp_frame <- df[df$clone_id == as.numeric(nm),]
+  
+  # Translate VHH
+  tmp_frame$VHH <- translate_DNA(tmp_frame$sequence_alignment)
+  # Trim CDR3
+  tmp_frame$junction_aa <- trim_CDR3(tmp_frame$junction_aa)
+  # Pull most frequent CDR3
+  common_CDR3 <- names(table(tmp_frame$junction_aa)[order(table(tmp_frame$junction_aa), decreasing = T)][1])
+  
+  if (nrow(tmp_frame) > 1){
+      cat("Group ID: ", unique(tmp_frame$clone_id), '\n', sep = '')
+      cat("Overall Members: ", nrow(tmp_frame), '\n', sep = '')
+      cat("Unique VHHs: ", length(unique(tmp_frame$VHH)), '\n', sep = '')
+      cat("Unique CDR3s: ", length(unique(tmp_frame$junction_aa)), '\n', sep = '')
+      cat("Most-frequent CDR3: ", common_CDR3, ' (with ',nrow(tmp_frame[tmp_frame$junction_aa == common_CDR3,]), ' CDR3 observations)\n', sep = '')
+      print(ggseqlogo(as.character(tmp_frame$junction_aa), seq_type='aa', method = 'p') + 
+        theme_classic() + ggtitle(paste(" CDR3 Logo Plot for cluster with the most common CDR3 sequence:\n               ", common_CDR3, sep = '')))
+  }
+}
+
+```
+
+
+
