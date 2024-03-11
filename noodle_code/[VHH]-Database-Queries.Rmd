@@ -1,0 +1,103 @@
+---
+title: "VHH Database Queries"
+output: html_document
+date: "2024-03-11"
+---
+
+```{r}
+# Trim CDR3
+trim_CDR3 <- function(seq_vec){
+  return(substr(seq_vec, 2, nchar(seq_vec)-1))
+}
+```
+
+```{r}
+root_dir <- "~/VHH/data/"
+files <- list.files(root_dir)[grepl("_db-pass.tsv", list.files(root_dir))]    # results/clean_data") # or something
+files <- files[!(files %in% c("Selected-XLN-XME-XMF-SmPDE-VHHs_9-23_db-pass.tsv",
+                              "S3-M02-TRIM_atleast-1_db-pass.tsv",
+                              "13_VecF1_R2_S13_atleast-1_db-pass.tsv"))]
+print(files)
+```
+
+```{r}
+df <- data.frame()
+for (f in files){
+  tmp <- read.csv(paste(root_dir, f, sep = ''), header = T, stringsAsFactors = F, sep = '\t')
+  tmp$Illumina <- rep(f, each = nrow(tmp))
+  print(f)
+  print(colnames(tmp))
+  df <- rbind(df, tmp)
+}
+```
+
+We only want non-vectored sequences.
+
+```{r}
+df <- df[!grepl("Vec" ,df$Illumina), ]
+```
+
+Trim CDR3s
+
+```{r}
+df$junction_aa <- trim_CDR3(df$junction_aa)
+```
+
+
+```{r}
+tmp <- c("YAEQGLYGDYLDY",
+         "NADVWWYGDQSEY",
+         "YAEWAYYGEFDDA",
+         "KADWAFYGEFDGS",
+         "YADWAFYSEFDTS",
+         "NADVWGYGDQSEY",
+         "NADVRWYGDQSEY",
+         "YADEVAWGDRYDY",
+         "KAAWSFYREFDDS")
+```
+
+Now we can perform queries
+
+```{r}
+library(parallel)
+
+# Set the number of cores to use in parallel
+num_cores <- detectCores()
+
+# Define Query Sequence id
+query_seq <- "YADWGLYGDFDDY"
+
+# Perform parallel computation of Levenshtein distances
+cl <- makeCluster(num_cores)
+clusterExport(cl, c("query_seq", "df"))
+distances <- parSapply(cl, df$consensus_sequence, calculate_levenshtein, query_seq)
+stopCluster(cl)
+
+# Store the resulting distances
+df$query_dist <- distances
+
+# Percent similarity
+df$percent_sim <- 1 - (distances/nchar(query_seq))
+```
+
+
+```{r}
+for (query_seq in tmp){
+  distances <- as.vector(adist(df$junction_aa, query_seq))
+  df[[paste(query_seq, '_pct_homology', sep = '')]] <- (1 - (distances/nchar(query_seq)))
+}
+```
+
+```{r}
+results <- data.frame()
+for (query_seq in tmp){
+  tmp_frame <- df[which.max(df[[paste(query_seq, '_pct_homology', sep = '')]]),]
+  cat("Query:\n")
+  cat(query_seq, '\n')
+  cat("Located:\n")
+  cat(tmp_frame$junction_aa, '\n')
+  cat("Homology: ", tmp_frame[[paste(query_seq, '_pct_homology', sep = '')]][1], '\n', sep = '')
+  cat('\n')
+  results <- rbind(results, tmp_frame)
+}
+```
