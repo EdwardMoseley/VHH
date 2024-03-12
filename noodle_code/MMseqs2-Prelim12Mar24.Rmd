@@ -1,0 +1,99 @@
+---
+title: "MMseqs2"
+output: html_document
+date: "2024-04-12"
+---
+
+### Imports
+
+```{r}
+#library(ShortRead)
+source("~/VHH/lib/utilities.R")
+```
+
+## Load Data
+
+```{r}
+# df_S19 <- read.csv("~/VHH/data/19_VecF1_R3_S19_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+
+df_S20 <- read.csv("~/VHH/data/20_VecF2_R3_S20_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+
+# df_S21 <- read.csv("~/VHH/data/21_VecF4_R3_S21_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+```
+
+**Files of Interest:**
+
+```
+"19_VecF1_R3_S19_min_threshold_clone-pass.tsv"
+"20_VecF2_R3_S20_min_threshold_clone-pass.tsv"
+"21_VecF4_R3_S21_min_threshold_clone-pass.tsv"
+```
+
+## Parse Data
+
+Try:
+
+1. Read in a FASTA
+2. Translate its sequences
+3. Parse out CDR3
+3. Cluster
+
+```{r}
+write_fasta <- function(df, seq_col, id_col,file_out){
+  seqinr::write.fasta(sequences = as.list(df[[seq_col]]), names = df[[id_col]], file.out = file_out)
+}
+
+write_fasta(df_S19, "junction_aa", "sequence_id", "~/Downloads/S19-VHH-seqs19Feb24.fasta")
+write_fasta(df_S20, "junction_aa", "sequence_id", "~/Downloads/S20-VHH-seqs19Feb24.fasta")
+write_fasta(df_S21, "junction_aa", "sequence_id", "~/Downloads/S21-VHH-seqs19Feb24.fasta")
+```
+
+## Cluster Results
+
+```{r}
+# Read in clustering results
+tmp <- read.table("~/Downloads/S20-DB_clustering.tsv", sep = '\t', header = F, stringsAsFactors = F)
+
+colnames(tmp) <- c("family", "members")
+
+cen_seqs <- vector()
+mem_seqs <- vector()
+for (i in 1:nrow(tmp)){
+  cen_seqs[i] <- df_S20[df_S20$sequence_id == tmp$family[i],]$junction_aa
+  mem_seqs[i] <- df_S20[df_S20$sequence_id == tmp$members[i],]$junction_aa
+}
+
+
+tmp$centroid_sequences <- cen_seqs
+tmp$member_sequences <- mem_seqs
+```
+
+## Top-50 Clonal Family (2+ Members) Logo Plots
+
+```{r, echo = F, warning=F}
+tmp <- tmp[nchar(tmp$centroid_sequences) == nchar(tmp$member_sequences),]
+
+tab <- top_groups(tmp)
+# tmp <- df[df$clone_id %in% head(as.numeric(names(tab)), 25),]
+  
+for (nm in head(names(tab), 50)){
+  tmp_frame <- tmp[tmp$family == nm,]
+  # Translate VHH
+  # tmp_frame$VHH <- translate_DNA(tmp_frame$sequence_alignment)
+  # Trim CDR3
+  tmp_frame$junction_aa <- trim_CDR3(tmp_frame$member_sequences)
+  # Pull most frequent CDR3
+  common_CDR3 <- names(table(tmp_frame$junction_aa)[order(table(tmp_frame$junction_aa), decreasing = T)][1])
+  
+  if (nrow(tmp_frame) > 1){
+      cat("Group ID: ", unique(tmp_frame$family), '\n', sep = '')
+      cat("Overall Members: ", nrow(tmp_frame), '\n', sep = '')
+      # cat("Unique VHHs: ", length(unique(tmp_frame$VHH)), '\n', sep = '')
+      cat("Unique CDR3s: ", length(unique(tmp_frame$junction_aa)), '\n', sep = '')
+      cat("Most-frequent CDR3: ", common_CDR3, ' (with ',nrow(tmp_frame[tmp_frame$junction_aa == common_CDR3,]), ' CDR3 observations)\n', sep = '')
+      print(ggseqlogo(as.character(tmp_frame$junction_aa), seq_type='aa', method = 'p') + 
+        theme_classic() + ggtitle(paste(" CDR3 Logo Plot for cluster with the most common CDR3 sequence:\n               ", common_CDR3, sep = '')))
+  }
+}
+
+```
