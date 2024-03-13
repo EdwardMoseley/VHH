@@ -4,12 +4,272 @@ output: html_document
 date: "2024-04-12"
 ---
 
+## Query
+
 ### Imports
 
 ```{r}
 #library(ShortRead)
 source("~/VHH/lib/utilities.R")
 ```
+
+#### DNA_Query_seqs12Mar24.fasta
+
+```
+>XLN-G9
+GGCCGCTCAGGTGCAGCTGGTGGAGTCGGGTGGAGGCTTCGTGCAGGCTGGGGGGTCTCTGAGACTCTCCTGTGCAGCCTCTGGAGTAACCTACGAGATCGATACTATGGGCTGGTACCGCCAGGCTCCAGGGCAGCAGCGCGAGTTGGTCGCGAGTATTACTCGCGGCGGTAGCACAAACTATGCAGACTCCGTGAAGGGCCGATTCACCATCTCCAGAGACAACGCCAAGAACACGGTGTATCTGCAAATGAACAGCCTGAAACCTGAGGACACAGCCGTCTACTACTGTAATGCAGATTCAAGGGATCTAACTGGAGATTGGGACGGCATGGATTACTGGGGCAAAGGGACCCTGGTCACCGTCTCCTCAGCGCACCACAGCGAAGACCCCTCGG
+>XME-B2
+GGCCGCTCAGTTGCAGCTCGTGGAGACAGGTGGAGGCTTGGTGCAGCCTGGGGGGTCTCTGAGACTCTCCTGTGCAGCCTCTGGATTCACTTTCAGTGACTCTGCCATGAGCTGGGTCCGCCAGGCTCCAGGAAAGGGACTCGAGTGGGTCTCAACTATTGGCCCTCGTGGTACTGGTACAAGTTATGCAGACTCCGTGAAGGGCCGATTCACCATCTCCCGAGACAACGCCAAGAACACGCTGTATCTGCAAATGAACAGCCTGAAACCTGAGGACACGGCCGTGTATTACTGTGCAAAAACTCGCGAGCGCGCCCGTCCCATTAGTCAGGGGACCCACGTCACCGTCTCCTCAGCGCACCACAGCGAAGACCCCTCGG
+>XME-G6
+GGCCGCTCAGTTGCAGCTGGCGGAGTCCGGTGGAGGCTTGGTGCAGGCTGGGGGGTCTCTGAGAATTTCCTGTGCAGCCTCTGGATTCACTTTGAATGATTATGCCATAGGCTGGTTCCGCCAGGCCCCAGGGAAGGAGCGTGAGGAGATCTCATGTATTAGTAGTAGTGATGGTAGCACATACTATGCAGACTCCGTAAAGGGCCGATTCACCATCTCCAGTGACAACGCCAAGAACACGGTGTATCTGCAAATGAACAATCTGAAAATTGAGGACACGGCCGTTTATTACTGTGCAGCAGATCCGTGGAGGCCGGGTAGTGGCTGGCCGGATGAGTATGCCTACTGGGGCCAGGGGACCCAGGTCACCGTCTCCTCAGAACCCAAGACACCAAAACCACAACCGG
+>XMF-C4
+GGCCGCTCAGGTGCAGCTCGCGGAGACAGGCGGAGGCTTGGTGCAACCTGGGGGGTCTCTGAGACTCTCCTGTGCAGCCACTGGAGATATCTACGGTATCTATGCCTTTAACTGGTACCGCCAGGCTCCAGGAAAGCAGCGCGAATTGGTCGCGACTATCACTGACGGTGGTACCACAAACATTGCTGACTCCGTGAAGGGCCGATTCACCATCACCAGAAGCAACGAGGACAAGAACACAGTATATCTGCACATGAACAGTCTGAAACCTGAGGACACGGCCGTCTATTACTGTAATGCAGACCTCCTGGTTCCTTACGGTGGTTTGGATGAGACTGACTATTGGGGCCCGGGCACCCAGGTCACCGTCTCCTCAGAACCCAAGACACCAAAACCACAACCGG
+```
+
+```{bash}
+!/home/linuxbrew/.linuxbrew/Cellar/mmseqs2/15-6f452/bin/mmseqs easy-search /content/DNA_Query_seqs12Mar24.fasta /content/20_VecF2_R3_S20_assemble-pass.fastq alnResult.m8 tmp \
+--search-type 3
+```
+
+In this command, `/content/DNA_Query_seqs12Mar24.fasta` is the query file, `/content/20_VecF2_R3_S20_assemble-pass.fastq` is the target database (either FASTA/FASTQ file or MMseqs2 database), `alnResult.m8` is the file for alignment results, and `tmp` is a temporary directory for intermediate files.
+
+`--search-type 3` indicates we are searching nucleotides.
+
+## Load Search Results
+
+```{r}
+dat <- read.csv("~/Downloads/S20_VecF2_R3_S20-MMseqs2-Easy-search.m8", 
+                header = F, stringsAsFactors = F, sep = '\t')
+
+# Apply column names
+colnames(dat) <- c("query","target","fident","alnlen","mismatch","gapopen","qstart","qend","tstart","tend","evalue","bits")
+```
+
+#### Load Query Sequences
+
+```{r}
+tmp <- seqinr::read.fasta("~/VHH/data/DNA_Query_seqs12Mar24.fasta", 
+                          as.string = TRUE,
+                          forceDNAtolower = FALSE)
+
+## Convert to data frame
+results <- data.frame()
+
+for (i in 1:length(tmp)){
+  results <- rbind(results, as.data.frame(cbind(attr(tmp[[i]], "name"), as.character(tmp[[i]]) )))
+}
+
+colnames(results) <- c("Query_ID", "Query_sequence")
+
+rm(tmp)
+```
+
+#### Load Target Database
+
+```{r}
+db <- dnar::read.fastq("~/VHH/data/20_VecF2_R3_S20_assemble-pass.fastq")
+
+head(db)
+```
+
+### Merge Results, Query Seqs, Target Seqs
+
+```{r}
+df <- merge(dat, db, by = "name", all.x = T)
+# We are not concerned with quality
+df$qual <- NULL
+
+df <- merge(df, results, by = "Query_ID", all.x = T)
+```
+
+---
+
+# Clustering
+
+```{r}
+db <- read.csv("~/VHH/data/Cluster-DBs/clean_results/19_VecF1_R3_S19_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+```
+
+
+```{r}
+df <- read.csv("~/VHH/data/Cluster-DBs/results/V600-Cluster-DB26Feb24.csv",
+               header = T, stringsAsFactors = F)
+```
+
+```
+df[df$consensus_sequence == "YAEQGLYGDYLDY",]
+```
+
+```{r}
+# Subset an interesting CDR3
+tmp <- df[df$consensus_sequence == "NTGAV" & 
+        df$f == "19_VecF1_R3_S19_min_threshold_clone-pass.tsv",]
+
+# Subset all associated clones
+db <- db[db$clone_id %in% tmp$cluster_id,]
+
+# Clean-up names-- there was an error once with :
+db$sequence_id <- gsub(":", '', db$sequence_id)
+
+db$VHH <- translate_DNA(db$sequence_alignment)
+```
+
+#### Final Cleanup
+
+```{r}
+# take passes, drop fails
+fails <- db[which(grepl("\\*", db$VHH, fixed = F)),]
+nrow(fails)
+pass <- db[which(!grepl("\\*", db$VHH, fixed = F)),]
+nrow(pass)
+
+## Drop the first 10 amino acids
+pass$VHH <- substr(pass$VHH, 11, nchar(pass$VHH))
+```
+
+
+## Write to fasta for clustering in MMseqs2
+
+```{r}
+write_fasta <- function(df, seq_col, id_col,file_out){
+  seqinr::write.fasta(sequences = as.list(df[[seq_col]]), names = df[[id_col]], file.out = file_out)
+}
+
+write_fasta(pass, "VHH", "sequence_id", "~/Downloads/S19-VHH-seqs13Mar24.fasta")
+```
+
+
+### Load Cluster Results
+
+```{R}
+res <- read.csv("~/Downloads/S19-DB_clustering.tsv", header = F, stringsAsFactors = F, sep = '\t')
+colnames(res) <- c("sequence_id", "member")
+```
+
+Keep only the values we need
+
+```{r}
+pass <- pass[,c("sequence_id", "junction_aa", "clone_id", "VHH")]
+```
+
+```{r}
+tmp <- merge(res, pass, by = "sequence_id")
+# Rename VHH to "centroid_VHH"
+colnames(tmp)[ncol(tmp)] <- "centroid_VHH"
+# Rename "sequence_id" to "centroid_sequence_id"
+colnames(tmp)[1] <- "centroid_sequence_id"
+# Rename "member" to "sequence_id"
+colnames(tmp)[2] <- "sequence_id"
+# Rename "junction_aa" to "centroid_junction_aa"
+colnames(tmp)[3] <- "centroid_junction_aa"
+# Rename "clone_id" to "centroid_clone_id"
+colnames(tmp)[4] <- "centroid_clone_id"
+
+# Re-merge to pull in member sequences
+tmp <- merge(tmp, pass, by = "sequence_id")
+
+# Rename columns
+colnames(tmp)[which(colnames(tmp) == "junction_aa")] <- "member_junction_aa"
+colnames(tmp)[which(colnames(tmp) == "sequence_id")] <- "member_sequence_id"
+colnames(tmp)[which(colnames(tmp) == "clone_id")] <- "member_clone_id"
+colnames(tmp)[which(colnames(tmp) == "VHH")] <- "member_VHH"
+```
+
+### Write Data
+
+```{r}
+write.csv(tmp, file = "~/Downloads/S19-NTGAV-Family-MMseqs2-recluster12Mar24.csv", row.names = F)
+```
+
+
+## Data Analysis
+
+#### MMseqs2 Identified Families
+
+```{r}
+table(tmp$centroid_sequence_id)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ## Load Data
 
