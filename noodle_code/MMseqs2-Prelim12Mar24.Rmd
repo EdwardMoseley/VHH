@@ -59,7 +59,7 @@ for (i in 1:length(tmp)){
   results <- rbind(results, as.data.frame(cbind(attr(tmp[[i]], "name"), as.character(tmp[[i]]) )))
 }
 
-colnames(results) <- c("Query_ID", "Query_sequence")
+colnames(results) <- c("query", "query_sequence")
 
 rm(tmp)
 ```
@@ -69,25 +69,34 @@ rm(tmp)
 ```{r}
 db <- dnar::read.fastq("~/VHH/data/20_VecF2_R3_S20_assemble-pass.fastq")
 
+colnames(db)[1] <- "target"
+
 head(db)
 ```
 
 ### Merge Results, Query Seqs, Target Seqs
 
 ```{r}
-df <- merge(dat, db, by = "name", all.x = T)
+df <- merge(dat, db, by = "target", all.x = T)
 # We are not concerned with quality
 df$qual <- NULL
 
-df <- merge(df, results, by = "Query_ID", all.x = T)
+df <- merge(df, results, by = "query", all.x = T)
 ```
 
 ---
+
+
+
 
 # Clustering
 
 ```{r}
 db <- read.csv("~/VHH/data/Cluster-DBs/clean_results/19_VecF1_R3_S19_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+```
+
+```{r}
+# db <- read.csv("~/VHH/data/Cluster-DBs/clean_results/10_L3_lh2_S10_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
 ```
 
 
@@ -97,6 +106,7 @@ df <- read.csv("~/VHH/data/Cluster-DBs/results/V600-Cluster-DB26Feb24.csv",
 ```
 
 ```
+df[df$consensus_sequence == "NTGAV",]
 df[df$consensus_sequence == "YAEQGLYGDYLDY",]
 ```
 
@@ -104,6 +114,10 @@ df[df$consensus_sequence == "YAEQGLYGDYLDY",]
 # Subset an interesting CDR3
 tmp <- df[df$consensus_sequence == "NTGAV" & 
         df$f == "19_VecF1_R3_S19_min_threshold_clone-pass.tsv",]
+
+#tmp <- df[df$consensus_sequence == "YAEQGLYGDYLDY" & 
+#        df$f %in% c("10_L3_lh2_S10_min_threshold_clone-pass.tsv"),]
+
 
 # Subset all associated clones
 db <- db[db$clone_id %in% tmp$cluster_id,]
@@ -135,14 +149,27 @@ write_fasta <- function(df, seq_col, id_col,file_out){
   seqinr::write.fasta(sequences = as.list(df[[seq_col]]), names = df[[id_col]], file.out = file_out)
 }
 
-write_fasta(pass, "VHH", "sequence_id", "~/Downloads/S19-VHH-seqs13Mar24.fasta")
+write_fasta(pass, "VHH", "sequence_id", "~/Downloads/S10-VHH-seqs13Mar24.fasta")
 ```
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 ### Load Cluster Results
 
 ```{R}
-res <- read.csv("~/Downloads/S19-DB_clustering.tsv", header = F, stringsAsFactors = F, sep = '\t')
+res <- read.csv("~/Downloads/S19-DB_clustering-H90.tsv", header = F, stringsAsFactors = F, sep = '\t')
 colnames(res) <- c("sequence_id", "member")
 ```
 
@@ -178,13 +205,21 @@ colnames(tmp)[which(colnames(tmp) == "VHH")] <- "member_VHH"
 ### Write Data
 
 ```{r}
-write.csv(tmp, file = "~/Downloads/S19-NTGAV-Family-MMseqs2-recluster12Mar24.csv", row.names = F)
+write.csv(tmp, file = "~/Downloads/S19-NTGAV-Family-MMseqs2-H90-recluster12Mar24.csv", row.names = F)
 ```
 
 
 ## Data Analysis
 
 #### MMseqs2 Identified Families
+
+```{r}
+# tmp <- read.csv("~/Downloads/S19-NTGAV-Family-MMseqs2-recluster12Mar24.csv", header = T, stringsAsFactors = F)
+```
+
+```{r}
+table(tmp$centroid_clone_id, tmp$member_clone_id)
+```
 
 ```{r}
 table(tmp$centroid_sequence_id)

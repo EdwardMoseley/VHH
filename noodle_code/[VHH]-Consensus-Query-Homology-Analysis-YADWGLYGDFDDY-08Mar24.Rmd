@@ -9,6 +9,7 @@ We are interested in querying: `YADWGLYGDFDDY` within `13_VecF1_R2_S13`, `14_Vec
 #### Imports
 
 ```{r}
+# calculate_levenshtein
 calculate_levenshtein <- function(query_seq, strings) {
   distances <- adist(query_seq, strings)
   return(distances)
@@ -71,7 +72,7 @@ df$percent_sim <- 1 - (distances/nchar(query_seq))
 **We are interested in YADWGLYGDFDDY, esp in S14 at 50% of homology.**
 
 ```{r}
-error_tolerance <- 0.5 # seq(0.4, 0.3, -0.1)
+error_tolerance <- seq(1, 0.1, -0.1)
 
 f_vals <- c("13_VecF1_R2_S13_min_threshold_clone-pass.tsv",
             "14_VecF1_R2_S14_min_threshold_clone-pass.tsv",
@@ -209,6 +210,6 @@ for (i in 1:length(res_out)){
   # Gsub spaces
   tmp_frame$Aligned_VHHs <- gsub("-", " ", tmp_frame$Aligned_VHHs)
   
-  write.csv(tmp_frame, file = paste("~/Downloads/Consensus-Query-", query_seq, "-Threshold-", tmp_frame$cutoff[1], '-08Mar24.csv', sep = ''), row.names = F)
+  # write.csv(tmp_frame, file = paste("~/Downloads/Consensus-Query-", query_seq, "-Threshold-", tmp_frame$cutoff[1], '-08Mar24.csv', sep = ''), row.names = F)
 }
 ```

@@ -49,21 +49,17 @@ top_groups <- function(results, clone_var){
   return(table(results[[clone_var]])[order(table(results[[clone_var]]), decreasing = T)])
 }
 
-## "Unrolling" duplicate CDR3s
-unroll_dupes <- function(dat){
-  
+## "Unrolling" duplicate values
+unroll_dupes <- function(dat, unroll_column){
+  # Create to store results
   result_vec <- vector()
-  
+  # Iterate over the duplicate count column
   for (i in 1:length(dat$duplicate_count)){
-    
     result_vec <- c(result_vec, 
-                    rep(dat$junction_aa[i],
+                    rep(dat[[unroll_column]],
                         each = dat$duplicate_count[i]))
-    
   }
-  
   return(result_vec)
-  
 }
 ```
 
