@@ -73,3 +73,20 @@ unroll_dupes <- function(dat, unroll_column){
   }
   return(result_vec)
 }
+
+
+## See if this is more effective
+unroll_dupes_fast <- function(dat, unroll_column) {
+  # Repeat each element of the unroll column based on duplicate counts
+  result_vec <- rep(dat[[unroll_column]], times = dat$duplicate_count)
+  return(result_vec)
+}
+
+
+
+
+## Calculate levenshtein distance
+calculate_levenshtein <- function(query_seq, strings) {
+  distances <- adist(query_seq, strings)
+  return(distances)
+}
