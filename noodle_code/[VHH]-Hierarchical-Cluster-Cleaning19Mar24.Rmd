@@ -4,59 +4,20 @@ output: html_document
 date: "2024-03-19"
 ---
 
-This workflow is based on `antigen-selected` databases (Ex: `S19`, `S20`, `S21`). To select the best members of each `antigen-selected` cluster, we need to find and draw information from the clonal family members in the `source databases` (library or cDNA). 
+### Motivation
 
-It is the distinctions between `antigen-selected` members and `source members` of each clonal family that is critical.
+This workflow is based on cleaning the `antigen-selected` databases (Ex: `S19`, `S20`, `S21`). 
 
-We cannot expect the highly-enriched and selected VHHs in the antigen-selected databases to always have closely related CDR3 regions, thus we need a new method to identify clonal families in the source databases.
+To select the best members of each `antigen-selected` cluster, we need to find and draw information from the clonal family members in the `source databases` (library or cDNA). It is the distinctions between `antigen-selected` members and `source members` of each clonal family that is critical.
 
-## Proposed method
- 
-1. Hierarchical clustering of VHHs in each of the antigen-selected databases
+Because we cannot expect the highly-enriched and selected VHHs in the antigen-selected databases to always have closely related CDR3 regions, we need a new method to identify clonal families in the source databases from which they originated. 
 
-2. Define the `antigen-selected VHH consensus CDR3` for each cluster in **(1)**
+This will be addressed in subsequent experiments, likely by comparing consensus CDR3s, median CDR3s, and median VHHs in clonal families.
 
-3. Combine clearly related clusters in **(2)** using unambiguously related `CDR consensus sequences`, these are now our `antigen-selected VHH consensus CDR3 clusters`.
-
-  -	We need to establish safe criteria for `unambiguously related` to safely pool clusters, for example:
-
-    *	10 aa CDR3, >60% homology within databases selected on the same target?
-  
-    *	6-9 aa CDR3, >80% homology within databases selected on the same target? (or combine CDR1/2/3 together and >60% homology?)
-  
-    *	<6 aa CDR3, 100% homology? (or combine CDR1/2/3 together and >60% homology?) 
-  
-  -	Determine the number of members of each clonal family within each antigen-selected clonal family
-  
-    *	This number will be critical to identifying clonal families that became ‘significantly’ reduced through competition during the panning process
-
-    *	We may need replicate databases to establish the significance of the clonal family numbers
-
-    *	Add a curation step to remove outlier non-family members based on lower homology?
-
-4.	Recluster outliers and include new unambiguous clusters in ‘antigen-selected VHH consensus CDR3 clusters’
-
-5.	Select all unambiguous antigen-selected clonal families from step 3 with a critical mass of unique members
-
-    * This number may be all >5 or >10 unique VHHs, or top 100 unique VHHs, or something TBD
-
-5.	Identify the most abundant full VHH amino acid sequence in each unambiguous clusters in step 4 as the ‘best representative’ of each cluster
-
-6.	Identify the ‘closest source homologue’ (overall VHH amino acid sequence homology (not CDR3)) to each of ‘best representative’ VHH for each cluster in step 5
-
-    *	Sources may be either (or both) VHH-display library or the alpaca cDNA 
-
-7.	Cluster each ‘closest source homologue’ from step 6 within its source library and establish the ‘source consensus CDR3 cluster’ for each ‘antigen-selected VHH consensus CDR3 cluster’
-
-8.	Determine the numbers of VHH members of each ‘source consensus CDR3 cluster’ from step 7 within each available source database
-
-9.	Align unique VHHs found in each ‘source consensus CDR3 cluster’, compared to the most abundant VHHs in the ‘antigen-selected VHH consensus CDR3 cluster’
-
-  -	Ultimately, we will want an algorithm to select the ‘most promising’ VHH member of each ‘antigen-selected VHH consensus CDR3 cluster’
-  -	For now, we will have do this manually as we work out the best rules
 
 ```{r, echo = F, eval = T}
 source("~/VHH/lib/utilities.R")
+suppressPackageStartupMessages(library(stringdist))
 ```
 
 ## Load Antigen-Selected Databases (S19 for now)
@@ -66,7 +27,7 @@ We will expand shortly to combine `{S19, S20, S21}` for re-cleaning (as they wil
 ### Load consensus database
 
 ```{r, echo = F, eval = T}
-cdb <- read.csv("~/VHH/data/Cluster-DBs/cluster_database/9_L3_sh2_S9_min_threshold_clone-pass-consensuses15Mar24.csv", 
+cdb <- read.csv("~/VHH/data/Cluster-DBs/cluster_database/9_L3_sh2_S9_min_threshold_clone-pass-consensuses15Mar24.csv",
                 header = T, stringsAsFactors = F)
 
 # Subset only 19 for now
@@ -75,12 +36,10 @@ cdb <- cdb[cdb$f == "19_VecF1_R3_S19_min_threshold_clone-pass.tsv",]
 # Order by Dup_count
 cdb <- cdb[order(cdb$Dup_count, decreasing = T),]
 
-print(head(cdb))
+# print(head(cdb))
 ```
 
-
 Unsurprisingly, these larger clusters are our "usual suspects!"
-
 
 ### Load individual clonal database
 
@@ -108,40 +67,88 @@ nrow(db)
 ## Initial logo-plots
 
 ```{r, echo = F, eval = T}
-for (nm in head(cdb$cluster_id, 5)){
-  tmp_frame <- db[db$clone_id == as.numeric(nm),]
-  
-  ## Note: here we need to ensure that we account for the duplicates
-  unrolled_CDR3s <- unroll_dupes_fast(tmp_frame, "junction_aa")
-  unrolled_VHHs <- unroll_dupes_fast(tmp_frame, "VHH")
-  
-  # Pull most frequent CDR3 and VHH
-  common_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
-  common_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)][1])
-  
-  # Pull entropy values
-  CDR3_entropy <- string_entropy(unrolled_CDR3s)
-  VHH_entropy <- string_entropy(unrolled_VHHs)
-  
-  if (nrow(tmp_frame) > 1){
-      cat("Group ID: ", paste('S',unique(substr(tmp_frame$f, 1, 2)),'-',unique(tmp_frame$clone_id), sep = ''), '\n', sep = '')
-      cat("Overall Members: ", nrow(tmp_frame), '\n', sep = '')
-      cat("Unique VHHs: ", length(unique(tmp_frame$VHH)), '\n', sep = '')
-      cat("Unique CDR3s: ", length(unique(tmp_frame$junction_aa)), '\n', sep = '')
-      cat("Most represented VHHs:\n")
-      print(head(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)]))
-      cat("CDR3 Entropy: ", CDR3_entropy, '\n', sep = '')
-      cat("VHH Entropy: ", VHH_entropy, '\n', sep = '')
-      cat("Most-frequent CDR3: ", common_CDR3, ' (with ',nrow(tmp_frame[tmp_frame$junction_aa == common_CDR3,]), ' CDR3 observations)\n', sep = '')
-      print(ggseqlogo(as.character(tmp_frame$junction_aa), seq_type='aa', method = 'p') + 
-        theme_classic() + ggtitle(paste(" CDR3 Logo Plot for cluster with the most common CDR3 sequence:\n               ", common_CDR3, sep = '')))
+## Initialize tmp for holding results
+tmp <- data.frame()
+cleaning_run <- "Initial"
+tmp_res <- data.frame()
+
+for (nm in cdb$cluster_id){
+  if (nm %in% intersect(cdb$cluster_id, db$clone_id)){
+      tmp_frame <- db[db$clone_id == as.numeric(nm),]
+      
+      ## Note: here we need to ensure that we account for the duplicates
+      unrolled_CDR3s <- unroll_dupes_fast(tmp_frame, "junction_aa")
+      unrolled_VHHs <- unroll_dupes_fast(tmp_frame, "VHH")
+      
+      # Pull most frequent CDR3 and VHH
+      median_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
+      median_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)][1])
+      consensus_CDR3 <- strict_consensus(unrolled_CDR3s)
+      
+      # Pull entropy values
+      CDR3_entropy <- string_entropy(unrolled_CDR3s)
+      VHH_entropy <- string_entropy(unrolled_VHHs)
+      
+      # Count duplicates
+      duplicate_count <- sum(tmp_frame$duplicate_count)
+      
+      tmp_res <- rbind(tmp_res, cbind(tmp_frame$f[1], 
+                                      tmp_frame$clone_id[1],
+                                      duplicate_count,
+                                      consensus_CDR3,
+                                      median_CDR3,
+                                      median_VHH,
+                                      CDR3_entropy,
+                                      VHH_entropy))
+      
+      if (nm %in% head(cdb$cluster_id, 5)){
+          if (nrow(tmp_frame) > 1){
+          cat("Group ID: ", paste('S',unique(substr(tmp_frame$f, 1, 2)),'-',unique(tmp_frame$clone_id), sep = ''), '\n', sep = '')
+          cat("Overall Members (Including Duplicates): ", sum(tmp_frame$duplicate_count), '\n', sep = '')
+          cat("Unique DNA sequences: ", length(unique(tmp_frame$sequence)), '\n', sep = '')
+          cat("Unique VHHs: ", length(unique(tmp_frame$VHH)), '\n', sep = '')
+          cat("Unique CDR3s: ", length(unique(tmp_frame$junction_aa)), '\n', sep = '')
+          cat("Most represented VHHs:\n")
+          print(head(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)]))
+          cat("CDR3 Entropy: ", CDR3_entropy, '\n', sep = '')
+          cat("VHH Entropy: ", VHH_entropy, '\n', sep = '')
+          cat("Most-frequent CDR3: ", median_CDR3, ' (with ',nrow(tmp_frame[tmp_frame$junction_aa == median_CDR3,]), ' CDR3 observations)\n', sep = '')
+          print(ggseqlogo(as.character(tmp_frame$junction_aa), seq_type='aa', method = 'p') + 
+            theme_classic() + ggtitle(paste(" CDR3 Logo Plot for cluster with the most common CDR3 sequence:\n               ", median_CDR3,'\nCleaning Run: ', cleaning_run, sep = '')))
+        }
+      }
   }
 }
+
+tmp_res$id <- rep(cleaning_run, each = nrow(tmp_res))
+
+tmp <- rbind(tmp, tmp_res)
+```
+
+### Cluster Dendrogram (Family Level)
+
+```{r, echo = F, eval = T}
+strings <- tmp_res[tmp_res$id == cleaning_run,]$consensus_CDR3
+
+# strings <- strings[!duplicated(strings)]
+
+# Compute the distance matrix using Jaccard distance
+dist_matrix <- stringdistmatrix(strings, method = "lv")
+
+# Perform hierarchical clustering
+cluster_tree <- hclust(as.dist(dist_matrix), method = "complete")
+
+main_title <- paste("Cluster Dendrogram of CDR3 Clonal Families from: ", gsub("_min_threshold_clone-pass.tsv","",tmp_frame$f[1]), "\n Cleaning Run: ", cleaning_run, "\nDistance Metric: Levenshtein", sep = '')
+
+par(family = "Courier")
+
+# Plot the dendrogram with labels
+plot(cluster_tree, main = main_title, xlab = "DNA Read Count-Clonal Family Consensus CDR3s-Clone ID", sub = NULL, labels = paste(tmp_res$duplicate_count,'-C', tmp_res$V2, '-', strings, sep = ''), ylab = "Distance (Levenshtein)", cex = 0.4)
 ```
 
 ## Cleaning Implementation
 
-### Initial Dataset Construction
+### Construct Dataset with Initial Statistics for Cleaning
 
 **We want:**
 
@@ -157,7 +164,8 @@ for (nm in head(cdb$cluster_id, 5)){
 ```{r, eval = T, echo = T}
 results <- data.frame()
 
-for (nm in head(cdb$cluster_id, 5)){
+for (nm in cdb$cluster_id){
+  if (nm %in% intersect(cdb$cluster_id, db$clone_id)){
   tmp_frame <- db[db$clone_id == as.numeric(nm),]
   
   ## Note: here we need to ensure that we account for the duplicates
@@ -168,8 +176,8 @@ for (nm in head(cdb$cluster_id, 5)){
   VHH_entropy <- string_entropy(unrolled_VHHs)
   
   # Pull most frequent CDR3 and VHH
-  common_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
-  common_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)][1])
+  median_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
+  median_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)][1])
   consensus_CDR3 <- strict_consensus(unrolled_CDR3s)
   
   # Pull entropy values
@@ -178,23 +186,23 @@ for (nm in head(cdb$cluster_id, 5)){
   
   ## Subset variables of interest
   
-  tmp_frame$median_VHH_distance <- 100 - (as.vector(adist(common_VHH, tmp_frame$VHH))/nchar(common_VHH))*100
+  tmp_frame$median_VHH_homology <- 100 - (as.vector(adist(median_VHH, tmp_frame$VHH))/nchar(median_VHH))*100
+  tmp_frame$median_CDR3_homology <- 100 - (as.vector(adist(median_CDR3, tmp_frame$junction_aa))/nchar(median_CDR3))*100
+  tmp_frame$consensus_CDR3_homology <- 100 - (as.vector(adist(consensus_CDR3, tmp_frame$junction_aa))/nchar(consensus_CDR3))*100
   
-  tmp_frame$median_CDR3_distance <- 100 - (as.vector(adist(common_CDR3, tmp_frame$junction_aa))/nchar(common_CDR3))*100
-  
-  tmp_frame$consensus_CDR3_distance <- 100 - (as.vector(adist(consensus_CDR3, tmp_frame$junction_aa))/nchar(consensus_CDR3))*100
-  
-  tmp_frame$median_CDR3 <- rep(common_CDR3, each = nrow(tmp_frame))
-  tmp_frame$median_VHH <- rep(common_VHH, each = nrow(tmp_frame))
+  tmp_frame$median_CDR3 <- rep(median_CDR3, each = nrow(tmp_frame))
+  tmp_frame$median_VHH <- rep(median_VHH, each = nrow(tmp_frame))
   tmp_frame$consensus_CDR3 <- rep(consensus_CDR3, each = nrow(tmp_frame))
   tmp_frame$CDR3_entropy <- rep(CDR3_entropy, each = nrow(tmp_frame))
   tmp_frame$VHH_entropy <- rep(VHH_entropy, each = nrow(tmp_frame))
   
   results <- rbind(results, tmp_frame)
+  }
 }
 
 rm(tmp_frame, unrolled_CDR3s, unrolled_VHHs)
 ```
+
 
 ```{r, echo = F, eval = T}
 results <- results[,c("f",
@@ -209,80 +217,250 @@ results <- results[,c("f",
                       "junction_aa",
                       "median_VHH",
                       "VHH",
-                      "median_VHH_distance",
-                      "median_CDR3_distance",
-                      "consensus_CDR3_distance",
+                      "median_VHH_homology",
+                      "median_CDR3_homology",
+                      "consensus_CDR3_homology",
                       "CDR3_entropy",
                       "VHH_entropy")]
 
+#sequences <- Biostrings::AAStringSet(results$VHH)
+# Perform multiple sequence alignment
+#msa_result <- msa::msa(sequences, method = "ClustalOmega")
+# Store aligned results
+# clean_dat$Aligned_VHHs <- as.character(msa_result@unmasked)
+
+# test <- results[order(results$clone_id, results$median_VHH_homology, decreasing = T),]
+```
+
+
+
+
+
+
+## Rule-based Cleaning (CDR3 length and Homology)
+
+*	10 aa CDR3, `>60%` homology within databases selected on the same target?
+  
+*	6-9 aa CDR3, `>80%` homology within databases selected on the same target? (or combine CDR1/2/3 together and >60% homology?)
+  
+*	<6 aa CDR3, `100%` homology? (or combine CDR1/2/3 together and >60% homology?) 
+
+```{r, echo = F, eval = T}
+tmp_res <- data.frame()
+cleaning_run <- "Rule-Based"
+
+for (nm in cdb$cluster_id){
+  if (nm %in% intersect(cdb$cluster_id, results$clone_id)){
+      tmp_frame <- results[results$clone_id == as.numeric(nm),]
+
+      
+      # Pull values for constraints
+      consensus_CDR3 <- tmp_frame$consensus_CDR3[1]
+      median_VHH <- tmp_frame$median_VHH[1]
+    
+      ## Enforce Constraints
+      if (nchar(consensus_CDR3) >= 10){
+        tmp_frame <- tmp_frame[tmp_frame$consensus_CDR3_homology >= 60,]
+      } else if ((nchar(consensus_CDR3) > 6) & (nchar(consensus_CDR3) < 10)){
+        tmp_frame <- tmp_frame[tmp_frame$consensus_CDR3_homology >= 80,]
+      } else {
+        tmp_frame <- tmp_frame[tmp_frame$consensus_CDR3_homology == 100 & 
+                                 tmp_frame$median_VHH_homology >= 90,]
+      }
+      
+      
+      if (nrow(tmp_frame) >= 1){
+        
+          ## Note: here we need to ensure that we account for the duplicates
+          unrolled_CDR3s <- unroll_dupes_fast(tmp_frame, "junction_aa")
+          unrolled_VHHs <- unroll_dupes_fast(tmp_frame, "VHH")
+          
+          # Pull most frequent CDR3 and VHH
+          median_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
+          median_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)][1])
+          consensus_CDR3 <- strict_consensus(unrolled_CDR3s)
+          
+          # Pull entropy values
+          CDR3_entropy <- string_entropy(unrolled_CDR3s)
+          VHH_entropy <- string_entropy(unrolled_VHHs)
+          
+          # Count duplicates
+          duplicate_count <- sum(tmp_frame$duplicate_count)
+          
+          tmp_res <- rbind(tmp_res, cbind(tmp_frame$f[1], 
+                                          tmp_frame$clone_id[1],
+                                          duplicate_count,
+                                          consensus_CDR3,
+                                          median_CDR3,
+                                          median_VHH,
+                                          CDR3_entropy,
+                                          VHH_entropy))
+      
+      if (nm %in% head(cdb$cluster_id, 5)){
+          if (nrow(tmp_frame) > 1){
+          cat("Group ID: ", paste('S',unique(substr(tmp_frame$f, 1, 2)),'-',unique(tmp_frame$clone_id), sep = ''), '\n', sep = '')
+          cat("Overall Members (Including Duplicates): ", sum(tmp_frame$duplicate_count), '\n', sep = '')
+          cat("Unique DNA sequences: ", length(unique(tmp_frame$sequence)), '\n', sep = '')
+          cat("Unique VHHs: ", length(unique(tmp_frame$VHH)), '\n', sep = '')
+          cat("Unique CDR3s: ", length(unique(tmp_frame$junction_aa)), '\n', sep = '')
+          cat("Most represented VHHs:\n")
+          print(head(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)]))
+          cat("CDR3 Entropy: ", CDR3_entropy, '\n', sep = '')
+          cat("VHH Entropy: ", VHH_entropy, '\n', sep = '')
+          cat("Most-frequent CDR3: ", median_CDR3, ' (with ',nrow(tmp_frame[tmp_frame$junction_aa == median_CDR3,]), ' CDR3 observations)\n', sep = '')
+          print(ggseqlogo(as.character(tmp_frame$junction_aa), seq_type='aa', method = 'p') + 
+            theme_classic() + ggtitle(paste(" CDR3 Logo Plot for cluster with the most common CDR3 sequence:\n               ", median_CDR3,'\nCleaning Run: ', cleaning_run, sep = '')))
+        }
+      }
+    }
+  }
+}
+
+tmp_res$id <- rep(cleaning_run, each = nrow(tmp_res))
+
+tmp <- rbind(tmp, tmp_res)
 ```
 
 
 ```{r, echo = F, eval = F}
-#### Subset for exploration
+colnames(tmp_res)[1:2] <- c("f", "clone_id")
 
-#tmp <- results[results$clone_id == 207,]
+tmp_res$duplicate_count <- NULL
+
+test <- merge(results, tmp_res, by = c("f","clone_id", "consensus_CDR3", "median_CDR3", "median_VHH"))
+test$CDR3_entropy.x <- NULL
+test$VHH_entropy.x <- NULL
+
+colnames(test) <- gsub("\\.y", "", colnames(test))
+
+test <- test[order(test$clone_id, test$median_VHH_homology, decreasing = T),]
+
+# write.csv(test, file = "~/Downloads/Initial-Results-all-families-rule-based-culling21Mar24.csv", row.names = F)
 ```
 
-## Rule-based Cleaning Logoplots
-
-
-*	10 aa CDR3, >60% homology within databases selected on the same target?
-  
-*	6-9 aa CDR3, >80% homology within databases selected on the same target? (or combine CDR1/2/3 together and >60% homology?)
-  
-*	<6 aa CDR3, 100% homology? (or combine CDR1/2/3 together and >60% homology?) 
-  
+### Cluster Dendrogram (Family Level)
 
 ```{r, echo = F, eval = T}
-for (nm in head(cdb$cluster_id, 5)){
-  # Subset from results
-  tmp_frame <- results[results$clone_id == as.numeric(nm),]
-  
-  # Pull values for constraints
-  consensus_CDR3 <- tmp_frame$consensus_CDR3[1]
-  median_VHH <- tmp_frame$median_VHH[1]
-  
-  ## Enforce Constraints
-  if (nchar(consensus_CDR3) >= 10){
-    tmp_frame <- tmp_frame[tmp_frame$consensus_CDR3_distance >= 60,]
-  } else if ((nchar(common_CDR3) > 6) & (nchar(consensus_CDR3) < 10)){
-    tmp_frame <- tmp_frame[tmp_frame$consensus_CDR3_distance >= 80,]
-  } else {
-    tmp_frame <- tmp_frame[tmp_frame$consensus_CDR3_distance == 100 & 
-                             tmp_frame$median_VHH_distance >= 90,]
-  }
-  
-  
-  ## Note: here we need to ensure that we account for the duplicates
-  unrolled_CDR3s <- unroll_dupes_fast(tmp_frame, "junction_aa")
-  unrolled_VHHs <- unroll_dupes_fast(tmp_frame, "VHH")
-  
-  # Pull most frequent CDR3 and VHH
-  common_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
-  common_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)][1])
-  
-  # Pull entropy values
-  CDR3_entropy <- string_entropy(unrolled_CDR3s)
-  VHH_entropy <- string_entropy(unrolled_VHHs)
+strings <- tmp_res[tmp_res$id == cleaning_run,]$consensus_CDR3
 
-  if (nrow(tmp_frame) > 1){
-      cat("Group ID: ", paste('S',unique(substr(tmp_frame$f, 1, 2)),'-',unique(tmp_frame$clone_id), sep = ''), '\n', sep = '')
-      cat("Overall Members: ", nrow(tmp_frame), '\n', sep = '')
-      cat("Unique VHHs: ", length(unique(tmp_frame$VHH)), '\n', sep = '')
-      cat("Unique CDR3s: ", length(unique(tmp_frame$junction_aa)), '\n', sep = '')
-      cat("Most represented VHHs:\n")
-      print(head(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)]))
-      cat("CDR3 Entropy: ", CDR3_entropy, '\n', sep = '')
-      cat("VHH Entropy: ", VHH_entropy, '\n', sep = '')
-      cat("Most-frequent CDR3: ", common_CDR3, ' (with ',nrow(tmp_frame[tmp_frame$junction_aa == common_CDR3,]), ' CDR3 observations)\n', sep = '')
-      print(ggseqlogo(as.character(tmp_frame$junction_aa), seq_type='aa', method = 'p') + 
-        theme_classic() + ggtitle(paste(" CDR3 Logo Plot for cluster with the most common CDR3 sequence:\n               ", common_CDR3, sep = '')))
-  }
-}
+# strings <- strings[!duplicated(strings)]
+
+# Compute the distance matrix using Jaccard distance
+dist_matrix <- stringdistmatrix(strings, method = "lv")
+
+# Perform hierarchical clustering
+cluster_tree <- hclust(as.dist(dist_matrix), method = "complete")
+
+main_title <- paste("Cluster Dendrogram of CDR3 Clonal Families from: ", gsub("_min_threshold_clone-pass.tsv","",tmp_frame$f[1]), "\n Cleaning Run: ", cleaning_run, "\nDistance Metric: Levenshtein", sep = '')
+
+par(family = "Courier")
+
+# Plot the dendrogram with labels
+plot(cluster_tree, main = main_title, xlab = "DNA Read Count-Clonal Family Consensus CDR3s-Clone ID", sub = NULL, labels = paste(tmp_res$duplicate_count,'-C', tmp_res$V2, '-', strings, sep = ''), ylab = "Distance (Levenshtein)", cex = 0.4)
 ```
 
-## "Clean" Logoplots
+## Rule-based Cleaning Logoplots with Singleton Removal
+
+```{r, echo = F, eval = T}
+tmp_res <- data.frame()
+cleaning_run <- "Rule-Based >= 2 Reads"
+
+for (nm in cdb$cluster_id){
+  if (nm %in% intersect(cdb$cluster_id, results$clone_id)){
+      tmp_frame <- results[results$clone_id == as.numeric(nm),]
+      # Drop Singletons
+      tmp_frame <- tmp_frame[tmp_frame$duplicate_count >= 2,]
+
+      # Pull values for constraints
+      consensus_CDR3 <- tmp_frame$consensus_CDR3[1]
+      median_VHH <- tmp_frame$median_VHH[1]
+    
+      if (nrow(tmp_frame) >= 1){
+      
+          ## Enforce Constraints
+          if (nchar(consensus_CDR3) >= 10){
+            tmp_frame <- tmp_frame[tmp_frame$consensus_CDR3_homology >= 60,]
+          } else if ((nchar(consensus_CDR3) > 6) & (nchar(consensus_CDR3) < 10)){
+            tmp_frame <- tmp_frame[tmp_frame$consensus_CDR3_homology >= 80,]
+          } else {
+            tmp_frame <- tmp_frame[tmp_frame$consensus_CDR3_homology == 100 & 
+                                     tmp_frame$median_VHH_homology >= 90,]
+          }
+      }
+        
+        if (nrow(tmp_frame) >= 1){
+          ## Note: here we need to ensure that we account for the duplicates
+          unrolled_CDR3s <- unroll_dupes_fast(tmp_frame, "junction_aa")
+          unrolled_VHHs <- unroll_dupes_fast(tmp_frame, "VHH")
+          
+          # Pull most frequent CDR3 and VHH
+          median_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
+          median_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)][1])
+          consensus_CDR3 <- strict_consensus(unrolled_CDR3s)
+          
+          # Pull entropy values
+          CDR3_entropy <- string_entropy(unrolled_CDR3s)
+          VHH_entropy <- string_entropy(unrolled_VHHs)
+          
+          # Count duplicates
+          duplicate_count <- sum(tmp_frame$duplicate_count)
+          
+          tmp_res <- rbind(tmp_res, cbind(tmp_frame$f[1], 
+                                          tmp_frame$clone_id[1],
+                                          duplicate_count,
+                                          consensus_CDR3,
+                                          median_CDR3,
+                                          median_VHH,
+                                          CDR3_entropy,
+                                          VHH_entropy))
+          
+          if (nm %in% head(cdb$cluster_id, 5)){
+              if (nrow(tmp_frame) > 1){
+              cat("Group ID: ", paste('S',unique(substr(tmp_frame$f, 1, 2)),'-',unique(tmp_frame$clone_id), sep = ''), '\n', sep = '')
+              cat("Overall Members (Including Duplicates): ", sum(tmp_frame$duplicate_count), '\n', sep = '')
+              cat("Unique DNA sequences: ", length(unique(tmp_frame$sequence)), '\n', sep = '')
+              cat("Unique VHHs: ", length(unique(tmp_frame$VHH)), '\n', sep = '')
+              cat("Unique CDR3s: ", length(unique(tmp_frame$junction_aa)), '\n', sep = '')
+              cat("Most represented VHHs:\n")
+              print(head(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)]))
+              cat("CDR3 Entropy: ", CDR3_entropy, '\n', sep = '')
+              cat("VHH Entropy: ", VHH_entropy, '\n', sep = '')
+              cat("Most-frequent CDR3: ", median_CDR3, ' (with ',nrow(tmp_frame[tmp_frame$junction_aa == median_CDR3,]), ' CDR3 observations)\n', sep = '')
+          print(ggseqlogo(as.character(tmp_frame$junction_aa), seq_type='aa', method = 'p') + 
+            theme_classic() + ggtitle(paste(" CDR3 Logo Plot for cluster with the most common CDR3 sequence:\n               ", median_CDR3,'\nCleaning Run: ', cleaning_run, sep = '')))
+            }
+          }
+      }
+  }
+}
+
+tmp_res$id <- rep(cleaning_run, each = nrow(tmp_res))
+
+tmp <- rbind(tmp, tmp_res)
+```
+
+### Cluster Dendrogram (Family Level)
+
+```{r, echo = F, eval = T}
+strings <- tmp_res[tmp_res$id == cleaning_run,]$consensus_CDR3
+
+# strings <- strings[!duplicated(strings)]
+
+# Compute the distance matrix using Jaccard distance
+dist_matrix <- stringdistmatrix(strings, method = "lv")
+
+# Perform hierarchical clustering
+cluster_tree <- hclust(as.dist(dist_matrix), method = "complete")
+
+main_title <- paste("Cluster Dendrogram of CDR3 Clonal Families from: ", gsub("_min_threshold_clone-pass.tsv","",tmp_frame$f[1]), "\n Cleaning Run: ", cleaning_run, "\nDistance Metric: Levenshtein", sep = '')
+
+par(family = "Courier")
+
+# Plot the dendrogram with labels
+plot(cluster_tree, main = main_title, xlab = "DNA Read Count-Clonal Family Consensus CDR3s-Clone ID", sub = NULL, labels = paste(tmp_res$duplicate_count,'-C', tmp_res$V2, '-', strings, sep = ''), ylab = "Distance (Levenshtein)", cex = 0.4)
+```
+
+## Statistically "Clean" Logoplots
 
 Arbitrarily, let's try the rule where **we drop clones from a group if**:
 
@@ -293,49 +471,102 @@ Arbitrarily, let's try the rule where **we drop clones from a group if**:
 3. The `consensus_CDR3_distance` is below the `1st Qu.`
 
 ```{r, echo = F, eval = T}
-for (nm in head(cdb$cluster_id, 5)){
-  # Subset from results
-  tmp_frame <- results[results$clone_id == as.numeric(nm),]
-  
-  # Find thresholds
-  vhh_dist_thresh <- summary(tmp_frame$median_VHH_distance)[["1st Qu."]]
-  cdr3_dist_thresh <- summary(tmp_frame$median_CDR3_distance)[["1st Qu."]]
-  cons_dist_thresh <- summary(tmp_frame$consensus_CDR3_distance)[["1st Qu."]]
+tmp_res <- data.frame()
+cleaning_run <- "Statistical-1st Qu."
 
-  # Enforce constraints
-  tmp_frame <- tmp_frame[tmp_frame$median_VHH_distance >= vhh_dist_thresh & 
-                         tmp_frame$median_CDR3_distance >= cdr3_dist_thresh &
-                         tmp_frame$consensus_CDR3_distance >= cons_dist_thresh,]
-  
-  ## Note: here we need to ensure that we account for the duplicates
-  unrolled_CDR3s <- unroll_dupes_fast(tmp_frame, "junction_aa")
-  unrolled_VHHs <- unroll_dupes_fast(tmp_frame, "VHH")
-  
-  # Pull most frequent CDR3 and VHH
-  common_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
-  common_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)][1])
-  
-  # Pull entropy values
-  CDR3_entropy <- string_entropy(unrolled_CDR3s)
-  VHH_entropy <- string_entropy(unrolled_VHHs)
-  
-  if (nrow(tmp_frame) > 1){
-      cat("Group ID: ", paste('S',unique(substr(tmp_frame$f, 1, 2)),'-',unique(tmp_frame$clone_id), sep = ''), '\n', sep = '')
-      cat("Overall Members: ", nrow(tmp_frame), '\n', sep = '')
-      cat("Unique VHHs: ", length(unique(tmp_frame$VHH)), '\n', sep = '')
-      cat("Unique CDR3s: ", length(unique(tmp_frame$junction_aa)), '\n', sep = '')
-      cat("Most represented VHHs:\n")
-      print(head(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)]))
-      cat("CDR3 Entropy: ", CDR3_entropy, '\n', sep = '')
-      cat("VHH Entropy: ", VHH_entropy, '\n', sep = '')
-      cat("Most-frequent CDR3: ", common_CDR3, ' (with ',nrow(tmp_frame[tmp_frame$junction_aa == common_CDR3,]), ' CDR3 observations)\n', sep = '')
-      print(ggseqlogo(as.character(tmp_frame$junction_aa), seq_type='aa', method = 'p') + 
-        theme_classic() + ggtitle(paste(" CDR3 Logo Plot for cluster with the most common CDR3 sequence:\n               ", common_CDR3, sep = '')))
+for (nm in cdb$cluster_id){
+  if (nm %in% intersect(cdb$cluster_id, results$clone_id)){
+      tmp_frame <- results[results$clone_id == as.numeric(nm),]
+      # Drop Singletons
+      #tmp_frame <- tmp_frame[tmp_frame$duplicate_count >= 2,]
+      
+      # Pull values for constraints
+      consensus_CDR3 <- tmp_frame$consensus_CDR3[1]
+      median_VHH <- tmp_frame$median_VHH[1]
+    
+      # Find thresholds
+      vhh_dist_thresh <- summary(tmp_frame$median_VHH_homology)[["1st Qu."]]
+      cdr3_dist_thresh <- summary(tmp_frame$median_CDR3_homology)[["1st Qu."]]
+      cons_dist_thresh <- summary(tmp_frame$consensus_CDR3_homology)[["1st Qu."]]
+    
+      # Enforce constraints
+      tmp_frame <- tmp_frame[tmp_frame$median_VHH_homology >= vhh_dist_thresh & 
+                             tmp_frame$median_CDR3_homology >= cdr3_dist_thresh &
+                             tmp_frame$consensus_CDR3_homology >= cons_dist_thresh,]
+
+          if (nrow(tmp_frame) >= 1){
+          ## Note: here we need to ensure that we account for the duplicates
+          unrolled_CDR3s <- unroll_dupes_fast(tmp_frame, "junction_aa")
+          unrolled_VHHs <- unroll_dupes_fast(tmp_frame, "VHH")
+          
+          # Pull most frequent CDR3 and VHH
+          median_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
+          median_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)][1])
+          consensus_CDR3 <- strict_consensus(unrolled_CDR3s)
+          
+          # Pull entropy values
+          CDR3_entropy <- string_entropy(unrolled_CDR3s)
+          VHH_entropy <- string_entropy(unrolled_VHHs)
+          
+          # Count duplicates
+          duplicate_count <- sum(tmp_frame$duplicate_count)
+          
+          tmp_res <- rbind(tmp_res, cbind(tmp_frame$f[1], 
+                                          tmp_frame$clone_id[1],
+                                          duplicate_count,
+                                          consensus_CDR3,
+                                          median_CDR3,
+                                          median_VHH,
+                                          CDR3_entropy,
+                                          VHH_entropy))
+          
+          if (nm %in% head(cdb$cluster_id, 5)){
+              if (nrow(tmp_frame) > 1){
+              cat("Group ID: ", paste('S',unique(substr(tmp_frame$f, 1, 2)),'-',unique(tmp_frame$clone_id), sep = ''), '\n', sep = '')
+              cat("Overall Members (Including Duplicates): ", sum(tmp_frame$duplicate_count), '\n', sep = '')
+              cat("Unique DNA sequences: ", length(unique(tmp_frame$sequence)), '\n', sep = '')
+              cat("Unique VHHs: ", length(unique(tmp_frame$VHH)), '\n', sep = '')
+              cat("Unique CDR3s: ", length(unique(tmp_frame$junction_aa)), '\n', sep = '')
+              cat("Most represented VHHs:\n")
+              print(head(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)]))
+              cat("CDR3 Entropy: ", CDR3_entropy, '\n', sep = '')
+              cat("VHH Entropy: ", VHH_entropy, '\n', sep = '')
+              cat("Most-frequent CDR3: ", median_CDR3, ' (with ',nrow(tmp_frame[tmp_frame$junction_aa == median_CDR3,]), ' CDR3 observations)\n', sep = '')
+          print(ggseqlogo(as.character(tmp_frame$junction_aa), seq_type='aa', method = 'p') + 
+            theme_classic() + ggtitle(paste(" CDR3 Logo Plot for cluster with the most common CDR3 sequence:\n               ", median_CDR3,'\nCleaning Run: ', cleaning_run, sep = '')))
+            }
+          }
+      }
   }
 }
+
+tmp_res$id <- rep(cleaning_run, each = nrow(tmp_res))
+
+tmp <- rbind(tmp, tmp_res)
 ```
 
-## "Cleaner" (no singleton) Logoplots
+### Cluster Dendrogram (Family Level)
+
+```{r, echo = F, eval = T}
+strings <- tmp_res[tmp_res$id == cleaning_run,]$consensus_CDR3
+
+# strings <- strings[!duplicated(strings)]
+
+# Compute the distance matrix using Jaccard distance
+dist_matrix <- stringdistmatrix(strings, method = "lv")
+
+# Perform hierarchical clustering
+cluster_tree <- hclust(as.dist(dist_matrix), method = "complete")
+
+main_title <- paste("Cluster Dendrogram of CDR3 Clonal Families from: ", gsub("_min_threshold_clone-pass.tsv","",tmp_frame$f[1]), "\n Cleaning Run: ", cleaning_run, "\nDistance Metric: Levenshtein", sep = '')
+
+par(family = "Courier")
+
+# Plot the dendrogram with labels
+plot(cluster_tree, main = main_title, xlab = "DNA Read Count-Clonal Family Consensus CDR3s-Clone ID", sub = NULL, labels = paste(tmp_res$duplicate_count,'-C', tmp_res$V2, '-', strings, sep = ''), ylab = "Distance (Levenshtein)", cex = 0.4)
+```
+
+## Statistically "Cleaner" (no singleton) Logoplots
 
 Arbitrarily, let's try the rule where **we drop clones from a group if**:
 
@@ -348,48 +579,138 @@ Arbitrarily, let's try the rule where **we drop clones from a group if**:
 4. Must have >= 2 copies (that is, it must _not_ be a singleton)
 
 ```{r, echo = F, eval = T}
-for (nm in head(cdb$cluster_id, 5)){
-  # Subset from results
-  tmp_frame <- results[results$clone_id == as.numeric(nm),]
-  
-  tmp_frame <- tmp_frame[tmp_frame$duplicate_count >= 2,]
-  
-  # Find thresholds
-  vhh_dist_thresh <- summary(tmp_frame$median_VHH_distance)[["1st Qu."]]
-  cdr3_dist_thresh <- summary(tmp_frame$median_CDR3_distance)[["1st Qu."]]
-  cons_dist_thresh <- summary(tmp_frame$consensus_CDR3_distance)[["1st Qu."]]
+tmp_res <- data.frame()
+cleaning_run <- "Statistical-1st Qu. >= 2 Reads"
 
-  # Enforce constraints
-  tmp_frame <- tmp_frame[tmp_frame$median_VHH_distance >= vhh_dist_thresh & 
-                         tmp_frame$median_CDR3_distance >= cdr3_dist_thresh &
-                         tmp_frame$consensus_CDR3_distance >= cons_dist_thresh,]
-  
-  ## Note: here we need to ensure that we account for the duplicates
-  unrolled_CDR3s <- unroll_dupes_fast(tmp_frame, "junction_aa")
-  unrolled_VHHs <- unroll_dupes_fast(tmp_frame, "VHH")
-  
-  # Pull most frequent CDR3 and VHH
-  common_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
-  common_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)][1])
-  
-  # Pull entropy values
-  CDR3_entropy <- string_entropy(unrolled_CDR3s)
-  VHH_entropy <- string_entropy(unrolled_VHHs)
-  
-  if (nrow(tmp_frame) > 1){
-      cat("Group ID: ", paste('S',unique(substr(tmp_frame$f, 1, 2)),'-',unique(tmp_frame$clone_id), sep = ''), '\n', sep = '')
-      cat("Overall Members: ", nrow(tmp_frame), '\n', sep = '')
-      cat("Unique VHHs: ", length(unique(tmp_frame$VHH)), '\n', sep = '')
-      cat("Unique CDR3s: ", length(unique(tmp_frame$junction_aa)), '\n', sep = '')
-      cat("Most represented VHHs:\n")
-      print(head(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)]))
-      cat("CDR3 Entropy: ", CDR3_entropy, '\n', sep = '')
-      cat("VHH Entropy: ", VHH_entropy, '\n', sep = '')
-      cat("Most-frequent CDR3: ", common_CDR3, ' (with ',nrow(tmp_frame[tmp_frame$junction_aa == common_CDR3,]), ' CDR3 observations)\n', sep = '')
-      print(ggseqlogo(as.character(tmp_frame$junction_aa), seq_type='aa', method = 'p') + 
-        theme_classic() + ggtitle(paste(" CDR3 Logo Plot for cluster with the most common CDR3 sequence:\n               ", common_CDR3, sep = '')))
+for (nm in cdb$cluster_id){
+  if (nm %in% intersect(cdb$cluster_id, results$clone_id)){
+      tmp_frame <- results[results$clone_id == as.numeric(nm),]
+      # Drop Singletons
+      tmp_frame <- tmp_frame[tmp_frame$duplicate_count >= 2,]
+      
+      # Pull values for constraints
+      consensus_CDR3 <- tmp_frame$consensus_CDR3[1]
+      median_VHH <- tmp_frame$median_VHH[1]
+    
+      # Find thresholds
+      vhh_dist_thresh <- summary(tmp_frame$median_VHH_homology)[["1st Qu."]]
+      cdr3_dist_thresh <- summary(tmp_frame$median_CDR3_homology)[["1st Qu."]]
+      cons_dist_thresh <- summary(tmp_frame$consensus_CDR3_homology)[["1st Qu."]]
+    
+      # Enforce constraints
+      tmp_frame <- tmp_frame[tmp_frame$median_VHH_homology >= vhh_dist_thresh & 
+                             tmp_frame$median_CDR3_homology >= cdr3_dist_thresh &
+                             tmp_frame$consensus_CDR3_homology >= cons_dist_thresh,]
+
+          if (nrow(tmp_frame) >= 1){
+          ## Note: here we need to ensure that we account for the duplicates
+          unrolled_CDR3s <- unroll_dupes_fast(tmp_frame, "junction_aa")
+          unrolled_VHHs <- unroll_dupes_fast(tmp_frame, "VHH")
+          
+          # Pull most frequent CDR3 and VHH
+          median_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
+          median_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)][1])
+          consensus_CDR3 <- strict_consensus(unrolled_CDR3s)
+          
+          # Pull entropy values
+          CDR3_entropy <- string_entropy(unrolled_CDR3s)
+          VHH_entropy <- string_entropy(unrolled_VHHs)
+          
+          # Count duplicates
+          duplicate_count <- sum(tmp_frame$duplicate_count)
+          
+          tmp_res <- rbind(tmp_res, cbind(tmp_frame$f[1], 
+                                          tmp_frame$clone_id[1],
+                                          duplicate_count,
+                                          consensus_CDR3,
+                                          median_CDR3,
+                                          median_VHH,
+                                          CDR3_entropy,
+                                          VHH_entropy))
+          
+          if (nm %in% head(cdb$cluster_id, 5)){
+              if (nrow(tmp_frame) > 1){
+              cat("Group ID: ", paste('S',unique(substr(tmp_frame$f, 1, 2)),'-',unique(tmp_frame$clone_id), sep = ''), '\n', sep = '')
+              cat("Overall Members (Including Duplicates): ", sum(tmp_frame$duplicate_count), '\n', sep = '')
+              cat("Unique DNA sequences: ", length(unique(tmp_frame$sequence)), '\n', sep = '')
+              cat("Unique VHHs: ", length(unique(tmp_frame$VHH)), '\n', sep = '')
+              cat("Unique CDR3s: ", length(unique(tmp_frame$junction_aa)), '\n', sep = '')
+              cat("Most represented VHHs:\n")
+              print(head(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)]))
+              cat("CDR3 Entropy: ", CDR3_entropy, '\n', sep = '')
+              cat("VHH Entropy: ", VHH_entropy, '\n', sep = '')
+              cat("Most-frequent CDR3: ", median_CDR3, ' (with ',nrow(tmp_frame[tmp_frame$junction_aa == median_CDR3,]), ' CDR3 observations)\n', sep = '')
+              print(ggseqlogo(as.character(tmp_frame$junction_aa), seq_type='aa', method = 'p') + 
+                theme_classic() + ggtitle(paste(" CDR3 Logo Plot for cluster with the most common CDR3 sequence:\n               ", median_CDR3,'\nCleaning Run: ', cleaning_run, sep = '')))
+            }
+          }
+      }
   }
 }
+
+tmp_res$id <- rep(cleaning_run, each = nrow(tmp_res))
+
+tmp <- rbind(tmp, tmp_res)
+
+# write.csv(tmp, file = "~/Downloads/Cluster-Culling-Experiments20Mar24.csv", row.names = F)
+```
+
+### Cluster Dendrogram
+
+```{r, echo = F, eval = T}
+strings <- tmp_res[tmp_res$id == cleaning_run,]$consensus_CDR3
+
+# strings <- strings[!duplicated(strings)]
+
+# Compute the distance matrix using Jaccard distance
+dist_matrix <- stringdistmatrix(strings, method = "lv")
+
+# Perform hierarchical clustering
+cluster_tree <- hclust(as.dist(dist_matrix), method = "complete")
+
+main_title <- paste("Cluster Dendrogram of CDR3 Clonal Families from: ", gsub("_min_threshold_clone-pass.tsv","",tmp_frame$f[1]), "\n Cleaning Run: ", cleaning_run, "\nDistance Metric: Levenshtein", sep = '')
+
+par(family = "Courier")
+
+# Plot the dendrogram with labels
+plot(cluster_tree, main = main_title, xlab = "DNA Read Count-Clonal Family Consensus CDR3s-Clone ID", sub = NULL, labels = paste(tmp_res$duplicate_count,'-C', tmp_res$V2, '-', strings, sep = ''), ylab = "Distance (Levenshtein)", cex = 0.4)
+```
+
+## Entropy and Count Data by Cleaning Method
+
+```{r, echo = F, eval = T}
+tmp$CDR3_entropy <- as.numeric(tmp$CDR3_entropy)
+tmp$VHH_entropy <- as.numeric(tmp$VHH_entropy)
+tmp$id <- factor(tmp$id, levels = rev(c("Initial", "Rule-Based", "Rule-Based >= 2 Reads", "Statistical-1st Qu.", "Statistical-1st Qu. >= 2 Reads")))
+```
+
+```{r, echo = F, eval = T}
+par(mar = c(5, 18, 5, 5))  # Adjust margins as needed
+
+barplot(table(tmp$id), 
+        horiz = T, 
+        las = 1, main = "Number of Clonal Families Post-Culling by Method", xlab = "Count")
+```
+
+```{r, echo = F, eval = T}
+par(mar = c(5, 18, 5, 5))  # Adjust margins as needed
+
+boxplot(tmp$CDR3_entropy ~ tmp$id, 
+        horizontal = T, 
+        las = 1, 
+        main = "CDR3 Entropy distribution by cleaning method", 
+        xlab = "Entropy",
+        ylab = "")
 ```
 
 
+```{r}
+par(mar = c(5, 18, 5, 5))  # Adjust margins as needed
+
+boxplot(tmp$VHH_entropy ~ tmp$id, 
+        horizontal = T, 
+        las = 1, 
+        main = "VHH Entropy distribution by cleaning method", 
+        xlab = "Entropy",
+        ylab = "")
+```
