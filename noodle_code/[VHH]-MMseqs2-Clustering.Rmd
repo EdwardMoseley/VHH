@@ -1,0 +1,74 @@
+---
+title: "[VHH]-MMseqs2-Clustering"
+output: html_document
+date: "2024-03-22"
+---
+
+
+
+```{r, echo = F, eval = T}
+source("~/VHH/lib/utilities.R")
+suppressPackageStartupMessages(library(stringdist))
+```
+
+## Load Antigen-Selected Databases (S19 for now)
+
+We will expand shortly to combine `{S19, S20, S21}` for re-cleaning (as they will have many duplicates and many of the same poorly-formed clusters).
+
+### Load individual clonal database
+
+```{r, warning = F, eval = T, echo = F}
+db <- read.csv("~/VHH/data/Cluster-DBs/clean_results/19_VecF1_R3_S19_min_threshold_clone-pass.tsv",
+               header = T, stringsAsFactors = F, sep = '\t')
+
+db$f <- rep("19_VecF1_R3_S19_min_threshold_clone-pass.tsv", each = nrow(db))
+
+# Trim CDR3s
+db$junction_aa <- trim_CDR3(db$junction_aa)
+
+# Translate
+db$VHH <- translate_DNA(db$sequence_alignment)
+
+# Trim
+db$VHH <- substr(db$VHH, 11, nchar(db$VHH))
+
+# Keep productive only
+nrow(db)
+db <- unproductive(db)
+nrow(db)
+```
+
+### Iterate over top 5 clonal families
+
+```{r}
+#db <- db[order(db$duplicate_count, decreasing = T),]
+
+db <- db[db$clone_id %in% names(table(db$clone_id)[order(table(db$clone_id), decreasing = T)])[1:5],]
+```
+
+```{r}
+## Write to fasta for clustering in MMseqs2
+write_fasta <- function(df, seq_col, id_col,file_out){
+  seqinr::write.fasta(sequences = as.list(df[[seq_col]]), names = df[[id_col]], file.out = file_out)
+}
+```
+
+## Deduplicate before clustering
+
+```{r}
+root_dir <- "~/Downloads/"
+
+for (nm in unique(db$clone_id)){
+  tmp_frame <- db[db$clone_id == nm,]
+  write_fasta(tmp_frame, "VHH", "VHH", paste(root_dir,"S19-Deduplicated-Clone-",nm,"-22Mar24.fasta", sep = ''))
+}
+
+```
+
+## Load Data
+
+```{r}
+tmp <- read.csv("~/Downloads/S19-DB_clustering.tsv", header = F, stringsAsFactors = F, sep = '\t')
+# Assign Variable Names
+colnames(tmp) <- c("centroid", "VHH")
+```
