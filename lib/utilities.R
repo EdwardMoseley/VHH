@@ -90,3 +90,32 @@ calculate_levenshtein <- function(query_seq, strings) {
   distances <- adist(query_seq, strings)
   return(distances)
 }
+
+## Write to fasta for clustering in MMseqs2
+write_fasta <- function(df, seq_col, id_col, file_out){
+  seqinr::write.fasta(sequences = as.list(df[[seq_col]]), names = df[[id_col]], file.out = file_out)
+}
+
+## Cleaning colons out of the sequence_ids from immcantation
+clean_seq_ids <- function(seq_col){
+  seq_col <- gsub(":", '', seq_col)
+  return(seq_col)
+}
+
+## mmseqs merging data to clusters
+merge_db_to_centroids <- function(db, tmp){
+  dat <- merge(db, tmp, by = "sequence_id")
+  # Pull out data and prepare to change column names for ease
+  tmp <- dat[,c("sequence_id", "centroid")]
+  # Update column names of tmp
+  colnames(tmp) <- c("tmp_sequence_id", "sequence_id")
+  # Join for Centroid sequences
+  tmp <- merge(tmp, dat[,c("sequence_id", "VHH")], by = "sequence_id")
+  # Correct column names
+  colnames(tmp) <- c("centroid_sequence_id", "sequence_id", "centroid")
+  # Remove "centroid" from dat
+  dat$centroid <- NULL
+  # Final merge
+  dat <- merge(dat, tmp, by = "sequence_id")
+  return(dat)
+}

@@ -48,7 +48,7 @@ db <- db[db$clone_id %in% names(table(db$clone_id)[order(table(db$clone_id), dec
 
 ```{r}
 ## Write to fasta for clustering in MMseqs2
-write_fasta <- function(df, seq_col, id_col,file_out){
+write_fasta <- function(df, seq_col, id_col, file_out){
   seqinr::write.fasta(sequences = as.list(df[[seq_col]]), names = df[[id_col]], file.out = file_out)
 }
 ```
@@ -137,7 +137,6 @@ This creates a nice mathematical object with strong statistical properties, as e
 ```{r}
 clean_seq_ids <- function(seq_col){
   seq_col <- gsub(":", '', seq_col)
-  #db[[seq_col]] <- gsub("-", '', db[[seq_col]])
   return(seq_col)
 }
 ```

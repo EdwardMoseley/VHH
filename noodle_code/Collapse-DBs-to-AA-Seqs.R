@@ -53,7 +53,7 @@ for (f in files){
   # Rename file
   f <- gsub("_min_threshold_clone-pass.csv", "_VHH_database.csv", f)
   # Write
-  write.csv(results, file = paste(output_dir, f, sep = ''), row.names = F)
+  write.csv(tmp, file = paste(output_dir, f, sep = ''), row.names = F)
   #results <- rbind(tmp, results)
 }
 
