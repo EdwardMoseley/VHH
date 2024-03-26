@@ -43,7 +43,7 @@ nrow(db)
 ```{r}
 #db <- db[order(db$duplicate_count, decreasing = T),]
 
-db <- db[db$clone_id %in% names(table(db$clone_id)[order(table(db$clone_id), decreasing = T)])[1:5],]
+db <- db[db$clone_id %in% names(table(db$clone_id)[order(table(db$clone_id), decreasing = T)])[6:8],]
 ```
 
 ```{r}
@@ -60,15 +60,205 @@ root_dir <- "~/Downloads/"
 
 for (nm in unique(db$clone_id)){
   tmp_frame <- db[db$clone_id == nm,]
-  write_fasta(tmp_frame, "VHH", "VHH", paste(root_dir,"S19-Deduplicated-Clone-",nm,"-22Mar24.fasta", sep = ''))
+  write_fasta(tmp_frame, "VHH", "sequence_id", paste(root_dir,"S19-Deduplicated-Clone-",nm,"-24Mar24.fasta", sep = ''))
 }
 
 ```
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ## Load Data
 
+### Load database
+
 ```{r}
-tmp <- read.csv("~/Downloads/S19-DB_clustering.tsv", header = F, stringsAsFactors = F, sep = '\t')
+db <- read.csv("~/VHH/data/Cluster-DBs/clean_results/19_VecF1_R3_S19_min_threshold_clone-pass.tsv",
+               header = T, stringsAsFactors = F, sep = '\t')
+
+db$f <- rep("19_VecF1_R3_S19_min_threshold_clone-pass.tsv", each = nrow(db))
+
+# Trim CDR3s
+db$junction_aa <- trim_CDR3(db$junction_aa)
+
+# Translate
+db$VHH <- translate_DNA(db$sequence_alignment)
+
+# Trim
+db$VHH <- substr(db$VHH, 11, nchar(db$VHH))
+
+# Keep productive only
+nrow(db)
+db <- unproductive(db)
+nrow(db)
+
+db <- db[,c("sequence_id",
+            "v_call",
+            "d_call",
+            "j_call",
+            "junction_aa",
+            "duplicate_count",
+            "clone_id",
+            "f",
+            "VHH")]
+```
+
+```{r}
+tmp <- read.csv("~/Downloads/S19-Deduplicated-Clone-49-24Mar24-H95_cluster.tsv", header = F, stringsAsFactors = F, sep = '\t')
 # Assign Variable Names
-colnames(tmp) <- c("centroid", "VHH")
+colnames(tmp) <- c("centroid", "sequence_id")
+# Create a centroid id
+tmp$centroid_id <- as.numeric(factor(tmp$centroid))
+```
+
+The goal here is to have sub-families within clonal families, where each sub-family is clustered by homology to within 95%, and all sub-families are averaged by percent homology to the median CDR3 in the entire family.
+
+This creates a nice mathematical object with strong statistical properties, as each clonal family has "children" clustered within range to multiple centroids.
+
+## Merge Frames
+
+### Pre-Merge Cleaning
+
+```{r}
+clean_seq_ids <- function(seq_col){
+  seq_col <- gsub(":", '', seq_col)
+  #db[[seq_col]] <- gsub("-", '', db[[seq_col]])
+  return(seq_col)
+}
+```
+
+```{r}
+db$sequence_id <- clean_seq_ids(db$sequence_id)
+tmp$centroid <- clean_seq_ids(tmp$centroid)
+tmp$sequence_id <- clean_seq_ids(tmp$sequence_id)
+```
+
+### Merge on sequence ID to find 
+
+```{r}
+merge_db_to_centroids <- function(db, tmp){
+  dat <- merge(db, tmp, by = "sequence_id")
+  # Pull out data and prepare to change column names for ease
+  tmp <- dat[,c("sequence_id", "centroid")]
+  # Update column names of tmp
+  colnames(tmp) <- c("tmp_sequence_id", "sequence_id")
+  # Join for Centroid sequences
+  tmp <- merge(tmp, dat[,c("sequence_id", "VHH")], by = "sequence_id")
+  # Correct column names
+  colnames(tmp) <- c("centroid_sequence_id", "sequence_id", "centroid")
+  # Remove "centroid" from dat
+  dat$centroid <- NULL
+  # Final merge
+  dat <- merge(dat, tmp, by = "sequence_id")
+  return(dat)
+}
+
+dat <- merge_db_to_centroids(db, tmp)
+
+# Drop centroid sequence id for now
+dat$centroid_sequence_id <- NULL
+
+rm(db, tmp)
+```
+
+## Calculate Family-based statistics
+
+```{r}
+# Unroll
+unrolled_VHHs <- unroll_dupes_fast(dat, "VHH")
+unrolled_CDR3s <- unroll_dupes_fast(dat, "junction_aa")
+
+# Pull statistics
+median_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)][1])
+median_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
+consensus_CDR3 <- strict_consensus(unrolled_CDR3s)
+
+# Distance from median
+dat$family_median_VHH_homology <- 100 - (as.vector(adist(median_VHH, dat$VHH))/nchar(median_VHH))*100
+
+dat$family_median_CDR3_homology <- 100 - (as.vector(adist(median_CDR3, dat$junction_aa))/nchar(median_CDR3))*100
+
+dat$family_consensus_CDR3_homology <- 100 - (as.vector(adist(consensus_CDR3, dat$junction_aa))/nchar(consensus_CDR3))*100
+```
+
+## Calculate sub-family-based statistics
+
+```{r}
+results <- data.frame()
+
+# For each centroid id
+for (nm in unique(dat$centroid_id)){
+  cat(nm, '\n')
+  tmp_frame <- dat[dat$centroid_id == nm,]
+  
+  # Unroll
+  unrolled_VHHs <- unroll_dupes_fast(tmp_frame, "VHH")
+  unrolled_CDR3s <- unroll_dupes_fast(tmp_frame, "junction_aa")
+  
+  # Pull statistics
+  median_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)][1])
+  median_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
+  consensus_CDR3 <- strict_consensus(unrolled_CDR3s)
+    
+  # Distance from median
+  tmp_frame$subfamily_median_VHH_homology <- 100 - (as.vector(adist(median_VHH, tmp_frame$VHH))/nchar(median_VHH))*100
+  
+  tmp_frame$subfamily_median_CDR3_homology <- 100 - (as.vector(adist(median_CDR3, tmp_frame$junction_aa))/nchar(median_CDR3))*100
+  
+  tmp_frame$subfamily_consensus_CDR3_homology <- 100 - (as.vector(adist(consensus_CDR3, tmp_frame$junction_aa))/nchar(consensus_CDR3))*100
+  
+  results <- rbind(results, tmp_frame)
+}
+```
+
+
+1. Create logo plots for entire family, 
+
+2. Create logo plots for each sub family 
+
+sorted by VHH percent homology to the median centroid in the Hierarchical cluster
+
+
+## Order results
+
+```{r}
+results <- results[order(results$family_median_VHH_homology, results$subfamily_median_VHH_homology, results$duplicate_count, decreasing = T),]
+
+results <- results[,c("sequence_id",
+                     "v_call",
+                     "d_call",
+                     "j_call",
+                     "junction_aa",
+                     "duplicate_count",
+                     "clone_id",
+                     "centroid_id",
+                     "VHH",
+                     "centroid",
+                     "family_median_VHH_homology",
+                     "family_median_CDR3_homology",
+                     "family_consensus_CDR3_homology",
+                     "subfamily_median_VHH_homology",
+                     "subfamily_median_CDR3_homology",
+                     "subfamily_consensus_CDR3_homology")]
+```
+
+
+
+```{r}
+write.csv(results, file = "~/Downloads/S19-Clone-49-results.csv", row.names = F)
 ```
