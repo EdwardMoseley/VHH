@@ -9,14 +9,14 @@ root_dir <- "/Users/emoseley/VHH/data/Cluster-DBs/phylogenetic_dbs/"
 output_dir <- "/Users/emoseley/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/"
 
 # Load up data
-#files <- list.files(root_dir)
-#files <- files[grepl(".csv", files)]
+files <- list.files(root_dir)
+files <- files[grepl(".csv", files)]
 
-files <- c("18_VecF3_R4_S18_min_threshold_clone-pass.csv", 
-           "19_VecF1_R3_S19_min_threshold_clone-pass.csv")
+#files <- c("18_VecF3_R4_S18_min_threshold_clone-pass.csv", 
+#           "19_VecF1_R3_S19_min_threshold_clone-pass.csv")
 
 # Create a data frame for storing results
-results <- data.frame()
+# results <- data.frame()
 
 # Iterate over files
 for (f in files){
