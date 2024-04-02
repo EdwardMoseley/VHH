@@ -1,0 +1,287 @@
+---
+title: "[VHH]-S19-Family-Analysis"
+output: html_document
+date: "2024-03-27"
+---
+
+Here, we want to look into `clone_ids` in `{40, 95, 140}`.
+
+Statistics:
+
+1. `family_median_VHH_homology` - Statistic is defined as the VHH's percent homology to the family median VHH.
+
+2. `family_median_CDR3_homology` - Statistic is defined as the CDR3's percent homology to the family median CDR3.
+
+3. `subfamily_median_VHH_homology` - Statistic is defined as the VHH's percent homology to its subfamily median VHH.
+
+4. `subfamily_median_CDR3_homology`- Statistic is defined as the CDR3's percent homology to its subfamily median CDR3.
+
+5. `VHH Homology Order Statistic` - After ordering VHH's by their `family_median_VHH_homology` (in the range 1 to the number of VHHs in the family), the `VHH Homology Order Statistic` can be used to access the VHH observation associated with it.
+
+```{r, echo = F, eval = T}
+tmp <- read.csv("~/Downloads/S19-Cleaning-Reclustering-Initial-Results.csv", 
+                header = T, stringsAsFactors = F)
+
+# Imports
+source("~/VHH/lib/utilities.R")
+suppressPackageStartupMessages(library(stringdist))
+suppressPackageStartupMessages(library(ggseqlogo))
+```
+
+## Group 40
+
+### Family Logo Plot
+
+```{r}
+results <- tmp[tmp$clone_id == 40,]
+
+unrolled_VHHs <- unroll_dupes_fast(results, "VHH")
+unrolled_CDR3s <- unroll_dupes_fast(results, "junction_aa")
+
+# Pull statistics
+median_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)][1])
+median_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
+```
+
+```{r, fig.width=10, fig.height=6, echo = F, eval = T}
+if (TRUE){
+  cat("Group ID: ", paste(unique(substr(results$source_file, 1, 2)),'-',unique(results$clone_id), sep = ''), '\n', sep = '')
+  cat("Overall Members: ", nrow(results), '\n', sep = '')
+  cat("Unique VHHs: ", length(unique(results$VHH)), '\n', sep = '')
+  cat("Unique CDR3s: ", length(unique(results$junction_aa)), '\n', sep = '')
+  cat("Most-frequent CDR3: ", median_CDR3, ' (with ',nrow(results[results$junction_aa == median_CDR3,]), ' CDR3 observations)\n', sep = '')
+  cat("Most-frequent VHH: ", median_VHH, '\n', sep = '')
+  print(ggseqlogo(as.character(results$junction_aa), seq_type='aa', method = 'p') + 
+    theme_classic() + ggtitle(paste(" CDR3 Logo Plot for cluster with the most common CDR3 sequence:\n               ", median_CDR3, sep = '')))
+}
+```
+
+### Subfamily Tallies and Boxplots
+
+```{r, echo = F, eval = F}
+if (TRUE){
+  tablet <- as.data.frame(table(results$centroid, results$centroid_id))[as.data.frame(table(results$centroid, results$centroid_id))$Freq > 0,]
+colnames(tablet) <- c("VHH", "Subfamily ID", "Count")
+  cat("Subfamily Counts by 'Center' VHH:\n")
+  print(tablet)
+}
+
+```
+
+
+```{r,  fig.width=10, fig.height=6 ,echo = F, eval = T}
+# boxplot(results$family_median_VHH_homology ~ results$centroid_id, ylab = "Percent Homology to Family Median VHH by Subfamily", xlab = "Subfamily ID")#, 
+        #ylim = c(80, 100))
+```
+
+### Sub-family Logo Plots
+
+### Ordered by VHH Abundance in Clonal Family
+
+```{r, echo = F, fig.width=10, fig.height=6, eval = T, warning=F}
+tab <- top_groups(results, "centroid_id")
+
+for (nm in head(names(tab), 50)){
+  tmp_frame <- results[results$centroid_id == as.numeric(nm),]
+  
+  unrolled_VHHs <- unroll_dupes_fast(results, "VHH")
+  unrolled_CDR3s <- unroll_dupes_fast(results, "junction_aa")
+    
+    # Pull statistics
+    median_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)][1])
+    median_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
+  
+  if (nrow(tmp_frame) > 1){
+      cat(paste('Subfamily: ',unique(substr(tmp_frame$source_file, 1, 2)),'-',unique(tmp_frame$clone_id),'-',unique(tmp_frame$centroid_id), sep = ''), '\n', sep = '')
+      cat("Overall Members: ", sum(tmp_frame$duplicate_count), '\n', sep = '')
+      cat("Unique VHHs: ", length(unique(tmp_frame$VHH)), '\n', sep = '')
+      cat("Unique CDR3s: ", length(unique(tmp_frame$junction_aa)), '\n', sep = '')
+      cat("Most-frequent CDR3: ", median_CDR3, '\n', sep = '')
+      cat("Most-frequent VHH: ", median_VHH, '\n', sep = '')
+      print(ggseqlogo(as.character(tmp_frame$junction_aa), seq_type='aa', method = 'p') + 
+        theme_classic() + ggtitle(paste(" CDR3 Logo Plot for cluster with the most common CDR3 sequence:\n               ", median_CDR3, sep = '')))
+  }
+}
+```
+
+### Cluster Dendrogram (Demanding 2+ VHH Observations for Visualization)
+
+```{r, fig.width=10, fig.height=6, echo = F, eval = T}
+tmp_res <- results[results$duplicate_count >= 2,]
+
+strings <- tmp_res$VHH
+
+CDR3s <- tmp_res$junction_aa
+
+# Compute the distance matrix using Jaccard distance
+dist_matrix <- stringdistmatrix(strings, method = "lv")
+
+# Perform hierarchical clustering
+cluster_tree <- hclust(as.dist(dist_matrix), method = "complete")
+
+unrolled_CDR3s <- unroll_dupes_fast(tmp_res, "junction_aa")
+consensus_CDR3 <- strict_consensus(unrolled_CDR3s)
+
+main_title <- paste("Cluster Dendrogram of CDR3 Clonal Family ", tmp_res$clone_id[1], " from: ", gsub("_min_threshold_clone-pass.csv","\n",tmp_res$source_file[1]), "Consensus CDR3: ", consensus_CDR3, "\nDemand >= 2 VHHs, Distance Metric: Levenshtein", sep = '')
+
+par(family = "Courier")
+
+
+# Plot the dendrogram with labels
+plot(cluster_tree, main = main_title, xlab = "VHH Count-Clonal Family-Subfamily-CDR3", sub = NULL, labels = paste(tmp_res$duplicate_count,'-C', tmp_res$clone_id[1], '-', tmp_res$centroid_id,'-',tmp_res$junction_aa, sep = ''), ylab = "Distance (Levenshtein)", cex = 0.75)
+```
+
+## Faceted Family/Subfamily Plots
+
+```{r, echo = F, eval = T}
+# melt data by centroid_id
+dat <- reshape2::melt(results, id.vars = c("centroid_id", "order_index"),
+  variable.name = "variable", 
+  value.name = "value")
+
+# Subset necessary variables only
+dat <- dat[dat$variable %in% c("family_median_VHH_homology",
+                               "family_median_CDR3_homology",
+                               "subfamily_median_VHH_homology",
+                               "subfamily_median_CDR3_homology"#,
+                               ),]
+```
+
+
+```{r, fig.width=10, fig.height=6, echo = F, eval = T}
+# Create the scatter plot
+ggplot(dat, aes(x = order_index, 
+                    y = as.numeric(value), 
+                    color= factor(centroid_id))) +#,
+                    #shape = variable)) + 
+  facet_grid(. ~ variable) +
+  geom_point(size = 3, alpha = 0.750) +
+  scale_color_discrete() +
+  #theme_minimal() +
+  theme_bw() +
+  labs(x = "VHH Homology Order Statistic (Decreasing)", y = "Percent Homology") +
+  guides(color = guide_legend(title = "Subfamily ID:"))
+```
+
+```{r, fig.width=10, fig.height=6, echo = F, eval = T}
+# Create the scatter plot
+ggplot(dat, aes(x = order_index, 
+                    y = as.numeric(value), 
+                    color= variable)) +#,
+                    #shape = variable)) + 
+  facet_grid(. ~ centroid_id) +
+  geom_point(size = 3, alpha = 0.750) +
+  scale_color_discrete() +
+  #theme_minimal() +
+  theme_bw() +
+  labs(x = "VHH Homology Order Statistic (Decreasing)", y = "Percent Homology") +
+  guides(color = guide_legend(title = "Variables (by Subfamily ID):"))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r, echo = F, eval = F}
+dat <- tmp[tmp$clone_id == 40,]
+
+# Pull sequences
+sequences <- Biostrings::AAStringSet(results$VHH)
+# Add names
+names(sequences) <- results$sequence_id
+# Perform multiple sequence alignment
+msa_result <- msa::msa(sequences, method = "ClustalOmega")
+# Store aligned results
+results$aligned_VHHs <- as.character(msa_result@unmasked)
+# Gsub for readability
+results$aligned_VHHs <- gsub("-", "_", results$aligned_VHHs)
+
+write.csv(results[,c("order_index",
+                     "sequence_id",
+                     "clone_id",
+                     "centroid_id",
+                     "duplicate_count",
+                     "family_median_VHH_homology",
+                     "family_median_CDR3_homology",
+                     "subfamily_median_VHH_homology",
+                     "subfamily_median_CDR3_homology",
+                     "junction_aa",
+                     "VHH",
+                     "aligned_VHHs")], 
+          file = paste("~/Downloads/S19-Family-",
+                       results$clone_id[1],
+                       "-",
+                       "median-CDR3",
+                       "-", 
+                       median_CDR3, 
+                       "27Mar24.csv", sep = ''), row.names = F)
+```

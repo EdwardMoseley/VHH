@@ -1,0 +1,183 @@
+---
+title: "[VHH]-Cluster-Refining"
+output: html_document
+date: "2024-03-30"
+---
+
+Here, we want to:
+
+1. Remove outlier subfamilies
+  * 0-5AA CDR3 < 100% Homology to Herarchically-Clustered VHH
+  * 6-10AA CDR3 < 80% Homology to Herarchically-Clustered VHH
+  * >10AA CDR3 < 60% Homology to Herarchically-Clustered VHH
+
+2. Place them into a "Outlier Database"
+
+3. Re-define Hiearchical Clones
+
+4. Sub-cluster each clone with MMseqs2
+
+```{r, echo = F, eval = T}
+#dat <- read.csv("~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/19_VecF1_R3_S19_subclustered_database.csv", 
+#                header = T, stringsAsFactors = F)
+
+dat <- read.csv("~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/18_VecF3_R4_S18_subclustered_database.csv", 
+                header = T, stringsAsFactors = F)
+
+# Imports
+source("~/VHH/lib/utilities.R")
+suppressPackageStartupMessages(library(stringdist))
+suppressPackageStartupMessages(library(ggseqlogo))
+```
+
+### Family Statistics:
+
+1. `family_median_VHH_homology` - Statistic is defined as the VHH's percent homology to the family median VHH.
+
+2. `family_median_CDR3_homology` - Statistic is defined as the CDR3's percent homology to the family median CDR3.
+
+```{r, echo = F, eval = T}
+# Hold results in results
+results <- data.frame()
+# Iterate over clone ids
+for (nm in unique(dat$clone_id)){
+  tmp_frame <- dat[dat$clone_id == nm,]
+  
+  # Unroll
+  unrolled_VHHs <- unroll_dupes_fast(tmp_frame, "VHH")
+  unrolled_CDR3s <- unroll_dupes_fast(tmp_frame, "junction_aa")
+  
+  # Pull statistics
+  median_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)][1])
+  median_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
+  consensus_CDR3 <- strict_consensus(unrolled_CDR3s)
+  
+  # Distance from median
+  tmp_frame$family_median_VHH_homology <- 100 - (as.vector(adist(median_VHH, tmp_frame$VHH))/nchar(median_VHH))*100
+  
+  tmp_frame$family_median_CDR3_homology <- 100 - (as.vector(adist(median_CDR3, tmp_frame$junction_aa))/nchar(median_CDR3))*100
+  
+  tmp_frame$family_consensus_CDR3_homology <- 100 - (as.vector(adist(consensus_CDR3, tmp_frame$junction_aa))/nchar(consensus_CDR3))*100
+  
+  results <- rbind(results, tmp_frame)
+}
+```
+
+### Sub-Family Statistics:
+
+3. `subfamily_median_VHH_homology` - Statistic is defined as the VHH's percent homology to its subfamily median VHH.
+
+4. `subfamily_median_CDR3_homology`- Statistic is defined as the CDR3's percent homology to its subfamily median CDR3.
+
+5. `VHH Homology Order Statistic` - After ordering VHH's by their `family_median_VHH_homology` (in the range 1 to the number of VHHs in the family), the `VHH Homology Order Statistic` can be used to access the VHH observation associated with it.
+
+`digest::digest("hello", algo = "md5")`
+
+### Note: Cleaning can probably be added here, too
+
+```{r, echo = F, eval = T, message = F, warning = F}
+dat <- results
+results <- data.frame()
+
+for (clone_id in unique(dat$clone_id)){
+  # Subset clone id
+  tmp <- dat[dat$clone_id == clone_id,]
+  # For each centroid id
+  for (nm in unique(tmp$centroid_id)){
+    #cat("Centroid ID:", nm, '\n')
+    tmp_frame <- tmp[tmp$centroid_id == nm,]
+    # Unroll strings
+    unrolled_VHHs <- unroll_dupes_fast(tmp_frame, "VHH")
+    unrolled_CDR3s <- unroll_dupes_fast(tmp_frame, "junction_aa")
+    # Pull statistics
+    median_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)][1])
+    median_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
+    consensus_CDR3 <- strict_consensus(unrolled_CDR3s)
+    # Distance from median
+    tmp_frame$subfamily_median_VHH_homology <- 100 - (as.vector(adist(median_VHH, tmp_frame$VHH))/nchar(median_VHH))*100
+    # Subfamiliy Median
+    tmp_frame$subfamily_median_CDR3_homology <- 100 - (as.vector(adist(median_CDR3, tmp_frame$junction_aa))/nchar(median_CDR3))*100
+    # Subfamily Consensus
+    tmp_frame$subfamily_consensus_CDR3_homology <- 100 - (as.vector(adist(consensus_CDR3, tmp_frame$junction_aa))/nchar(consensus_CDR3))*100
+    # Stack frames
+    results <- rbind(results, tmp_frame)
+  }
+}
+
+# Ordering
+results <- results[order(results$family_median_VHH_homology, 
+                         results$subfamily_median_VHH_homology, 
+                         results$duplicate_count, 
+                         decreasing = T),]
+
+# Order statistic
+results$order_index <- 1:nrow(results)
+```
+
+## Iterate Over families and centroids, culling members for further clustering
+
+```{r}
+dat <- results
+holder <- results
+```
+
+1. Remove outlier subfamilies
+  * 0-5AA CDR3 < 100% Homology to Herarchically-Clustered VHH
+  * 6-10AA CDR3 < 80% Homology to Herarchically-Clustered VHH
+  * >10AA CDR3 < 60% Homology to Herarchically-Clustered VHH
+
+2. Place them into a "Outlier Database"
+
+3. Re-define Hiearchical Clones
+
+4. Sub-cluster each clone with MMseqs2
+
+```{r}
+# Store results (keepers)
+results <- data.frame()
+# Store outliers (for re-clustering)
+outliers <- data.frame()
+
+# Iterate over unique clone ids
+for (clone_id in unique(dat$clone_id)){
+  cat("Clone:", clone_id, '\n')
+  # Subset clone id
+  tmp <- dat[dat$clone_id == clone_id,]
+  
+  # For each centroid id
+  for (nm in unique(tmp$centroid_id)){
+    cat("Subcluster ID:", nm, '\n')
+    # Subset centroid id
+    tmp_frame <- tmp[tmp$centroid_id == nm,]
+    # Calculate quick stats for rule-based cleaning
+    CDR3_length <- nchar(tmp_frame$junction_aa[1])
+    avg_CDR3_percent_homology <- mean(tmp_frame$family_median_CDR3_homology)
+    
+    # Rule-based Cleanup here
+    if (CDR3_length < 5 & avg_CDR3_percent_homology < 100){
+      outliers <- rbind(outliers, tmp_frame)
+    } else if (CDR3_length < 10 & avg_CDR3_percent_homology < 80){
+      outliers <- rbind(outliers, tmp_frame)
+    } else if (CDR3_length >= 10 & avg_CDR3_percent_homology < 60){
+      outliers <- rbind(outliers, tmp_frame)
+    } else {
+      results <- rbind(results, tmp_frame)
+    }
+  }
+  
+}
+```
+
+## Check Results
+
+```{r}
+cat("Percent VHH outliers: ", round(nrow(outliers)/nrow(dat), 2), '\n')
+cat("Subfamily outliers:\n")
+print(table(outliers$clone_id)[order(table(outliers$clone_id), decreasing = T)])
+```
+
+
+```{r}
+write.csv(results, file = "~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/S18-clean-database02Apr24.csv", row.names = F)
+write.csv(outliers, file = "~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/S18-outlier-database02Apr24.csv", row.names = F)
+```

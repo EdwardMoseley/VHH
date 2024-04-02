@@ -1,0 +1,163 @@
+---
+title: "[VHH]-Outlier-DB-Statistics"
+output: html_document
+date: "2024-04-02"
+---
+
+Note: Duplicate Counts may not be correct, here
+
+```
+tmp <- tmp[,c("sequence_id","VHH","junction_aa","duplicate_count", "clone_id", "source_file")]
+# Hold another frame for collapsing VHHs
+tmp_frame <- tmp[ ,c("VHH", "duplicate_count")]
+# Drop duplicate count, as we will add it back later
+tmp$duplicate_count <- NULL
+# Aggregate
+tmp_frame <- aggregate(duplicate_count ~ VHH, data = tmp_frame, FUN = sum)
+# Merge back to other data
+tmp <- merge(tmp_frame, tmp, by = "VHH")
+# Drop duplicates
+tmp <- tmp[!duplicated(tmp$VHH),]
+```
+
+#### Imports
+
+```{r}
+source("~/VHH/lib/utilities.R")
+suppressPackageStartupMessages(library(stringdist))
+suppressPackageStartupMessages(library(ggseqlogo))
+```
+
+## Load Data
+
+```{r}
+# Load cleaned database
+clean_db <- read.csv("~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/S19-clean-database01Apr24.csv", header = T, stringsAsFactors = F)
+
+# Load re-clustered outliers
+outlier_db <- read.csv("~/Downloads/S19-outliers-re-clustered02Apr24.csv", header = T, stringsAsFactors = F)
+```
+
+### Family Statistics:
+
+1. `family_median_VHH_homology` - Statistic is defined as the VHH's percent homology to the family median VHH.
+
+2. `family_median_CDR3_homology` - Statistic is defined as the CDR3's percent homology to the family median CDR3.
+
+```{r, echo = F, eval = T}
+family_statistics <- function(dat){
+  # Hold results in results
+  results <- data.frame()
+  # Iterate over clone ids
+  for (nm in unique(dat$clone_id)){
+    tmp_frame <- dat[dat$clone_id == nm,]
+    
+    # Unroll
+    unrolled_VHHs <- unroll_dupes_fast(tmp_frame, "VHH")
+    unrolled_CDR3s <- unroll_dupes_fast(tmp_frame, "junction_aa")
+    
+    # Pull statistics
+    median_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)][1])
+    median_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
+    consensus_CDR3 <- strict_consensus(unrolled_CDR3s)
+    
+    # Distance from median
+    tmp_frame$family_median_VHH_homology <- 100 - (as.vector(adist(median_VHH, tmp_frame$VHH))/nchar(median_VHH))*100
+    
+    tmp_frame$family_median_CDR3_homology <- 100 - (as.vector(adist(median_CDR3, tmp_frame$junction_aa))/nchar(median_CDR3))*100
+    
+    tmp_frame$family_consensus_CDR3_homology <- 100 - (as.vector(adist(consensus_CDR3, tmp_frame$junction_aa))/nchar(consensus_CDR3))*100
+    
+    results <- rbind(results, tmp_frame)
+  }
+  return(results)
+}
+
+clean_db <- family_statistics(clean_db)
+outlier_db <- family_statistics(outlier_db)
+```
+
+### Sub-Family Statistics:
+
+3. `subfamily_median_VHH_homology` - Statistic is defined as the VHH's percent homology to its subfamily median VHH.
+
+4. `subfamily_median_CDR3_homology`- Statistic is defined as the CDR3's percent homology to its subfamily median CDR3.
+
+5. `VHH Homology Order Statistic` - After ordering VHH's by their `family_median_VHH_homology` (in the range 1 to the number of VHHs in the family), the `VHH Homology Order Statistic` can be used to access the VHH observation associated with it.
+
+### Note: Cleaning can probably be added here, too
+
+```{r, echo = F, eval = T, message = F, warning = F}
+subfamily_statistics <- function(dat){
+  results <- data.frame()
+  for (clone_id in unique(dat$clone_id)){
+    # Subset clone id
+    tmp <- dat[dat$clone_id == as.character(clone_id),]
+    # For each centroid id
+    for (nm in unique(tmp$centroid_id)){
+      #cat("Centroid ID:", nm, '\n')
+      tmp_frame <- tmp[tmp$centroid_id == nm,]
+      # Unroll strings
+      unrolled_VHHs <- unroll_dupes_fast(tmp_frame, "VHH")
+      unrolled_CDR3s <- unroll_dupes_fast(tmp_frame, "junction_aa")
+      # Pull statistics
+      median_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)][1])
+      median_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
+      consensus_CDR3 <- strict_consensus(unrolled_CDR3s)
+      # Distance from median
+      tmp_frame$subfamily_median_VHH_homology <- 100 - (as.vector(adist(median_VHH, tmp_frame$VHH))/nchar(median_VHH))*100
+      # Subfamiliy Median
+      tmp_frame$subfamily_median_CDR3_homology <- 100 - (as.vector(adist(median_CDR3, tmp_frame$junction_aa))/nchar(median_CDR3))*100
+      # Subfamily Consensus
+      tmp_frame$subfamily_consensus_CDR3_homology <- 100 - (as.vector(adist(consensus_CDR3, tmp_frame$junction_aa))/nchar(consensus_CDR3))*100
+      # Stack frames
+      results <- rbind(results, tmp_frame)
+    }
+  }
+  # Ordering
+  results <- results[order(results$family_median_VHH_homology, 
+                           results$subfamily_median_VHH_homology, 
+                           results$duplicate_count, 
+                           decreasing = T),]
+  
+  # Order statistic
+  results$order_index <- 1:nrow(results)
+  
+  return(results)
+}
+
+clean_test_db <- subfamily_statistics(clean_db)
+outlier_test_db <- subfamily_statistics(outlier_db)
+```
+
+## Harmonize Outlier DB
+
+For outliers, we will use their old `clone_id` and `centroid_id` values as prefixes to their new values.
+
+```{r}
+#outlier_test_db$clone_id <- paste(outlier_test_db$old_clone_id, '-', outlier_test_db$clone_id, sep = '')
+#outlier_test_db$centroid_id <- paste(outlier_test_db$old_centroid_id, '-', outlier_test_db$centroid_id, sep = '')
+
+outlier_test_db <- outlier_test_db[colnames(outlier_test_db) %in% colnames(clean_test_db)]
+```
+
+### Add a large number to outlier clone IDs so they are distinguishable
+
+```{r}
+outlier_test_db$clone_id <- outlier_test_db$clone_id + 100000
+outlier_test_db$centroid_id <- outlier_test_db$centroid_id + 100000
+```
+
+### Stack and Write
+
+```{r}
+clean_test_db$group <- rep("clean", each = nrow(clean_test_db))
+outlier_test_db$group <- rep("outliers", each = nrow(outlier_test_db))
+
+
+results <- rbind(clean_test_db, outlier_test_db)
+```
+
+```{r}
+write.csv(results, file = "~/Downloads/S19-Cleaning-Reclustering-Initial-Results.csv", row.names = F)
+```

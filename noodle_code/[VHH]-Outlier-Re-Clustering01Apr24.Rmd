@@ -1,0 +1,271 @@
+---
+title: "[VHH]-Outlier-Re-Clustering"
+output: html_document
+date: "2024-04-01"
+---
+
+### Imports
+
+```{r}
+# Imports
+source("~/VHH/lib/utilities.R")
+suppressPackageStartupMessages(library(stringdist))
+suppressPackageStartupMessages(library(ggseqlogo))
+suppressPackageStartupMessages(library(shazam))
+```
+
+## Load Outliers
+
+```{r}
+dat <- read.csv("~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/S18-outlier-database02Apr24.csv", header = T, stringsAsFactors = F)
+```
+
+```{r}
+# boxplot(dat$family_median_VHH_homology ~ dat$clone_id)
+```
+
+## Load Source Database
+
+```{r}
+tmp <- read.csv("~/VHH/data/Cluster-DBs/phylogenetic_dbs/18_VecF3_R4_S18_min_threshold_clone-pass.csv", 
+                header = T, stringsAsFactors = F)
+
+tmp$junction_aa <- trim_CDR3(tmp$junction_aa)
+# Translate VHHs
+tmp$VHH <- translate_DNA(tmp$sequence_alignment)
+# Trim sequences
+tmp$VHH <- substr(tmp$VHH, 11, nchar(tmp$VHH))
+# Keep productive only
+tmp <- unproductive(tmp)
+```
+
+### Identify DNA Sequences of VHHs
+
+```{r}
+# Clean sequence ids
+tmp$sequence_id <- clean_seq_ids(tmp$sequence_id)
+# For the old data, we don't need the new duplicate count
+dat$duplicate_count <- NULL
+```
+
+Merge to get data back
+
+```{r}
+dat <- merge(dat, tmp, by = c("sequence_id", "VHH", "junction_aa", "clone_id"))
+```
+
+## Drop old names
+
+```{r}
+colnames(dat)[which(colnames(dat) == "dist_nearest")] <- "old_dist_nearest"
+colnames(dat)[which(colnames(dat) == "clone_id")] <- "old_clone_id"
+colnames(dat)[which(colnames(dat) == "centroid_id")] <- "old_centroid_id"
+colnames(dat)[which(colnames(dat) == "centroid")] <- "old_centroid"
+colnames(dat)[which(colnames(dat) == "centroid_sequence_id")] <- "old_centroid_sequence_id"
+# Drop centroid info?
+```
+
+## Clonal Inference
+
+### Dist to nearest
+
+```{r}
+# Read the dataset
+db <- dat
+
+#file_out <- gsub("_db-", "_productive-", f)
+#cat('\n')
+#cat("Writing: ", f, '\n')
+#write.table(db, file = file_out, sep = '\t')
+
+cat("Calculating distToNearest...\n")
+
+db <- distToNearest(db, model = "ham", normalize = "len", 
+                    vCallColumn = "v_call", 
+                    jCallColumn = "j_call",
+                    nproc = 4)
+```
+
+```{r}
+# determine the threshold
+#threshold <- findThreshold(db$old_dist_nearest, method = "density", cutoff = "opt")
+#thr <- threshold@threshold
+
+thr <- summary(db$dist_nearest)[["Median"]]
+
+#print("Threshold Data:")
+#print(thr)
+new_thr <- thr + (thr*0.25)
+print("25% Higher Threshold:")
+print(round(new_thr, 2))
+
+cat("Inferring Clones:\n")
+system.time(
+# Clonal assignment using hierarchical clustering
+db <- scoper::hierarchicalClones(db, 
+                                 threshold=new_thr, 
+                                 v_call="v_call", 
+                                 j_call = "j_call")
+)
+
+db <- db@db
+```
+
+## Sub-cluster with MMseqs2
+
+```{r}
+output_dir <- "/Users/emoseley/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/tmp/"
+
+results <- data.frame()
+
+# Iterate over Hierarchically Clustered clone_ids, re-clustering
+for (nm in unique(db$clone_id)){
+  # nm <- 8 (51 obs)
+  # Subset observations
+  tmp_frame <- db[db$clone_id == nm,]
+  # If the family has more than one member, we will re-cluster
+  if (nrow(tmp_frame) > 1){
+    # write fasta for mmseqs2
+    write_fasta(tmp_frame, "VHH", "sequence_id", paste(output_dir, "tmp.fasta", sep = ''))
+    # Prepare mmseqs command
+    command <- paste("/usr/local/Cellar/mmseqs2/15-6f452/bin/mmseqs ", 
+                     "easy-cluster -v 3 --min-seq-id 0.95 ", 
+                     paste(output_dir, "tmp.fasta", sep = ''), 
+                     paste(output_dir, "tmp-H95", sep = ''),
+                     paste(output_dir, "tmp", sep = ''))
+    ## Call mmseqs to do its job
+    system(command)
+    # Load results
+    dat <- read.csv(paste(output_dir,"tmp-H95_cluster.tsv", sep = ''), header = F, stringsAsFactors = F, sep = '\t')
+    # Assign Variable Names
+    colnames(dat) <- c("centroid", "sequence_id")
+    # Create a centroid id
+    dat$centroid_id <- as.numeric(factor(dat$centroid))
+    # We're going to use the sequence ids as keys, so we want to clean them
+    db$sequence_id <- clean_seq_ids(db$sequence_id)
+    dat$centroid <- clean_seq_ids(dat$centroid)
+    dat$sequence_id <- clean_seq_ids(dat$sequence_id)
+    # merge results
+    dat <- merge_db_to_centroids(dat, db)
+  } else {
+    # otherwise, we'll make up a centroid id and a sequence id, and
+    tmp_frame$centroid_id <- tmp_frame$sequence_id[1]
+    tmp_frame$centroid_sequence_id <- tmp_frame$sequence_id[1]
+    tmp_frame$centroid <- tmp_frame$VHH[1]
+    # Now we assign to dat for rbind
+    dat <- tmp_frame
+  }
+  # Combine results and move on
+  results <- rbind(results, dat)
+}
+
+
+results$centroid_id <- as.numeric(factor(results$centroid_id))
+```
+
+```{r}
+rm(test)
+```
+
+
+### Temporary Write
+
+```{r}
+write.csv(results, 
+          file = "~/Downloads/S19-outliers-re-clustered02Apr24.csv", row.names = F)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+# Pull sequences
+sequences <- Biostrings::AAStringSet(results$VHH)
+# Add names
+names(sequences) <- results$sequence_id
+# Perform multiple sequence alignment
+msa_result <- msa::msa(sequences, method = "ClustalOmega")
+# Store aligned results
+results$aligned_VHHs <- as.character(msa_result@unmasked)
+# Gsub for readability
+results$aligned_VHHs <- gsub("-", "_", results$aligned_VHHs)
+
+write.csv(results[,c("order_index",
+                     "sequence_id",
+                     "clone_id",
+                     "centroid_id",
+                     "duplicate_count",
+                     "family_median_VHH_homology",
+                     "family_median_CDR3_homology",
+                     "subfamily_median_VHH_homology",
+                     "subfamily_median_CDR3_homology",
+                     "junction_aa",
+                     "VHH",
+                     "aligned_VHHs")], file = paste("~/Downloads/S19-Family-",results$clone_id[1],"-","median-CDR3","-", median_CDR3, "27Mar24.csv", sep = ''), row.names = F)
+```
+

@@ -1,0 +1,59 @@
+---
+title: "[VHH]-S19-Pilot-Homology-Based-Cleaning-Logos"
+output: html_document
+date: "2024-04-02"
+---
+
+* **Note:** VHH duplicates are *not* well-tracked in the outlier group, which may lead to differences in CDR3 observed in `Most-frequent CDR3` relative to `Most-frequent VHH`.
+
+```{r, echo = F, eval = T}
+results <- read.csv("~/Downloads/S19-Cleaning-Reclustering-Initial-Results.csv", 
+                header = T, stringsAsFactors = F)
+
+# Imports
+source("~/VHH/lib/utilities.R")
+suppressPackageStartupMessages(library(stringdist))
+suppressPackageStartupMessages(library(ggseqlogo))
+```
+
+### Logo Plots (Ordered by Unique VHH Abundance in Clonal Families)
+
+```{r, echo = F, fig.width=10, fig.height=6, eval = T, warning=F}
+tab <- top_groups(results, "clone_id")
+
+for (nm in head(names(tab), 50)){
+  tmp_frame <- results[results$clone_id == as.numeric(nm),]
+  
+  unrolled_VHHs <- unroll_dupes_fast(tmp_frame, "VHH")
+  unrolled_CDR3s <- unroll_dupes_fast(tmp_frame, "junction_aa")
+    
+  # Pull statistics
+  median_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)][1])
+  median_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
+  
+  if (nrow(tmp_frame) > 1){
+      cat(paste('Family: ',unique(substr(tmp_frame$source_file, 1, 2)),'-',unique(tmp_frame$clone_id), '\n', sep = ''))
+      cat(paste("Group: ", unique(tmp_frame$group)), '\n', sep = '')
+      cat("Overall Members (Including Duplicate DNA Reads): ", sum(tmp_frame$duplicate_count), '\n', sep = '')
+      cat("Number of Sub-families: ", length(unique(tmp_frame$centroid_id)), '\n', sep = '')
+      cat("Unique VHHs: ", length(unique(tmp_frame$VHH)), '\n', sep = '')
+      cat("Unique CDR3s: ", length(unique(tmp_frame$junction_aa)), '\n', sep = '')
+      cat("Most-frequent CDR3: ", median_CDR3, '\n', sep = '')
+      cat("Most-frequent VHH: ", median_VHH, '\n', sep = '')
+      print(ggseqlogo(as.character(tmp_frame$junction_aa), seq_type='aa', method = 'p') + 
+        theme_classic() + ggtitle(paste(" CDR3 Logo Plot for cluster with the most common CDR3 sequence:\n               ", median_CDR3, sep = '')))
+  }
+}
+```
+
+
+```{r, echo = F, eval = F}
+# Ordering
+results <- results[order(results$family_median_VHH_homology, 
+                         results$subfamily_median_VHH_homology, 
+                         results$duplicate_count, 
+                         decreasing = T),]
+
+# Order statistic
+results$order_index <- 1:nrow(results)
+```
