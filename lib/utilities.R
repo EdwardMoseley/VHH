@@ -75,15 +75,12 @@ unroll_dupes <- function(dat, unroll_column){
 }
 
 
-## See if this is more effective
+## This is more effective
 unroll_dupes_fast <- function(dat, unroll_column) {
-  # Repeat each element of the unroll column based on duplicate counts
+  # Repeat each element of the unroll column based on duplicate count
   result_vec <- rep(dat[[unroll_column]], times = dat$duplicate_count)
   return(result_vec)
 }
-
-
-
 
 ## Calculate levenshtein distance
 calculate_levenshtein <- function(query_seq, strings) {
@@ -118,4 +115,80 @@ merge_db_to_centroids <- function(db, tmp){
   # Final merge
   dat <- merge(dat, tmp, by = "sequence_id")
   return(dat)
+}
+
+
+# Create VHH and CDR3 statistics at the family level
+family_statistics <- function(dat){
+  # Hold results in results
+  results <- data.frame()
+  # Iterate over clone ids
+  for (nm in unique(dat$clone_id)){
+    tmp_frame <- dat[dat$clone_id == nm,]
+    
+    # Unroll
+    unrolled_VHHs <- unroll_dupes_fast(tmp_frame, "VHH")
+    unrolled_CDR3s <- unroll_dupes_fast(tmp_frame, "junction_aa")
+    
+    # Pull statistics
+    median_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)][1])
+    median_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
+    consensus_CDR3 <- strict_consensus(unrolled_CDR3s)
+    
+    # Distance from median
+    tmp_frame$family_median_VHH_homology <- 100 - (as.vector(adist(median_VHH, tmp_frame$VHH))/nchar(median_VHH))*100
+    tmp_frame$family_median_CDR3_homology <- 100 - (as.vector(adist(median_CDR3, tmp_frame$junction_aa))/nchar(median_CDR3))*100
+    tmp_frame$family_consensus_CDR3_homology <- 100 - (as.vector(adist(consensus_CDR3, tmp_frame$junction_aa))/nchar(consensus_CDR3))*100
+    
+    results <- rbind(results, tmp_frame)
+  }
+  # Ordering
+  results <- results[order(results$family_median_VHH_homology, 
+                           results$family_median_CDR3_homology, 
+                           results$duplicate_count, 
+                           decreasing = T),]
+  
+  # Order statistic
+  results$order_index <- 1:nrow(results)
+  return(results)
+}
+
+
+# Create VHH and CDR3 statistics at the subfamily level
+subfamily_statistics <- function(dat){
+  results <- data.frame()
+  for (clone_id in unique(dat$clone_id)){
+    # Subset clone id
+    tmp <- dat[dat$clone_id == as.character(clone_id),]
+    # For each centroid id
+    for (nm in unique(tmp$centroid_id)){
+      #cat("Centroid ID:", nm, '\n')
+      tmp_frame <- tmp[tmp$centroid_id == nm,]
+      # Unroll strings
+      unrolled_VHHs <- unroll_dupes_fast(tmp_frame, "VHH")
+      unrolled_CDR3s <- unroll_dupes_fast(tmp_frame, "junction_aa")
+      # Pull statistics
+      median_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)][1])
+      median_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
+      consensus_CDR3 <- strict_consensus(unrolled_CDR3s)
+      # Distance from median
+      tmp_frame$subfamily_median_VHH_homology <- 100 - (as.vector(adist(median_VHH, tmp_frame$VHH))/nchar(median_VHH))*100
+      # Subfamily Median
+      tmp_frame$subfamily_median_CDR3_homology <- 100 - (as.vector(adist(median_CDR3, tmp_frame$junction_aa))/nchar(median_CDR3))*100
+      # Subfamily Consensus
+      tmp_frame$subfamily_consensus_CDR3_homology <- 100 - (as.vector(adist(consensus_CDR3, tmp_frame$junction_aa))/nchar(consensus_CDR3))*100
+      # Stack frames
+      results <- rbind(results, tmp_frame)
+    }
+  }
+  # Ordering
+  results <- results[order(results$family_median_VHH_homology, 
+                           results$subfamily_median_VHH_homology, 
+                           results$duplicate_count, 
+                           decreasing = T),]
+  
+  # Order statistic
+  results$order_index <- 1:nrow(results)
+  
+  return(results)
 }

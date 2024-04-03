@@ -1,0 +1,47 @@
+---
+title: "[VHH]-MMseqs2-Alignments"
+output: html_document
+date: "2024-03-14"
+---
+
+```{r, echo = F, warning = F}
+suppressPackageStartupMessages(library(msa))
+source("~/VHH/lib/utilities.R")
+
+top_groups <- function(results, column_id){
+  return(table(results[[column_id]])[order(table(results[[column_id]]), decreasing = T)])
+}
+```
+
+
+```{r, echo = F, warning = F}
+tmp <- read.csv("~/Downloads/S19-NTGAV-Family-MMseqs2-H80-recluster12Mar24.csv", header = T, stringsAsFactors = F)
+```
+
+
+```{r}
+results <- data.frame()
+
+for (nm in unique(tmp$centroid_sequence_id)){
+  tmp_frame <- tmp[tmp$centroid_sequence_id == nm,]
+  sequences <- Biostrings::AAStringSet(tmp_frame$member_VHH)
+  # Perform multiple sequence alignment
+  msa_result <- msa::msa(sequences, method = "ClustalOmega", verbose = F, order = "input")
+  # Store aligned results
+  tmp_frame$Aligned_Members <- as.character(msa_result@unmasked)
+  results <- rbind(results, tmp_frame)
+}
+
+results$Aligned_Members <- gsub("-", "X", results$Aligned_Members)
+```
+
+```{r}
+write.csv(results[,c("centroid_sequence_id", 
+                     "centroid_junction_aa",
+                     "member_sequence_id",
+                     "member_junction_aa",
+                     "centroid_clone_id",
+                     "member_clone_id",
+                     "centroid_VHH",
+                     "Aligned_Members")], file = "~/Downloads/S19-NTGAV-Family-MMseqs2-H80-aligned-recluster14Mar24.csv", row.names = F)
+```

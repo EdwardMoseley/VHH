@@ -32,10 +32,10 @@ suppressPackageStartupMessages(library(ggseqlogo))
 
 ```{r}
 # Load cleaned database
-clean_db <- read.csv("~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/S19-clean-database01Apr24.csv", header = T, stringsAsFactors = F)
+clean_db <- read.csv("~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/S18-clean-database02Apr24.csv", header = T, stringsAsFactors = F)
 
 # Load re-clustered outliers
-outlier_db <- read.csv("~/Downloads/S19-outliers-re-clustered02Apr24.csv", header = T, stringsAsFactors = F)
+outlier_db <- read.csv("~/Downloads/S18-outliers-re-clustered02Apr24.csv", header = T, stringsAsFactors = F)
 ```
 
 ### Family Statistics:
@@ -45,34 +45,6 @@ outlier_db <- read.csv("~/Downloads/S19-outliers-re-clustered02Apr24.csv", heade
 2. `family_median_CDR3_homology` - Statistic is defined as the CDR3's percent homology to the family median CDR3.
 
 ```{r, echo = F, eval = T}
-family_statistics <- function(dat){
-  # Hold results in results
-  results <- data.frame()
-  # Iterate over clone ids
-  for (nm in unique(dat$clone_id)){
-    tmp_frame <- dat[dat$clone_id == nm,]
-    
-    # Unroll
-    unrolled_VHHs <- unroll_dupes_fast(tmp_frame, "VHH")
-    unrolled_CDR3s <- unroll_dupes_fast(tmp_frame, "junction_aa")
-    
-    # Pull statistics
-    median_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)][1])
-    median_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
-    consensus_CDR3 <- strict_consensus(unrolled_CDR3s)
-    
-    # Distance from median
-    tmp_frame$family_median_VHH_homology <- 100 - (as.vector(adist(median_VHH, tmp_frame$VHH))/nchar(median_VHH))*100
-    
-    tmp_frame$family_median_CDR3_homology <- 100 - (as.vector(adist(median_CDR3, tmp_frame$junction_aa))/nchar(median_CDR3))*100
-    
-    tmp_frame$family_consensus_CDR3_homology <- 100 - (as.vector(adist(consensus_CDR3, tmp_frame$junction_aa))/nchar(consensus_CDR3))*100
-    
-    results <- rbind(results, tmp_frame)
-  }
-  return(results)
-}
-
 clean_db <- family_statistics(clean_db)
 outlier_db <- family_statistics(outlier_db)
 ```
@@ -88,43 +60,6 @@ outlier_db <- family_statistics(outlier_db)
 ### Note: Cleaning can probably be added here, too
 
 ```{r, echo = F, eval = T, message = F, warning = F}
-subfamily_statistics <- function(dat){
-  results <- data.frame()
-  for (clone_id in unique(dat$clone_id)){
-    # Subset clone id
-    tmp <- dat[dat$clone_id == as.character(clone_id),]
-    # For each centroid id
-    for (nm in unique(tmp$centroid_id)){
-      #cat("Centroid ID:", nm, '\n')
-      tmp_frame <- tmp[tmp$centroid_id == nm,]
-      # Unroll strings
-      unrolled_VHHs <- unroll_dupes_fast(tmp_frame, "VHH")
-      unrolled_CDR3s <- unroll_dupes_fast(tmp_frame, "junction_aa")
-      # Pull statistics
-      median_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)][1])
-      median_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
-      consensus_CDR3 <- strict_consensus(unrolled_CDR3s)
-      # Distance from median
-      tmp_frame$subfamily_median_VHH_homology <- 100 - (as.vector(adist(median_VHH, tmp_frame$VHH))/nchar(median_VHH))*100
-      # Subfamiliy Median
-      tmp_frame$subfamily_median_CDR3_homology <- 100 - (as.vector(adist(median_CDR3, tmp_frame$junction_aa))/nchar(median_CDR3))*100
-      # Subfamily Consensus
-      tmp_frame$subfamily_consensus_CDR3_homology <- 100 - (as.vector(adist(consensus_CDR3, tmp_frame$junction_aa))/nchar(consensus_CDR3))*100
-      # Stack frames
-      results <- rbind(results, tmp_frame)
-    }
-  }
-  # Ordering
-  results <- results[order(results$family_median_VHH_homology, 
-                           results$subfamily_median_VHH_homology, 
-                           results$duplicate_count, 
-                           decreasing = T),]
-  
-  # Order statistic
-  results$order_index <- 1:nrow(results)
-  
-  return(results)
-}
 
 clean_test_db <- subfamily_statistics(clean_db)
 outlier_test_db <- subfamily_statistics(outlier_db)
@@ -138,6 +73,7 @@ For outliers, we will use their old `clone_id` and `centroid_id` values as prefi
 #outlier_test_db$clone_id <- paste(outlier_test_db$old_clone_id, '-', outlier_test_db$clone_id, sep = '')
 #outlier_test_db$centroid_id <- paste(outlier_test_db$old_centroid_id, '-', outlier_test_db$centroid_id, sep = '')
 
+# Clean column names
 outlier_test_db <- outlier_test_db[colnames(outlier_test_db) %in% colnames(clean_test_db)]
 ```
 
@@ -159,5 +95,14 @@ results <- rbind(clean_test_db, outlier_test_db)
 ```
 
 ```{r}
-write.csv(results, file = "~/Downloads/S19-Cleaning-Reclustering-Initial-Results.csv", row.names = F)
+# Ordering
+results <- results[order(results$family_median_VHH_homology, 
+                         results$subfamily_median_VHH_homology, 
+                         results$duplicate_count, 
+                         decreasing = T),]
+
+# Order statistic
+results$order_index <- 1:nrow(results)
+
+write.csv(results, file = "~/Downloads/S18-Cleaning-Reclustering-Initial-Results02Apr24.csv", row.names = F)
 ```

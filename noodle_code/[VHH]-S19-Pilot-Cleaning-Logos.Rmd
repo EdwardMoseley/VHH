@@ -1,5 +1,5 @@
 ---
-title: "[VHH]-S19-Pilot-Homology-Based-Cleaning-Logos"
+title: "[VHH]-S18-Pilot-Homology-Based-Cleaning-Logos"
 output: html_document
 date: "2024-04-02"
 ---
@@ -7,7 +7,7 @@ date: "2024-04-02"
 * **Note:** VHH duplicates are *not* well-tracked in the outlier group, which may lead to differences in CDR3 observed in `Most-frequent CDR3` relative to `Most-frequent VHH`.
 
 ```{r, echo = F, eval = T}
-results <- read.csv("~/Downloads/S19-Cleaning-Reclustering-Initial-Results.csv", 
+results <- read.csv("~/Downloads/S18-Cleaning-Reclustering-Initial-Results02Apr24.csv", 
                 header = T, stringsAsFactors = F)
 
 # Imports
@@ -46,14 +46,3 @@ for (nm in head(names(tab), 50)){
 }
 ```
 
-
-```{r, echo = F, eval = F}
-# Ordering
-results <- results[order(results$family_median_VHH_homology, 
-                         results$subfamily_median_VHH_homology, 
-                         results$duplicate_count, 
-                         decreasing = T),]
-
-# Order statistic
-results$order_index <- 1:nrow(results)
-```

@@ -1,0 +1,86 @@
+---
+title: "MMseqs2 - NTGAV re-clustering (80% Homology Demand)"
+output: html_document
+date: "2024-03-14"
+---
+
+```{r, echo = F, warning = F}
+suppressPackageStartupMessages(library(msa))
+source("~/VHH/lib/utilities.R")
+
+top_groups <- function(results, column_id){
+  return(table(results[[column_id]])[order(table(results[[column_id]]), decreasing = T)])
+}
+```
+
+
+```{r, echo = F, warning = F}
+tmp <- read.csv("~/Downloads/S19-NTGAV-Family-MMseqs2-H80-aligned-recluster14Mar24.csv", header = T, stringsAsFactors = F)
+```
+
+
+## Initial Logo Plot (All `NTGAV`-Consensus Clones in Database: `S19`)
+
+```{r, echo = F, warning = F}
+tmp$member_junction_aa <- trim_CDR3(tmp$member_junction_aa)
+# Pull most frequent CDR3
+common_CDR3 <- names(table(tmp$member_junction_aa)[order(table(tmp$member_junction_aa), decreasing = T)][1])
+
+tmp_frame <- tmp
+
+if (nrow(tmp_frame) > 1){
+    #cat("Group ID: ", unique(tmp_frame$centroid_sequence_id), '\n', sep = '')
+    cat("Overall Members: ", nrow(tmp_frame), '\n', sep = '')
+    cat("Unique VHHs: ", length(unique(tmp_frame$Aligned_Members)), '\n', sep = '')
+    cat("Unique CDR3s: ", length(unique(tmp_frame$member_junction_aa)), '\n', sep = '')
+    cat("Most-frequent CDR3: ", common_CDR3, ' (with ',nrow(tmp_frame[tmp_frame$member_junction_aa == common_CDR3,]), ' CDR3 observations)\n', sep = '')
+    
+    print(ggseqlogo(as.character(tmp_frame$member_junction_aa), seq_type='aa', method = 'p') + 
+      theme_classic() + ggtitle(paste(" CDR3 Logo Plot for cluster with the most common CDR3 sequence:\n               ", common_CDR3, sep = '')))
+}
+```
+
+## Centroid Alignments for Most Frequent Families (in descending order)
+
+```{r, echo = F, warning = F, message = F, }
+#print(table(tmp$centroid_sequence_id, tmp$centroid_junction_aa))
+tab <- as.data.frame(table(tmp$centroid_VHH))
+colnames(tab) <- c("Centroid_VHH", "Freq")
+tab <- tab[order(tab$Freq, decreasing = T),]
+
+sequences <- Biostrings::AAStringSet(tab$Centroid_VHH)
+# Perform multiple sequence alignment
+msa_result <- msa::msa(sequences, method = "ClustalOmega", verbose = F, order = "input")
+# Store aligned results
+tab$Aligned_Centroids <- as.character(msa_result@unmasked)
+print(tab[,c("Aligned_Centroids")])
+
+#print(table(tmp$centroid_VHH))
+```
+
+
+## Top Clonal Family (2+ Members) Logo Plots (Per MMseqs2)
+
+```{r, echo = F, warning=F}
+tab <- top_groups(tmp, "centroid_sequence_id")
+
+for (nm in head(names(tab), 50)){
+  tmp_frame <- tmp[tmp$centroid_sequence_id == nm,]
+  # Trim CDR3
+  #tmp_frame$member_junction_aa <- trim_CDR3(tmp_frame$member_junction_aa)
+  # Pull most frequent CDR3
+  common_CDR3 <- names(table(tmp_frame$member_junction_aa)[order(table(tmp_frame$member_junction_aa), decreasing = T)][1])
+  
+  if (nrow(tmp_frame) > 1){
+      cat("Group ID: ", unique(tmp_frame$centroid_sequence_id), '\n', sep = '')
+      cat("Centroid Sequence:\n", unique(tmp_frame$centroid_VHH), '\n', sep = '')
+      cat("Overall Members: ", nrow(tmp_frame), '\n', sep = '')
+      cat("Unique VHHs: ", length(unique(tmp_frame$Aligned_Members)), '\n', sep = '')
+      cat("Unique CDR3s: ", length(unique(tmp_frame$member_junction_aa)), '\n', sep = '')
+      cat("Most-frequent CDR3: ", common_CDR3, ' (with ',nrow(tmp_frame[tmp_frame$member_junction_aa == common_CDR3,]), ' CDR3 observations)\n', sep = '')
+      print(ggseqlogo(as.character(tmp_frame$member_junction_aa), seq_type='aa', method = 'p') + 
+        theme_classic() + ggtitle(paste(" CDR3 Logo Plot for cluster with the most common CDR3 sequence:\n               ", common_CDR3, sep = '')))
+  }
+}
+
+```

@@ -163,16 +163,25 @@ for (nm in unique(db$clone_id)){
 results$centroid_id <- as.numeric(factor(results$centroid_id))
 ```
 
+
 ```{r}
-rm(test)
+# Ordering
+results <- results[order(results$family_median_VHH_homology, 
+                         results$subfamily_median_VHH_homology, 
+                         results$duplicate_count, 
+                         decreasing = T),]
+
+# Order statistic
+results$order_index <- 1:nrow(results)
 ```
+
 
 
 ### Temporary Write
 
 ```{r}
 write.csv(results, 
-          file = "~/Downloads/S19-outliers-re-clustered02Apr24.csv", row.names = F)
+          file = "~/Downloads/S18-outliers-re-clustered02Apr24.csv", row.names = F)
 ```
 
 
