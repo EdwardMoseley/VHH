@@ -1,5 +1,8 @@
 ## Amino Acid-only database
 
+# Input data: "20_VecF2_R3_S20-pooled-families.csv"
+# Output Data: "translated_dbs/20_VecF2_R3_S20-pooled-families_VHH_database.csv"
+
 # Imports
 source("~/VHH/lib/utilities.R")
 suppressPackageStartupMessages(library(stringdist))
@@ -17,6 +20,8 @@ files <- files[grepl(".csv", files)]
 
 # Create a data frame for storing results
 # results <- data.frame()
+
+files <- c("18_VecF3_R4_S18-pooled-families.csv")
 
 # Iterate over files
 for (f in files){
@@ -51,7 +56,7 @@ for (f in files){
   # Drop duplicates
   tmp <- tmp[!duplicated(tmp$VHH),]
   # Rename file
-  f <- gsub("_min_threshold_clone-pass.csv", "_VHH_database.csv", f)
+  f <- gsub("-pooled-families.csv", "-pooled-families_VHH_database.csv", f)
   # Write
   write.csv(tmp, file = paste(output_dir, f, sep = ''), row.names = F)
   #results <- rbind(tmp, results)

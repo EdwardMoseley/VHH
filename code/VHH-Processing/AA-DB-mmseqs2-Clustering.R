@@ -1,5 +1,8 @@
 # AA-DB-mmseqs2-Clustering
 
+# Input: "20_VecF2_R3_S20-pooled-families_VHH_database.csv"
+# Output: "20_VecF2_R3_S20-pooled-families_subclustered_database.csv"
+
 # Imports
 source("~/VHH/lib/utilities.R")
 suppressPackageStartupMessages(library(stringdist))
@@ -9,8 +12,10 @@ root_dir <- "/Users/emoseley/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_db
 output_dir <- "/Users/emoseley/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/tmp/"
 
 # Load up data
-files <- list.files(root_dir)
-files <- files[grepl("VHH_database.csv", files)]
+#files <- list.files(root_dir)
+#files <- files[grepl("VHH_database.csv", files)]
+
+files <- c("18_VecF3_R4_S18-pooled-families_VHH_database.csv")
 
 for (f in files){
   # Load the file
@@ -26,7 +31,7 @@ for (f in files){
     write_fasta(tmp_frame, "VHH", "sequence_id", paste(output_dir, "tmp.fasta", sep = ''))
     # Prepare mmseqs command
     command <- paste("/usr/local/Cellar/mmseqs2/15-6f452/bin/mmseqs ", 
-                     "easy-cluster -v 3 --min-seq-id 0.95 ", 
+                     "easy-cluster -v 3 --min-seq-id 0.90 ", 
                      paste(output_dir, "tmp.fasta", sep = ''), 
                      paste(output_dir, "tmp-H95", sep = ''),
                      paste(output_dir, "tmp", sep = ''))
@@ -47,6 +52,6 @@ for (f in files){
     # Combine results and move on
     results <- rbind(results, dat)
   }
-  write.csv(results, file = paste(root_dir, gsub("VHH_database.csv", "subclustered_database.csv", f), sep = ''), row.names = F)
+  write.csv(results, file = paste(root_dir, gsub("VHH_database.csv", "subclustered_database-H90.csv", f), sep = ''), row.names = F)
 }
 
