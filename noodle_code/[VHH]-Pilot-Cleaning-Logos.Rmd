@@ -1,0 +1,108 @@
+---
+title: "[VHH]-S19-Pooled-and-Cleaned-Logos"
+subtitle: "90%-Homology Sub-Clustering"
+output: html_document
+date: "2024-04-04"
+---
+
+* **Note:** VHH duplicates are *not* well-tracked in the outlier group, which may lead to differences in CDR3 observed in `Most-frequent CDR3` relative to `Most-frequent VHH`.
+
+```{r, echo = F, eval = T}
+# * **Note:** VHH duplicates are *not* well-tracked in the outlier group, which may lead to differences in CDR3 observed in `Most-frequent CDR3` relative to `Most-frequent VHH`.
+
+# "[VHH]-S19-Unpooled-Pilot-Homology-Based-Cleaning-Logos"
+#results <- read.csv("~/Downloads/S19-Pooled-Cleaning-Reclustering-Initial-Results03Apr24.csv", 
+#                header = T, stringsAsFactors = F)
+#results <- read.csv("~/Downloads/S19-Pooled-Cleaning-Reclustering-Initial-Results03Apr24.csv", 
+#                header = T, stringsAsFactors = F)
+
+# results <- read.csv("~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/19_VecF1_R3_S19_VHH_database.csv", header = T, stringsAsFactors = F)
+
+# results <- read.csv("~/Downloads/S19-Pooled-Cleaning-Reclustering-Initial-Results04Apr24.csv", header = T, stringsAsFactors = F)
+
+#root_dir <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/"
+#input_file <- "18_VecF3_R4_S18-Pooled-Cleaning-Reclustering-Initial-Results-H90.csv"
+root_dir <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/"
+# input_file <- "18_VecF3_R4_S18-H90-Cleaned10Apr24.csv"
+input_file <- "19_VecF1_R3_S19-H90-Cleaned10Apr24.csv"
+
+results <- read.csv(paste(root_dir, input_file, sep = ''), header = T, stringsAsFactors = F)
+
+tmp_res <- data.frame()
+
+for (nm in unique(results$clone_id)){
+  tmp_frame <- results[results$clone_id == nm,]
+  if (length(unique(tmp_frame$group)) == 2){
+    tmp_frame$group <- rep("mixed", each = nrow(tmp_frame))
+  }
+  tmp_res <- rbind(tmp_res, tmp_frame)
+}
+
+results <- tmp_res
+
+rm(tmp_res)
+
+# Imports
+source("~/VHH/lib/utilities.R")
+suppressPackageStartupMessages(library(ggseqlogo))
+```
+
+## Database Statistics
+
+```{r, echo = F, fig.width=10, fig.height=6, eval = T, warning=F}
+unrolled_VHHs <- unroll_dupes_fast(results, "VHH")
+unrolled_CDR3s <- unroll_dupes_fast(results, "junction_aa")
+# Pull statistics
+median_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)][1])
+median_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
+
+if (TRUE){
+cat("Database: ", gsub("_min_threshold_clone-pass.csv", "",results$source_file[1]), '\n', sep = '')
+cat("Overall Members (Including Duplicate DNA Reads): ", sum(results$duplicate_count), '\n', sep = '')
+cat("Number of Sub-families: ", length(unique(results$centroid_id)), '\n', sep = '')
+cat("Unique VHHs: ", length(unique(results$VHH)), '\n', sep = '')
+cat("Unique CDR3s: ", length(unique(results$junction_aa)), '\n', sep = '')
+cat("Most-frequent CDR3: ", median_CDR3, '\n', sep = '')
+cat("Most-frequent VHH: ", median_VHH, '\n', sep = '')
+cat("VHH's by Grouping:\n")
+print(table(results$group))
+cat("Clonal Family Membership Statistics:\n")
+print(summary(as.numeric(table(results$clone_id))))
+cat("Subcluster Membership Statistics:\n")
+print(summary(as.numeric(table(results$centroid_id))))
+}
+```
+
+
+### Logo Plots (Ordered by Unique VHH Abundance in Clonal Families)
+
+```{r, echo = F, fig.width=10, fig.height=6, eval = T, warning=F}
+tab <- top_groups(results, "clone_id")
+
+for (nm in head(names(tab), 100)){
+  tmp_frame <- results[results$clone_id == as.numeric(nm),]
+  unrolled_VHHs <- unroll_dupes_fast(tmp_frame, "VHH")
+  unrolled_CDR3s <- unroll_dupes_fast(tmp_frame, "junction_aa")
+  # Pull statistics
+  median_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)][1])
+  median_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
+  
+  if (length(unique(tmp_frame$group)) == 2){
+    tmp_frame$group <- rep("mixed", each = nrow(tmp_frame))
+  }
+  
+  if (nrow(tmp_frame) > 1){
+      cat(paste('Family: ',unique(substr(tmp_frame$source_file, 1, 2)),'-',unique(tmp_frame$clone_id), '\n', sep = ''))
+      cat(paste("Group: ", unique(tmp_frame$group)), '\n', sep = '')
+      cat("Overall Members (Including Duplicate DNA Reads): ", sum(tmp_frame$duplicate_count), '\n', sep = '')
+      cat("Number of Sub-families: ", length(unique(tmp_frame$centroid_id)), '\n', sep = '')
+      cat("Unique VHHs: ", length(unique(tmp_frame$VHH)), '\n', sep = '')
+      cat("Unique CDR3s: ", length(unique(tmp_frame$junction_aa)), '\n', sep = '')
+      cat("Most-frequent CDR3: ", median_CDR3, '\n', sep = '')
+      cat("Most-frequent VHH: ", median_VHH, '\n', sep = '')
+      print(ggseqlogo(as.character(tmp_frame$junction_aa), seq_type='aa', method = 'p') + 
+        theme_classic() + ggtitle(paste(" CDR3 Logo Plot for cluster with the most common CDR3 sequence:\n               ", median_CDR3, sep = '')))
+  }
+}
+```
+

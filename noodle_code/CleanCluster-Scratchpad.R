@@ -44,8 +44,9 @@ find_nearest_neighbor <- function(x, df) {
 
 root_path <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/"
 
-file_name <- "18_VecF3_R4_S18_min_threshold_clone-pass.csv"
+# file_name <- "18_VecF3_R4_S18_min_threshold_clone-pass.csv"
 # file_name <- "19_VecF1_R3_S19_min_threshold_clone-pass.csv"
+file_name <- "13_VecF1_R2_S13_min_threshold_clone-pass.csv"
 
 dat <- read.csv(paste(root_path, file_name, sep = ''), header = T, stringsAsFactors = F)
 
@@ -843,22 +844,6 @@ write.csv(results, file = paste(root_dir, output_file, sep = ''), row.names = F)
 ## END [VHH]-Outlier-DB-Statistics
 ## ###
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ## ###
 ## BEGIN Final Pooling
 ## ###
@@ -1161,6 +1146,6 @@ if (nrow(df) > 0){
   print("Looks good!")
 }
 
-file_name <- gsub("_min_threshold_clone-pass.csv", "-rule-pooled-families.csv", file_name)
+file_name <- gsub("-rule-pooled-families_subclustered-reclustered-database-H90.csv", "-H90-Cleaned10Apr24.csv", file_name)
 
 write.csv(dat, file = paste(root_path, file_name, sep = ''), row.names = F)
