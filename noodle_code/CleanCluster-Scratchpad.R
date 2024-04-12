@@ -3,6 +3,10 @@
 ## 09Apr24
 ## ###
 
+## Trick for merging families:
+
+# Idea: merging families with MAV CDR3’s of a given % Homology cannot change the MAV of the largest family
+
 ## Utilities
 
 # Load utilities
