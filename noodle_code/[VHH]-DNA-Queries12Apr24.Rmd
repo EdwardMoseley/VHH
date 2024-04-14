@@ -16,7 +16,7 @@ dat$Construct <- ifelse(dat$Construct == "XLE-G9", "XLN-G9", dat$Construct)
 
 # define root
 root_dir <- "~/VHH/data/"
-files <- list.files(root_dir)[grepl("assemble-pass", list.files(root_dir))]
+# files <- list.files(root_dir)[grepl("assemble-pass", list.files(root_dir))]
 ```
 
 
@@ -36,14 +36,11 @@ files[[11]] <- "11_L3_sh3_S11_assemble-pass.fastq"
 files[[12]] <- "12_L3_lh3_S12_assemble-pass.fastq"
 ```
 
-
-
 ### Strategy
 
 1. Iterate over Fastq files (1, 2, 3, 4, 5,)
 
 2. Pull the ID for each file
-
 
 ```{r}
 results <- data.frame()
@@ -98,8 +95,20 @@ for (i in 1:nrow(test)){
 test$homology <- homology
 ```
 
+```{r}
+# write.csv(test, file = "~/Downloads/located_DNA_seqs.csv", row.names = F)
+```
 
+## Writing as raw Fastq
 
 ```{r}
-write.csv(test, file = "~/Downloads/located_DNA_seqs.csv", row.names = F)
+for (fastq_id in unique(dat$FastQ)){
+  # subset the file's keys and IDs
+  tmp_frame <- dat[dat$FastQ == fastq_id,]
+  cat("Loading: ", files[[fastq_id]], '\n', sep = '')
+  # load the fastq file
+  tmp <- readFastq(paste(root_dir, files[[fastq_id]], sep = ''))
+  fastq_entries <- tmp[which(id(tmp) %in% dat[dat$FastQ == fastq_id,]$ID),]
+  writeFastq(fastq_entries, file = "~/Downloads/VHH-DNA-Queries14Apr24.fastq", mode = 'a', compress = F)
+}
 ```
