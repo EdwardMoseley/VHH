@@ -1,0 +1,66 @@
+---
+title: "[VHH]-Missing-VHH-Analysis"
+output: html_document
+date: "2024-04-14"
+---
+
+## Load Data
+
+```{r}
+pass <- read.csv("~/VHH/data/Assembled/VHH-DNA-Queries14Apr24_db-pass.tsv", sep = '\t', header = T, stringsAsFactors = F)
+pass$group <- "Pass"
+
+fail <- read.csv("~/VHH/data/Assembled/VHH-DNA-Queries14Apr24_db-fail.tsv", sep = '\t', header = T, stringsAsFactors = F)
+fail$group <- "Fail"
+
+dat <- rbind(pass, fail)
+```
+
+
+```{r}
+write.csv(dat, file = "~/Downloads/VHH-DNA-Queries14Apr24_db.csv", row.names = F)
+```
+
+
+Note:
+
+```
+translate_DNA(substr(dat$sequence_alignment[10], 1, nchar(dat$sequence_alignment[10])-1))
+QGQLVESGGGLVQAGDSLRLSCKAYGFDLDYKAIGWYRQVPGKQRESVSCLDTSEGSDDYADSVKGRFTTSRDNAKNTVYLQMNNLKPEVTGVYYCAARSSFCRILTQVDPDEGYEYDYCGQGTQVTVSS
+```
+
+
+```{r}
+res <- vector()
+
+for (i in 1:nrow(dat)){
+    res <- c(res, translate_DNA(substr(dat$sequence_alignment[i], 1, nchar(dat$sequence_alignment[i])-1)))
+}
+```
+
+**Note:** `trycatch()`
+
+```
+# Your code block
+result <- tryCatch({
+  # Code block where you anticipate an error
+  # Place your code here
+  # For example:
+  x <- 1 + "a"  # This will generate an error
+  }, 
+  error = function(e) {
+    # Code block to handle the error
+    # For example:
+    print("An error occurred:")
+    print(e$message)
+    # You can choose to return a default value or take any other action here
+  },
+  finally = {
+    # Optional code block to execute regardless of whether an error occurred or not
+    # For example:
+    print("Execution completed.")
+  }
+)
+
+# Continue with the rest of your code after tryCatch
+```
