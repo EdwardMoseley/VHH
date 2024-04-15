@@ -7,6 +7,8 @@ date: "2024-04-14"
 ## Load Data
 
 ```{r}
+source("~/VHH/lib/utilities.R")
+
 pass <- read.csv("~/VHH/data/Assembled/VHH-DNA-Queries14Apr24_db-pass.tsv", sep = '\t', header = T, stringsAsFactors = F)
 pass$group <- "Pass"
 
@@ -20,7 +22,6 @@ dat <- rbind(pass, fail)
 ```{r}
 write.csv(dat, file = "~/Downloads/VHH-DNA-Queries14Apr24_db.csv", row.names = F)
 ```
-
 
 Note:
 
@@ -38,7 +39,7 @@ for (i in 1:nrow(dat)){
 }
 ```
 
-**Note:** `trycatch()`
+**Note:** `tryCatch()`
 
 ```
 # Your code block

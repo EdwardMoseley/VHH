@@ -16,21 +16,29 @@ suppressPackageStartupMessages(library(shazam))
 
 # Function to find nearest neighbor and calculate edit distance
 find_nearest_neighbor <- function(x, df) {
+  # Calculate distance from median_CDR3
   distances <- adist(x, df$median_CDR3)
-  diag(distances) <- Inf  # Exclude self-matches
+  # Assign Inf to diagnal to ignore self-matches
+  diag(distances) <- Inf
+  # Nearest is the minimum
   nearest_index <- which.min(distances)
+  # Subset the minimum
   nearest_neighbor <- df$median_CDR3[nearest_index]
   
-  # If nearest neighbor is same as original value, find the next closest neighbor
+  # If nearest neighbor is same as original value, 
   if (nearest_neighbor == x) {
+    # Assign Inf
     distances[nearest_index] <- Inf
+    # Find next minimum
     nearest_index <- which.min(distances)
+    # pull it
     nearest_neighbor <- df$median_CDR3[nearest_index]
   }
   
-  # Calculate edit distance between original value and nearest neighbor
+  # Calculate edit distance
   distance <- distances[nearest_index]
   
+  # Return in list format
   return(list(nearest_neighbor = nearest_neighbor, 
               distance = distance))
 }
@@ -50,7 +58,7 @@ root_path <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/"
 
 # file_name <- "18_VecF3_R4_S18_min_threshold_clone-pass.csv"
 # file_name <- "19_VecF1_R3_S19_min_threshold_clone-pass.csv"
-file_name <- "13_VecF1_R2_S13_min_threshold_clone-pass.csv"
+# file_name <- "13_VecF1_R2_S13_min_threshold_clone-pass.csv"
 
 dat <- read.csv(paste(root_path, file_name, sep = ''), header = T, stringsAsFactors = F)
 
@@ -131,7 +139,6 @@ for (nm in unique(dat$clone_id)){
 ## Identify groups with the same median CDR3
 df <- results[duplicated(results$median_CDR3) | duplicated(results$median_CDR3, fromLast=TRUE),]
 if (nrow(df) == 0) print("No duplicates left!")
-
 
 ## ###
 ## Now we pool: >10AA groups, >60% Homology

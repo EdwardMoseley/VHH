@@ -192,3 +192,32 @@ subfamily_statistics <- function(dat){
   
   return(results)
 }
+
+# Function to find nearest neighbor and calculate edit distance
+find_nearest_neighbor <- function(x, df) {
+  # Calculate distance from median_CDR3
+  distances <- adist(x, df$median_CDR3)
+  # Assign Inf to diagnal to ignore self-matches
+  diag(distances) <- Inf
+  # Nearest is the minimum
+  nearest_index <- which.min(distances)
+  # Subset the minimum
+  nearest_neighbor <- df$median_CDR3[nearest_index]
+  
+  # If nearest neighbor is same as original value, 
+  if (nearest_neighbor == x) {
+    # Assign Inf
+    distances[nearest_index] <- Inf
+    # Find next minimum
+    nearest_index <- which.min(distances)
+    # pull it
+    nearest_neighbor <- df$median_CDR3[nearest_index]
+  }
+  
+  # Calculate edit distance
+  distance <- distances[nearest_index]
+  
+  # Return in list format
+  return(list(nearest_neighbor = nearest_neighbor, 
+              distance = distance))
+}
