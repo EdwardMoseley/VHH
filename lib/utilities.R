@@ -221,3 +221,39 @@ find_nearest_neighbor <- function(x, df) {
   return(list(nearest_neighbor = nearest_neighbor, 
               distance = distance))
 }
+
+
+
+
+clonal_statistics <- function(dat){
+  # Hold results in results
+  results <- data.frame()
+  # Iterate over clone ids
+  for (nm in unique(dat$clone_id)){
+    tmp_frame <- dat[dat$clone_id == nm,]
+    # Unroll
+    # unrolled_VHHs <- unroll_dupes_fast(tmp_frame, "VHH")
+    unrolled_CDR3s <- unroll_dupes_fast(tmp_frame, "junction_aa")
+    # Pull statistics
+    # median_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)][1])
+    median_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
+    abundance <- sum(tmp_frame$duplicate_count)
+    
+    # Keep the integer as the cluster_id
+    clone_id <- nm
+    
+    results <- rbind(results, cbind(clone_id, median_CDR3, abundance))
+  }
+  return(results)
+}
+
+
+# Snip amino acids from the end if it doesn't "fit"
+fixed_translate_DNA <- function(dna_data){
+  clean_dna <- gsub("[^ACTG]", "", dna_data)
+  # Check that length is appropriate
+  clean_dna <- substr(clean_dna, 1, nchar(clean_dna) - (nchar(clean_dna)%%3))
+  DNA_strings <- Biostrings::DNAStringSet(clean_dna)
+  translations <- as.character(Biostrings::translate(DNA_strings, if.fuzzy.codon = c("solve", "X")))
+  return(translations)
+}

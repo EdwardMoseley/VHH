@@ -28,9 +28,9 @@ suppressPackageStartupMessages(library(shazam))
 root_path <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/"
 
 # file_name <- "18_VecF3_R4_S18_min_threshold_clone-pass.csv"
-# file_name <- "19_VecF1_R3_S19_min_threshold_clone-pass.csv"
+file_name <- "19_VecF1_R3_S19_min_threshold_clone-pass.csv"
 # file_name <- "13_VecF1_R2_S13_min_threshold_clone-pass.csv"
-file_name <- "20_VecF2_R3_S20-pooled-families.csv"
+# file_name <- "20_VecF2_R3_S20-pooled-families.csv"
 
 dat <- read.csv(paste(root_path, file_name, sep = ''), header = T, stringsAsFactors = F)
 
@@ -66,7 +66,7 @@ for (nm in unique(dat$clone_id)){
 ## Handle exact matches first (this will cover cases where |CDR3| < 6 AA's)
 ## ###
 
-## Identify groups with the same median CDR3
+## Identify duplicate median_CDR3s
 df <- results[duplicated(results$median_CDR3) | duplicated(results$median_CDR3, fromLast=TRUE),]
 
 for (median_CDR3 in unique(df$median_CDR3)){
