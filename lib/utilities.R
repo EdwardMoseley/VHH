@@ -222,9 +222,7 @@ find_nearest_neighbor <- function(x, df) {
               distance = distance))
 }
 
-
-
-
+# Calculate CDR3 statistics (after "unrolling" duplicates)
 clonal_statistics <- function(dat){
   # Hold results in results
   results <- data.frame()
@@ -256,4 +254,28 @@ fixed_translate_DNA <- function(dna_data){
   DNA_strings <- Biostrings::DNAStringSet(clean_dna)
   translations <- as.character(Biostrings::translate(DNA_strings, if.fuzzy.codon = c("solve", "X")))
   return(translations)
+}
+
+# Similarity matrix for calculating nearest neighbor families to merge
+create_similarity_matrix <- function(df){
+  # Create matrix of distanes
+  mat <- adist(df$median_CDR3)
+  row.names(mat) <- df$median_CDR3
+  colnames(mat) <- df$median_CDR3
+  tmp <- as.data.frame(mat)
+  tmp$median_CDR3 <- row.names(tmp)
+  # Melt matrix
+  tmp <- reshape2::melt(tmp, id = "median_CDR3")
+  # be mindful of data types
+  tmp$variable <- as.character(tmp$variable)
+  # We don't need identical matches, as they're already accounted for
+  tmp <- tmp[tmp$value != 0,]
+  
+  # Demand identical lengths
+  tmp <- tmp[nchar(tmp$median_CDR3) == nchar(tmp$variable),]
+  
+  # Update "value"
+  tmp$value <- 100 - tmp$value/nchar(tmp$median_CDR3)*100
+  
+  return(tmp)
 }
