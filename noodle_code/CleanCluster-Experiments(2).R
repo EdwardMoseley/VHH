@@ -372,7 +372,6 @@ cat(file_name, " has ", length(unique(dat$clone_id)), " clonal families.\n", sep
 # Add duplicate info here, also?
 
 # Hold results in results
-# results <- clonal_statistics(dat)
 
 ### Sub-Family Statistics:
 
