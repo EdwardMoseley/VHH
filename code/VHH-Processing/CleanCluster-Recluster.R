@@ -20,6 +20,7 @@ source("~/VHH/lib/utilities.R")
 args <- commandArgs(trailingOnly=TRUE)
 # args <- c("19_VecF1_R3_S19-pooled-families_subclustered_database.csv")
 # args <- c("19_VecF1_R3_S19-rule-pooled-families_subclustered_database-H90.csv")
+# file_name <- "20_VecF2_R3_S20-rule-pooled-families_subclustered_database.csv"# 
 
 file_name <- args[1]
 
@@ -29,11 +30,10 @@ file_name <- args[1]
 #Output:
 #(1) -> S20-pooled-outlier-reclustered-database.csv
 
-results_file <- gsub("-pooled-families_subclustered_database-H90.csv", "-pooled-clean-database-H90.csv", file_name)
-outliers_file <- gsub("-pooled-families_subclustered_database-H90.csv", "-pooled-outlier-database-H90.csv", file_name)
+results_file <- gsub("-pooled-families_subclustered_database.csv", "-pooled-clean-database.csv", file_name)
+outliers_file <- gsub("-pooled-families_subclustered_database.csv", "-pooled-outlier-database.csv", file_name)
 
 ## Load Outliers
-
 root_dir <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/"
 
 cat("Loading: ", paste(root_dir, outliers_file, sep = ''), '\n', sep = '')
@@ -42,13 +42,13 @@ cat("Loading: ", paste(root_dir, outliers_file, sep = ''), '\n', sep = '')
 dat <- read.csv(paste(root_dir, outliers_file, sep = ''), header = T, stringsAsFactors = F)
 
 cat("Loading: ", paste("~/VHH/data/Cluster-DBs/phylogenetic_dbs/", 
-                       gsub("-rule-pooled-families_subclustered_database-H90.csv", 
+                       gsub("-rule-pooled-families_subclustered_database.csv", 
                             "_min_threshold_clone-pass.csv", 
                             file_name), sep = ''), '\n', sep = '')
 
 ## Load Source Database
 tmp <- read.csv(paste("~/VHH/data/Cluster-DBs/phylogenetic_dbs/", 
-                      gsub("-rule-pooled-families_subclustered_database-H90.csv", 
+                      gsub("-rule-pooled-families_subclustered_database.csv", 
                            "_min_threshold_clone-pass.csv", 
                            file_name), sep = ''),
                 header = T, stringsAsFactors = F)
@@ -113,6 +113,7 @@ for (nm in unique(db$clone_id)){
                      paste(output_dir, "tmp.fasta", sep = ''), 
                      paste(output_dir, "tmp-H95", sep = ''),
                      paste(output_dir, "tmp", sep = ''))
+    
     ## Call mmseqs to do its job
     system(command)
     # Load results
@@ -120,7 +121,10 @@ for (nm in unique(db$clone_id)){
     # Assign Variable Names
     colnames(dat) <- c("centroid", "sequence_id")
     # Create a centroid id
-    dat$centroid_id <- as.numeric(factor(dat$centroid))
+    
+    # dat$centroid_id <- as.numeric(factor(dat$centroid))
+    dat$centroid_id <- paste(nm, '-', as.numeric(factor(dat$centroid)), sep = '')
+    
     # We're going to use the sequence ids as keys, so we want to clean them
     db$sequence_id <- clean_seq_ids(db$sequence_id)
     dat$centroid <- clean_seq_ids(dat$centroid)
@@ -129,7 +133,10 @@ for (nm in unique(db$clone_id)){
     dat <- merge_db_to_centroids(dat, db)
   } else {
     # otherwise, we'll make up a centroid id and a sequence id, and
-    tmp_frame$centroid_id <- tmp_frame$sequence_id[1]
+    
+    #tmp_frame$centroid_id <- tmp_frame$sequence_id[1]
+    tmp_frame$centroid_id <- paste(nm, '-', substr(tmp_frame$sequence_id[1], nchar(substr(tmp_frame$sequence_id[1])-10, nchar(substr(tmp_frame$sequence_id[1]))), sep = '')
+    
     tmp_frame$centroid_sequence_id <- tmp_frame$sequence_id[1]
     tmp_frame$centroid <- tmp_frame$VHH[1]
     # Now we assign to dat for rbind
@@ -139,13 +146,14 @@ for (nm in unique(db$clone_id)){
   results <- rbind(results, dat)
 }
 
-results$centroid_id <- as.numeric(factor(results$centroid_id))
+
+#results$centroid_id <- as.numeric(factor(results$centroid_id))
 
 ### Temporary Write
 
 # Note:
 # input_file <- "19_VecF1_R3_S19-pooled-outlier-database-H90.csv"
-file_name <- gsub("_database-H90.csv", "-reclustered-database.csv", file_name)
+file_name <- gsub("_database.csv", "-reclustered-database.csv", file_name)
 
 cat("Writing: ", paste(root_dir, file_name, sep = ''), '\n', sep = '')
 

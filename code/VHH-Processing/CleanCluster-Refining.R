@@ -18,8 +18,8 @@ file_name <- args[1]
 #(1) -> S19-pooled-clean-database.csv
 #(2) -> S19-pooled-outlier-database.csv
 
-results_file <- gsub("-pooled-families_subclustered_database-H90.csv", "-pooled-clean-database.csv", file_name)
-outliers_file <- gsub("-pooled-families_subclustered_database-H90.csv", "-pooled-outlier-database.csv", file_name)
+results_file <- gsub("-pooled-families_subclustered_database.csv", "-pooled-clean-database.csv", file_name)
+outliers_file <- gsub("-pooled-families_subclustered_database.csv", "-pooled-outlier-database.csv", file_name)
 
 ## Here, we want to:
 #1. Remove outlier subfamilies
@@ -146,8 +146,8 @@ print(table(outliers$clone_id)[order(table(outliers$clone_id), decreasing = T)])
 
 root_dir <- "/Users/emoseley/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/"
 
-results_file <- gsub("-pooled-families_subclustered_database-H90.csv", "-pooled-clean-database-H90.csv", file_name)
-outliers_file <- gsub("-pooled-families_subclustered_database-H90.csv", "-pooled-outlier-database-H90.csv", file_name)
+results_file <- gsub("-pooled-families_subclustered_database.csv", "-pooled-clean-database.csv", file_name)
+outliers_file <- gsub("-pooled-families_subclustered_database.csv", "-pooled-outlier-database.csv", file_name)
 
 cat("Writing: ", paste(root_dir, results_file, sep = ''), '\n', sep = '')
 write.csv(results, 
@@ -160,7 +160,7 @@ write.csv(outliers,
 
 
 ## Route the traffic out
-if (grepl("-pooled-families_subclustered_database-H90.csv", file_name)){
+if (grepl("-pooled-families_subclustered_database.csv", file_name)){
   # Pass the file to the next script in the pipeline
   cat(paste("Rscript CleanCluster-Recluster.R", file_name), '\n')
   system(paste("Rscript CleanCluster-Recluster.R", file_name))

@@ -15,14 +15,18 @@
 source("~/VHH/lib/utilities.R")
 
 # Draw file info from commandArgs
-args <- commandArgs(trailingOnly=TRUE)
+# args <- commandArgs(trailingOnly=TRUE)
+
+
 #args <- c("19_VecF1_R3_S19-rule-pooled-families_subclustered-reclustered-database.csv")
+
+args <- c("20_VecF2_R3_S20-rule-pooled-families_subclustered-reclustered-database.csv")
 
 file_name <- args[1]
 
 ## Load Data
 root_dir <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/"
-clean_file <- gsub("-pooled-families_subclustered-reclustered-database.csv", "-pooled-clean-database-H90.csv", file_name)
+clean_file <- gsub("-pooled-families_subclustered-reclustered-database.csv", "-pooled-clean-database.csv", file_name)
 outlier_file <- file_name
 
 cat("Loading: ", paste(root_dir, clean_file, sep = ''), '\n', sep = '')
@@ -48,9 +52,11 @@ outlier_test_db <- subfamily_statistics(outlier_db)
 # Clean column names
 outlier_test_db <- outlier_test_db[colnames(outlier_test_db) %in% colnames(clean_test_db)]
 
+
+
 ### Add a large number to outlier clone IDs so they are distinguishable
-outlier_test_db$clone_id <- outlier_test_db$clone_id + 100000
-outlier_test_db$centroid_id <- outlier_test_db$centroid_id + 100000
+outlier_test_db$clone_id <- paste("O-", outlier_test_db$clone_id, sep = '')#outlier_test_db$clone_id + 100000
+outlier_test_db$centroid_id <- paste("O-", outlier_test_db$centroid_id, sep = '')#outlier_test_db$centroid_id + 100000
 
 ## Aggregate for correct duplicate counts
 tmp <- outlier_test_db
@@ -89,7 +95,7 @@ results <- results[order(results$family_median_VHH_homology,
 results$order_index <- 1:nrow(results)
 
 root_dir <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/"
-output_file <- gsub("-pooled-clean-database-H90.csv", "-Pooled-Cleaning-Reclustering-Initial-Results-H90.csv", clean_file)
+output_file <- gsub("-pooled-clean-database.csv", "-Pooled-Cleaning-Reclustering-Initial-Results.csv", clean_file)
 
 cat("Writing: ", paste(root_dir, output_file, sep = ''), "\n", sep = '')
 

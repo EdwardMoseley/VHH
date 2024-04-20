@@ -5,6 +5,7 @@
 ## ###
 
 ## First pass call:
+# Rscript CleanCluster-Pool.R 20_VecF2_R3_S20_min_threshold_clone-pass.csv
 # Rscript CleanCluster-Pool.R 19_VecF1_R3_S19_min_threshold_clone-pass.csv
 # Rscript CleanCluster-Pool.R 13_VecF1_R2_S13_min_threshold_clone-pass.csv
 ## Last pass call:
@@ -14,14 +15,21 @@
 source("~/VHH/lib/utilities.R")
 
 ## Draw file info from commandArgs
-#args <- commandArgs(trailingOnly=TRUE)
+args <- commandArgs(trailingOnly=TRUE)
+
+args <- c("20_VecF2_R3_S20-rule-Pooled-Cleaning-Reclustering-Initial-Results.csv")
 
 #args <- "19_VecF1_R3_S19_min_threshold_clone-pass.csv"
 #args <- "19_VecF1_R3_S19-rule-Pooled-Cleaning-Reclustering-Initial-Results-H90.csv"
-args <- "13_VecF1_R2_S13_min_threshold_clone-pass.csv"
+#args <- "13_VecF1_R2_S13_min_threshold_clone-pass.csv"
+#args <- "13_VecF1_R2_S13-rule-Pooled-Cleaning-Reclustering-Initial-Results-H90.csv"
+
+# "20_VecF2_R3_S20_min_threshold_clone-pass.csv"
+# "21_VecF4_R3_S21_min_threshold_clone-pass.csv"
+
 
 # test if there is at least one argument: if not, return an error
-if (grepl("-Pooled-Cleaning-Reclustering-Initial-Results-H90.csv", args[1])) {
+if (grepl("-Pooled-Cleaning-Reclustering-Initial-Results.csv", args[1])) {
   file_name <- args[1]
   cat("Final Processing of: ", file_name, '\n', sep = '')
   # Define root_path
@@ -65,9 +73,9 @@ for (median_CDR3 in unique(df$median_CDR3)){
   # Order
   tablet <- tablet[order(tablet, decreasing = T)]
   # Iterate over 2..length(tablet), adding other groups to the top group
-  for (nm in as.numeric(names(tablet)[2:length(tablet)])){
+  for (nm in names(tablet)[2:length(tablet)]){
     # Subset the old clone_ids and replace with the largest group to which they could belong ([1])
-    dat[dat$clone_id == nm,]$clone_id <- rep(as.numeric(names(tablet[1])), each = nrow(dat[dat$clone_id == nm,]))
+    dat[dat$clone_id == nm,]$clone_id <- rep(names(tablet[1]), each = nrow(dat[dat$clone_id == nm,]))
   }
 }
 
@@ -100,33 +108,7 @@ tmp <- merge(tmp, df, by = "median_CDR3")
 tmp <- tmp[order(as.numeric(tmp$abundance), as.numeric(tmp$value), decreasing = T),]
 
 
-holder <- dat
-dat <- holder
-
-
 ## Pooling with % Homology
-
-#done_list <- vector()
-# Begin merging routine
-# For each unique CDR3
-#for (nm in unique(tmp$median_CDR3)){
-#  cat("Starting: ", nm, '\n', sep = '')
-#  # Pull ALL observations involving that CDR3
-#  tmp_frame <- tmp[(tmp$median_CDR3 == nm | tmp$variable == nm),]
-#  # Check if we've done this one yet
-#  if (!(nm %in% done_list)){
-#    cat("Merging: ", nm, '\n', sep = '')
-#    # If not, add it to the list
-#    done_list <- c(done_list, tmp_frame$median_CDR3)
-#    # Begin adding lower-abundance groups to greater-abundance ones
-#    for (i in 2:(nrow(tmp_frame))){
-#      dat[dat$clone_id == tmp_frame$clone_id[i],]$clone_id <- tmp_frame$clone_id[1]
-#    }
-#  } else {
-#    # If we have done it, we pass over it
-#    cat("Passing: ", nm, '\n', sep = '')
-#  }
-#}
 
 done_list <- vector()
 # Begin merging routine
@@ -170,8 +152,6 @@ if (nrow(tmp) == 0){
 } else {
   print("Did not exhaust >10AA CDR3s.")
 }
-
-
 
 cat(file_name, " has ", length(unique(dat$clone_id)), " clonal families after pooling 60% homologous families with >10AA CDR3s.\n", sep = '')
 
@@ -243,14 +223,17 @@ cat(file_name, " has ", length(unique(dat$clone_id)), " clonal families after po
 
 ## Route the traffic out
 if (grepl("_min_threshold_clone-pass.csv", file_name)){
+  # change file name
   file_name <- gsub("_min_threshold_clone-pass.csv", "-rule-pooled-families.csv", file_name)
+  cat("Writing: ")
   write.csv(dat, file = paste(root_path, file_name, sep = ''), row.names = F)
   cat(paste("Rscript CleanCluster-toAA.R", file_name), '\n')
   # Pass the file to the next script in the pipeline
   system(paste("Rscript CleanCluster-toAA.R", file_name))
-} else if (grepl("-Pooled-Cleaning-Reclustering-Initial-Results-H90.csv", file_name)){
+} else if (grepl("rule-Pooled-Cleaning-Reclustering-Initial-Results.csv", file_name)){
   # change file name
-  file_name <- gsub("-Pooled-Cleaning-Reclustering-Initial-Results-H90.csv", "-H90-Cleaned19Apr24.csv", file_name)
+  file_name <- gsub("-rule-Pooled-Cleaning-Reclustering-Initial-Results.csv", "-Cleaned19Apr24.csv", file_name)
+  cat("Writing: ", paste(root_path, file_name, sep = ''), '\n')
   # write
   write.csv(dat, file = paste(root_path, file_name, sep = ''), row.names = F)
 }

@@ -8,10 +8,10 @@
 source("~/VHH/lib/utilities.R")
 
 ## Draw file info from commandArgs
-# args <- commandArgs(trailingOnly=TRUE)
+args <- commandArgs(trailingOnly=TRUE)
 
 #args <- c("19_VecF1_R3_S19-rule-pooled-families.csv")
-#file_name <- args[1]
+file_name <- args[1]
 
 ## Amino Acid-only database
 
@@ -58,9 +58,6 @@ file_name <- gsub("-pooled-families.csv", "-pooled-families_VHH_database.csv", f
 write.csv(tmp, file = paste(output_dir, file_name, sep = ''), row.names = F)
 # Elevator Music
 cat("Finished writing: ", file_name, '\n', sep = '')
-
-# Make system call for next script
-#system(paste("Rscript CleanCluster-MMseqs2.R ", file_name, sep = ''))
 
 ## Route the traffic out
 if (grepl("-pooled-families_VHH_database.csv", file_name)){

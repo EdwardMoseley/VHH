@@ -44,9 +44,10 @@ for (nm in unique(tmp$clone_id)){
   ## Here, we need to fix it to make sure that identical centroid_ids dont exist
   ## ###
   
-  
   # Create a centroid id
-  dat$centroid_id <- as.numeric(factor(dat$centroid))
+  # dat$centroid_id <- as.numeric(factor(dat$centroid))
+  # Centroid ID will be family ID plus unique centroid identifier
+  dat$centroid_id <- paste(nm, '-', as.numeric(factor(dat$centroid)), sep = '')
   
   ## ### Fix probably ends here
   
@@ -60,14 +61,14 @@ for (nm in unique(tmp$clone_id)){
   results <- rbind(results, dat)
 }
 
-file_name <- gsub("VHH_database.csv", "subclustered_database-H90.csv", file_name)
+file_name <- gsub("VHH_database.csv", "subclustered_database.csv", file_name)
 
 cat("Writing: ", paste(root_dir, file_name, sep = ''), '\n', sep = '')
 
 write.csv(results, file = paste(root_dir, file_name, sep = ''), row.names = F)
 
 ## Route the traffic out
-if (grepl("_subclustered_database-H90.csv", file_name)){
+if (grepl("_subclustered_database.csv", file_name)){
   # Pass the file to the next script in the pipeline
   cat(paste("Rscript CleanCluster-Refining.R", file_name), '\n')
   system(paste("Rscript CleanCluster-Refining.R", file_name))
