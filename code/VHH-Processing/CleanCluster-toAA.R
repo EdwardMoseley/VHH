@@ -8,9 +8,10 @@
 source("~/VHH/lib/utilities.R")
 
 ## Draw file info from commandArgs
-args <- commandArgs(trailingOnly=TRUE)
+# args <- commandArgs(trailingOnly=TRUE)
 
-file_name <- args[1]
+#args <- c("19_VecF1_R3_S19-rule-pooled-families.csv")
+#file_name <- args[1]
 
 ## Amino Acid-only database
 

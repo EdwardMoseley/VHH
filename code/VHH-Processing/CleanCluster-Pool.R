@@ -6,6 +6,7 @@
 
 ## First pass call:
 # Rscript CleanCluster-Pool.R 19_VecF1_R3_S19_min_threshold_clone-pass.csv
+# Rscript CleanCluster-Pool.R 13_VecF1_R2_S13_min_threshold_clone-pass.csv
 ## Last pass call:
 # Rscript CleanCluster-Pool.R 19_VecF1_R3_S19-rule-Pooled-Cleaning-Reclustering-Initial-Results-H90.csv 
 
@@ -16,19 +17,20 @@ source("~/VHH/lib/utilities.R")
 #args <- commandArgs(trailingOnly=TRUE)
 
 #args <- "19_VecF1_R3_S19_min_threshold_clone-pass.csv"
-args <- "19_VecF1_R3_S19-rule-Pooled-Cleaning-Reclustering-Initial-Results-H90.csv"
+#args <- "19_VecF1_R3_S19-rule-Pooled-Cleaning-Reclustering-Initial-Results-H90.csv"
+args <- "13_VecF1_R2_S13_min_threshold_clone-pass.csv"
 
 # test if there is at least one argument: if not, return an error
 if (grepl("-Pooled-Cleaning-Reclustering-Initial-Results-H90.csv", args[1])) {
   file_name <- args[1]
-  cat("Processing: ", file_name, '\n', sep = '')
+  cat("Final Processing of: ", file_name, '\n', sep = '')
   # Define root_path
   root_path <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/"
   # Load Data
   dat <- read.csv(paste(root_path, file_name, sep = ''), header = T, stringsAsFactors = F)
 } else if (grepl("_min_threshold_clone-pass.csv", args[1])){
   file_name <- args[1]
-  cat("Processing: ", file_name, '\n', sep = '')
+  cat("Initial Processing of: ", file_name, '\n', sep = '')
   # Define root_path
   root_path <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/"
   # Load data
@@ -36,7 +38,7 @@ if (grepl("-Pooled-Cleaning-Reclustering-Initial-Results-H90.csv", args[1])) {
   # Trim CDR3s
   dat$junction_aa <- trim_CDR3(dat$junction_aa)
 } else{
-  stop("Please provide the directory to the data file (in [prefix]_min_threshold_clone-pass.csv format) OR...", call.=FALSE)
+  stop("Please provide the file in [prefix]_min_threshold_clone-pass.csv format OR [prefix]-Pooled-Cleaning-Reclustering-Initial-Results-H90.csv format.", call.=FALSE)
 }
 
 # Print clone counts
@@ -95,7 +97,11 @@ tmp <- tmp[tmp$value >= 60,]
 tmp <- merge(tmp, df, by = "median_CDR3")
 
 # Order
-tmp <- tmp[order(as.numeric(tmp$abundance), decreasing = T),]
+tmp <- tmp[order(as.numeric(tmp$abundance), as.numeric(tmp$value), decreasing = T),]
+
+
+holder <- dat
+dat <- holder
 
 
 ## Pooling with % Homology
@@ -165,6 +171,8 @@ if (nrow(tmp) == 0){
   print("Did not exhaust >10AA CDR3s.")
 }
 
+
+
 cat(file_name, " has ", length(unique(dat$clone_id)), " clonal families after pooling 60% homologous families with >10AA CDR3s.\n", sep = '')
 
 ## Now we pool: 6<x<10 groups, >80% Homology
@@ -182,7 +190,7 @@ tmp <- tmp[tmp$value >= 80,]
 tmp <- merge(tmp, df, by = "median_CDR3")
 
 # Order
-tmp <- tmp[order(as.numeric(tmp$abundance), decreasing = T),]
+tmp <- tmp[order(as.numeric(tmp$abundance), as.numeric(tmp$value), decreasing = T),]
 
 done_list <- vector()
 # Begin merging routine
