@@ -17,7 +17,7 @@ source("~/VHH/lib/utilities.R")
 ## Draw file info from commandArgs
 args <- commandArgs(trailingOnly=TRUE)
 
-args <- c("20_VecF2_R3_S20-rule-Pooled-Cleaning-Reclustering-Initial-Results.csv")
+# args <- c("20_VecF2_R3_S20-rule-Pooled-Cleaning-Reclustering-Initial-Results.csv")
 
 #args <- "19_VecF1_R3_S19_min_threshold_clone-pass.csv"
 #args <- "19_VecF1_R3_S19-rule-Pooled-Cleaning-Reclustering-Initial-Results-H90.csv"

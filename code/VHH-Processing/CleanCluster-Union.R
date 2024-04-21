@@ -15,12 +15,12 @@
 source("~/VHH/lib/utilities.R")
 
 # Draw file info from commandArgs
-# args <- commandArgs(trailingOnly=TRUE)
+args <- commandArgs(trailingOnly=TRUE)
 
 
 #args <- c("19_VecF1_R3_S19-rule-pooled-families_subclustered-reclustered-database.csv")
 
-args <- c("20_VecF2_R3_S20-rule-pooled-families_subclustered-reclustered-database.csv")
+#args <- c("20_VecF2_R3_S20-rule-pooled-families_subclustered-reclustered-database.csv")
 
 file_name <- args[1]
 

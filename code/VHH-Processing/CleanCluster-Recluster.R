@@ -135,7 +135,7 @@ for (nm in unique(db$clone_id)){
     # otherwise, we'll make up a centroid id and a sequence id, and
     
     #tmp_frame$centroid_id <- tmp_frame$sequence_id[1]
-    tmp_frame$centroid_id <- paste(nm, '-', substr(tmp_frame$sequence_id[1], nchar(substr(tmp_frame$sequence_id[1])-10, nchar(substr(tmp_frame$sequence_id[1]))), sep = '')
+    tmp_frame$centroid_id <- paste(nm, '-', substr(tmp_frame$sequence_id[1], nchar(tmp_frame$sequence_id[1])-10, nchar(tmp_frame$sequence_id[1])), sep = '')
     
     tmp_frame$centroid_sequence_id <- tmp_frame$sequence_id[1]
     tmp_frame$centroid <- tmp_frame$VHH[1]
