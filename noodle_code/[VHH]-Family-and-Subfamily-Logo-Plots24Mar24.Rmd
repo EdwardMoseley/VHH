@@ -1,0 +1,74 @@
+---
+title: "[VHH]-Hierarchical-Mixed-Clustering-Logo-Plots"
+subtitle: "S19 Illumina Run, Family: YAEQGLYGDYLDY (Clone ID: 49)"
+output: html_document
+date: "2024-03-24"
+---
+
+```{r, echo = F, eval = T, warning=F}
+suppressPackageStartupMessages(library(msa))
+suppressPackageStartupMessages(library(ggseqlogo))
+suppressPackageStartupMessages(library(ggplot2))
+source("~/VHH/lib/utilities.R")
+suppressPackageStartupMessages(library(stringdist))
+
+# Top groups
+top_groups <- function(results, clone_var){
+  return(table(results[[clone_var]])[order(table(results[[clone_var]]), decreasing = T)])
+}
+```
+
+```{r, echo = F, eval = T, warning = F}
+# Here we load our results file
+df <- read.csv("~/Downloads/S19-Clone-49-results.csv", header = T, stringsAsFactors = F)
+```
+
+## Entire (Hierarchical) Clonal Family Logo Plot
+
+```{r, echo = F, eval = T, warning = F}
+unrolled_VHHs <- unroll_dupes_fast(df, "VHH")
+unrolled_CDR3s <- unroll_dupes_fast(df, "junction_aa")
+
+# Pull statistics
+median_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)][1])
+median_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
+#consensus_CDR3 <- strict_consensus(unrolled_CDR3s)
+
+if (TRUE){
+  cat("Group ID: ", paste(unique(substr(df$f, 1, 2)),'-',unique(df$clone_id), sep = ''), '\n', sep = '')
+  cat("Overall Members: ", nrow(df), '\n', sep = '')
+  cat("Unique VHHs: ", length(unique(df$VHH)), '\n', sep = '')
+  cat("Unique CDR3s: ", length(unique(df$junction_aa)), '\n', sep = '')
+  cat("Most-frequent CDR3: ", median_CDR3, ' (with ',nrow(df[df$junction_aa == median_CDR3,]), ' CDR3 observations)\n', sep = '')
+  cat("Most-frequent VHH: ", median_VHH, ' (with ',nrow(df[df$VHH == median_VHH,]), ' observations)\n', sep = '')
+  print(ggseqlogo(as.character(df$junction_aa), seq_type='aa', method = 'p') + 
+    theme_classic() + ggtitle(paste(" CDR3 Logo Plot for cluster with the most common CDR3 sequence:\n               ", median_CDR3, sep = '')))
+}
+```
+
+
+## Top-50 Sub Family (2+ Members) Logo Plots (Sub-family Homology Threshold: 0.95)
+
+### Ordered by VHH Abundance in Clonal Family
+
+```{r, echo = F, eval = T, warning=F}
+tab <- top_groups(df, "centroid_id")
+
+for (nm in head(names(tab), 50)){
+  tmp_frame <- df[df$centroid_id == as.numeric(nm),]
+  # Pull most frequent CDR3
+  median_CDR3 <- names(table(tmp_frame$junction_aa)[order(table(tmp_frame$junction_aa), decreasing = T)][1])
+  median_VHH <- names(table(tmp_frame$VHH)[order(table(tmp_frame$VHH), decreasing = T)][1])
+  
+  if (nrow(tmp_frame) > 1){
+      cat("Group ID: ", paste('Subfamily',unique(substr(tmp_frame$f, 1, 2)),'-',unique(tmp_frame$clone_id),'-',unique(tmp_frame$centroid_id), sep = ''), '\n', sep = '')
+      cat("Overall Members: ", nrow(tmp_frame), '\n', sep = '')
+      cat("Unique VHHs: ", length(unique(tmp_frame$VHH)), '\n', sep = '')
+      cat("Unique CDR3s: ", length(unique(tmp_frame$junction_aa)), '\n', sep = '')
+      cat("Most-frequent CDR3: ", median_CDR3, ' (with ',nrow(tmp_frame[tmp_frame$junction_aa == median_CDR3,]), ' CDR3 observations)\n', sep = '')
+      cat("Most-frequent VHH: ", median_VHH, ' (with ',nrow(df[df$VHH == median_VHH,]), ' observations)\n', sep = '')
+      print(ggseqlogo(as.character(tmp_frame$junction_aa), seq_type='aa', method = 'p') + 
+        theme_classic() + ggtitle(paste(" CDR3 Logo Plot for cluster with the most common CDR3 sequence:\n               ", median_CDR3, sep = '')))
+  }
+}
+```

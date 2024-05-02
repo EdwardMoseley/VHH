@@ -1,0 +1,100 @@
+---
+title: "[VHH]-DESeq2-Recluster"
+output: html_document
+date: "2024-04-30"
+---
+
+## Prepare Data
+
+```{r}
+source("~/VHH/lib/utilities.R")
+library(DESeq2)
+library(stringdist)
+
+# Function to calculate Levenshtein distance between two strings
+calc_w_lev_dist <- function(str1, str2) {
+  stringdist::stringdist(str1, str2, method = "lv", weight = c(0.99, 
+                                                               0.99, 
+                                                               0.01, 
+                                                               0.01))
+}
+
+root_dir <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/"
+list.files(root_dir)[grepl("min_threshold_clone-pass.csv", list.files(root_dir))]
+```
+
+## Load
+
+```{r}
+files <- list()
+
+# Populate files
+files[["S13"]] <- "13_VecF1_R2_S13_min_threshold_clone-pass.csv"
+files[["S14"]] <- "14_VecF1_R2_S14_min_threshold_clone-pass.csv"
+files[["S19"]] <- "19_VecF1_R3_S19_min_threshold_clone-pass.csv"
+files[["S20"]] <- "20_VecF2_R3_S20_min_threshold_clone-pass.csv"
+files[["S21"]] <- "21_VecF4_R3_S21_min_threshold_clone-pass.csv" 
+
+for (nm in names(files)){
+  files[[nm]] <- read.csv(paste(root_dir, files[[nm]], sep = ''), header = T, stringsAsFactors = F)
+}
+```
+
+```{r}
+for (nm in names(files)){
+  files[[nm]]$dist_nearest <- NULL
+  files[[nm]]$clone_id <- NULL
+}
+
+for (nm in names(files)){
+    print(nm)
+    print(ncol(files[[nm]]))
+}
+```
+
+
+```{r}
+dat <- data.frame()
+for (nm in names(files)){
+  dat <- rbind(dat, files[[nm]])
+}
+
+rm(files)
+```
+
+
+```{r}
+dat$clone_id <- NULL
+dat$dist_nearest <- NULL
+
+## Clonal Inference
+
+cat("Calculating distToNearest...\n")
+
+db <- shazam::distToNearest(dat, model = "ham", 
+                    normalize = "len", 
+                    vCallColumn = "v_call", 
+                    jCallColumn = "j_call",
+                    nproc = 4)
+
+# Determine threshold (based on median)
+thr <- summary(db$dist_nearest)[["Median"]]
+
+new_thr <- thr + (thr*0.25)
+print("25% Higher Threshold:")
+print(round(new_thr, 2))
+
+cat("Inferring Clones:\n")
+system.time(
+  # Clonal assignment using hierarchical clustering
+  db <- scoper::hierarchicalClones(db, 
+                                   threshold=new_thr,
+                                   verbose = TRUE,
+                                   v_call = "v_call", 
+                                   j_call = "j_call",
+                                   method = "aa",
+                                   summarize_clones = FALSE)
+)
+
+# db <- db@db
+```

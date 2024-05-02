@@ -1,0 +1,592 @@
+---
+title: "[VHH]-DESeq2-Experiments"
+output: html_document
+date: "2024-04-26"
+---
+
+This notebook relies heavily on: 
+
+1. [Analyzing RNA-seq data with DESeq2](https://www.bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html)
+
+2. [RNA-Seq workflow: gene-level exploratory analysis and differential expression](https://f1000research.com/articles/4-1070/v2)
+
+3. [Beginner’s guide to using the DESeq2 package](https://bioc.ism.ac.jp/packages/2.14/bioc/vignettes/DESeq2/inst/doc/beginner.pdf)
+
+4. [Count Regression](https://stats4nr.com/count-regression)
+
+
+## Strategy:
+
+1. Load S13, S14
+
+2. Subset only:
+
+```
+c("junction_aa", "clone_id", "duplicate_count", "group")
+```
+
+3. Aggregate, summing duplicate counts
+
+4. Load S19, S20, S21
+
+5. Subset only:
+
+```
+c("junction_aa", "clone_id", "duplicate_count", "group")
+```
+
+6. Aggregate, summing duplicate counts
+
+7. Ensure all junction_aa's in S13/S14 are in S19/S20/S21
+
+8. Apply model
+
+**To ensure all junction_aa's are accounted for:**
+
+`setdiff(a$junction_aa, b$junction_aa)`
+
+`setdiff(b$junction_aa, a$junction_aa)`
+
+
+Note:
+
+> As input, the DESeq2 package expects count data as obtained, e.g., from RNA-seq or another high-throughput sequencing experiment, in the form of a matrix of integer values. The value in the i-th row and the j-th column of the matrix tells how many reads can be assigned to gene i in sample j. Analogously, for other types of assays, the rows of the matrix might correspond e.g. to binding regions (with ChIP-Seq) or peptide sequences (with quantitative mass spectrometry). We will list method for obtaining count matrices in sections below.
+
+
+```{r}
+source("~/VHH/lib/utilities.R")
+
+root_dir <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/"
+list.files(root_dir)[grepl("Cleaned", list.files(root_dir))]
+```
+
+
+
+
+"17_VecF3_R3_S17-Cleaned19Apr24.csv"         
+
+        
+
+
+## Load and Prep Data
+
+```{r}
+files <- list()
+
+# Populate files
+
+files[["S13"]]<- "13_VecF1_R2_S13-Cleaned19Apr24.csv"
+files[["S14"]] <- "14_VecF1_R2_S14-Cleaned19Apr24.csv"
+
+files[["S19"]] <- "19_VecF1_R3_S19-Cleaned19Apr24.csv"
+files[["S20"]] <- "20_VecF2_R3_S20-Cleaned19Apr24.csv"
+files[["S21"]] <- "21_VecF4_R3_S21-Cleaned19Apr24.csv" 
+
+for (nm in names(files)){
+  files[[nm]] <- read.csv(paste(root_dir, files[[nm]], sep = ''), header = T, stringsAsFactors = F)
+}
+
+results <- data.frame()
+for (nm in names(files)){
+  tmp <- files[[nm]]
+  
+  tmp$group <- rep(nm, each = nrow(tmp))
+  
+  tmp$dist_nearest <- NULL
+  
+  results <- rbind(results, tmp)
+}
+
+dat <- results
+
+rm(files, results, tmp)
+```
+
+## Subset variables of interest
+
+```{r}
+tmp <- dat[,c("junction_aa", "clone_id", "duplicate_count", "group")]
+tmp$clone_id <- paste(tmp$group, '-', tmp$clone_id, sep = '')
+```
+
+
+
+
+
+
+
+
+
+## Aggregate
+
+```{r}
+df <- aggregate(duplicate_count ~ junction_aa + clone_id + group, data = tmp, sum)
+```
+
+
+```{r}
+df <- clonal_statistics(df)
+
+
+
+df$median_CDR3 <- factor(df$median_CDR3)
+df$clone_id <- factor(df$clone_id)
+df$abundance <- as.integer(df$abundance)
+df$group <- factor(substr(df$clone_id, 1, 3))
+```
+
+## Model
+
+```{r}
+library(DESeq2)
+
+# Create a count matrix with appropriate row names
+count_matrix <- as.matrix(df["abundance"])
+rownames(count_matrix) <- df$median_CDR3
+
+# Transpose the count matrix
+count_matrix <- t(count_matrix)
+
+# Create a DESeqDataSet object
+dds <- DESeqDataSetFromMatrix(
+  countData = count_matrix, # Transposed counts matrix
+  colData = data.frame(group = df$group), # Experimental conditions
+  design = ~ group # Design formula
+)
+
+# Check the DESeqDataSet object
+dds
+```
+
+
+```{r}
+# Estimate size factors
+dds <- estimateSizeFactors(dds)
+
+# Fit the negative binomial model
+dds <- DESeq(dds)
+
+# Perform differential expression analysis
+res <- results(dds)
+
+# Summarize the results
+summary(res)
+```
+
+
+**Note:**
+
+```
+Error in estimateDispersionsFit(object, fitType = fitType, quiet = quiet) : 
+  all gene-wise dispersion estimates are within 2 orders of magnitude
+  from the minimum value, and so the standard curve fitting techniques will not work.
+  One can instead use the gene-wise estimates as final estimates:
+  dds <- estimateDispersionsGeneEst(dds)
+  dispersions(dds) <- mcols(dds)$dispGeneEst
+  ...then continue with testing using nbinomWaldTest or nbinomLRT
+```
+
+```{r}
+#dds <- estimateDispersionsGeneEst(dds)
+#dispersions(dds) <- mcols(dds)$dispGeneEst
+```
+
+
+
+Instead we try:
+
+```{r}
+# Estimate gene-wise dispersions
+dds <- estimateDispersionsGeneEst(dds)
+
+# Set dispersion estimates
+dispersions(dds) <- mcols(dds)$dispGeneEst
+
+# Continue with differential expression testing
+res <- nbinomWaldTest(dds)
+
+# Summarize the results
+summary(res)
+```
+
+
+
+```{r}
+# Filter significant results
+#significant_results <- subset(res, padj < 0.05 & abs(log2FoldChange) > 1)
+
+res$padj <- p.adjust(res$pvalue, method = "BH")
+
+```
+
+
+```{r}
+# Volcano plot
+plot(res$log2FoldChange, -log10(res$padj), pch=20, main="Volcano Plot", 
+     xlab="Log2 Fold Change", ylab="-Log10 Adjusted P-value", 
+     xlim=c(-5, 5), ylim=c(0, 10))
+abline(h=-log10(0.05), col="red", lty=2)
+abline(v=c(-1, 1), col="blue", lty=2)
+
+```
+
+---
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Load and Prep Data
+
+```{r}
+root_dir <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/"
+
+files <- list()
+
+# Populate files
+
+files[["S13"]]<- "13_VecF1_R2_S13_min_threshold_clone-pass.csv"
+files[["S14"]] <- "14_VecF1_R2_S14_min_threshold_clone-pass.csv"
+
+files[["S17"]] <- "17_VecF3_R3_S17_min_threshold_clone-pass.csv"
+files[["S18"]] <- "18_VecF3_R4_S18_min_threshold_clone-pass.csv"
+
+files[["S20"]] <- "20_VecF2_R3_S20_min_threshold_clone-pass.csv"
+files[["S22"]] <- "22_VecF4_R4_S22_min_threshold_clone-pass.csv"
+
+for (nm in names(files)){
+  files[[nm]] <- read.csv(paste(root_dir, files[[nm]], sep = ''), header = T, stringsAsFactors = F)
+}
+
+results <- data.frame()
+for (nm in names(files)){
+  tmp <- files[[nm]]
+  
+  tmp$perc_abundance <- tmp$duplicate_count/sum(tmp$duplicate_count)*100
+  tmp$group <- rep(nm, each = nrow(tmp))
+  
+  tmp$dist_nearest <- NULL
+  
+  results <- rbind(results, tmp)
+}
+
+dat <- results
+
+rm(files, results, tmp)
+```
+
+
+## Ensure Clone_id is appropriately tracked
+
+```{r}
+dat$clone_id <- paste(dat$group, '-', dat$clone_id, sep = '')
+```
+
+
+## Aggregate
+
+```{r}
+df <- aggregate(duplicate_count ~ junction_aa + clone_id + group, data = dat, sum)
+
+df$junction_aa <- factor(df$junction_aa)
+df$clone_id <- factor(df$clone_id)
+df$group <- factor(df$group)
+```
+
+## Model
+
+```{r}
+library(DESeq2)
+
+# Create a count matrix with appropriate row names
+count_matrix <- as.matrix(df["duplicate_count"])
+rownames(count_matrix) <- df$junction_aa
+
+# Transpose the count matrix
+count_matrix <- t(count_matrix)
+
+# Create a DESeqDataSet object
+dds <- DESeqDataSetFromMatrix(
+  countData = count_matrix, # Transposed counts matrix
+  colData = data.frame(group = df$group), # Experimental conditions
+  design = ~ group # Design formula
+)
+
+# Check the DESeqDataSet object
+dds
+```
+
+
+```{r}
+# Estimate size factors
+dds <- estimateSizeFactors(dds)
+
+# Fit the negative binomial model
+dds <- DESeq(dds)
+
+# Perform differential expression analysis
+res <- results(dds)
+
+# Summarize the results
+summary(res)
+```
+
+
+```{r}
+# Define contrast
+contrast <- c("group", "S20", "S13")  # Compare S20 vs. S13
+
+# Perform differential expression analysis with contrast
+res_contrast <- results(dds, contrast=contrast)
+
+# Summarize the results
+summary(res_contrast)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Prepare data (Aggregating by )
+
+```{r}
+dat$duplicate_count <- as.numeric(dat$duplicate_count)
+
+df <- aggregate(duplicate_count ~ junction_aa + group, data = dat, sum)
+
+aggregated_df <- data.frame()
+
+for (i in 1:100){
+  aggregated_df <- rbind(aggregated_df, dat[sample(1:nrow(dat), 100, replace = T), c("junction_aa", "duplicate_count", "group")])
+}
+
+aggregated_df$junction_aa <- factor(aggregated_df$junction_aa)
+aggregated_df$group <- factor(aggregated_df$group)
+aggregated_df$duplicate_count <- as.integer(aggregated_df$duplicate_count)
+```
+
+```{r}
+library(DESeq2)
+
+# Create a count matrix with appropriate row names
+count_matrix <- as.matrix(aggregated_df["duplicate_count"])
+rownames(count_matrix) <- aggregated_df$junction_aa
+
+# Transpose the count matrix
+count_matrix <- t(count_matrix)
+
+# Create a DESeqDataSet object
+dds <- DESeqDataSetFromMatrix(
+  countData = count_matrix, # Transposed counts matrix
+  colData = data.frame(group = aggregated_df$group), # Experimental conditions
+  design = ~ group # Design formula
+)
+
+# Check the DESeqDataSet object
+dds
+```
+
+
+```{r}
+# Estimate size factors
+dds <- estimateSizeFactors(dds)
+
+# Fit the negative binomial model
+dds <- DESeq(dds)
+
+# Perform differential expression analysis
+res <- results(dds)
+
+# Summarize the results
+summary(res)
+```
+
+
+```{r}
+# Define contrast
+contrast <- c("group", "S20", "S13")  # Compare S20 vs. S13
+
+# Perform differential expression analysis with contrast
+res_contrast <- results(dds, contrast=contrast)
+
+# Summarize the results
+summary(res_contrast)
+
+```
+
+**Yields:**
+
+```
+> dds <- DESeq(dds)
+using pre-existing size factors
+estimating dispersions
+gene-wise dispersion estimates
+mean-dispersion relationship
+Error in estimateDispersionsFit(object, fitType = fitType, quiet = quiet) : 
+  all gene-wise dispersion estimates are within 2 orders of magnitude
+  from the minimum value, and so the standard curve fitting techniques will not work.
+  One can instead use the gene-wise estimates as final estimates:
+  dds <- estimateDispersionsGeneEst(dds)
+  dispersions(dds) <- mcols(dds)$dispGeneEst
+  ...then continue with testing using nbinomWaldTest or nbinomLRT
+```
+
+Instead we try:
+
+```{r}
+# Estimate gene-wise dispersions
+dds <- estimateDispersionsGeneEst(dds)
+
+# Set dispersion estimates
+dispersions(dds) <- mcols(dds)$dispGeneEst
+
+# Continue with differential expression testing
+res <- nbinomWaldTest(dds)
+
+# Summarize the results
+summary(res)
+```
+
+
+
+```{r}
+# Filter significant results
+#significant_results <- subset(res, padj < 0.05 & abs(log2FoldChange) > 1)
+
+res$padj <- p.adjust(res$pvalue, method = "BH")
+
+```
+
+
+```{r}
+# Volcano plot
+plot(res$log2FoldChange, -log10(res$padj), pch=20, main="Volcano Plot", 
+     xlab="Log2 Fold Change", ylab="-Log10 Adjusted P-value", 
+     xlim=c(-5, 5), ylim=c(0, 10))
+abline(h=-log10(0.05), col="red", lty=2)
+abline(v=c(-1, 1), col="blue", lty=2)
+
+```
+
+---

@@ -1,0 +1,406 @@
+---
+title: "[VHH]-DESeq2-Experimentsv2"
+output: html_document
+date: "2024-04-29"
+---
+
+This notebook relies heavily on: 
+
+1. [Analyzing RNA-seq data with DESeq2](https://www.bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html)
+
+2. [RNA-Seq workflow: gene-level exploratory analysis and differential expression](https://f1000research.com/articles/4-1070/v2)
+
+3. [Beginner’s guide to using the DESeq2 package](https://bioc.ism.ac.jp/packages/2.14/bioc/vignettes/DESeq2/inst/doc/beginner.pdf)
+
+4. [Count Regression](https://stats4nr.com/count-regression)
+
+5. [Exploring DESeq2 results: Wald test](https://hbctraining.github.io/DGE_workshop_salmon_online/lessons/05b_wald_test_results.html)
+
+## Dummy Data Set
+
+```{r}
+# Set seed for reproducibility
+set.seed(123)
+
+# Number of genes
+num_genes <- 1000
+
+# Number of samples per condition
+num_samples_per_condition <- 5
+
+# Total number of samples
+total_samples <- 2 * num_samples_per_condition
+
+# Generate synthetic count data
+count_data <- matrix(rpois(num_genes * total_samples, lambda = 10), 
+                     nrow = num_genes, 
+                     ncol = total_samples)
+
+# Add column names for sample annotation
+colnames(count_data) <- c(paste0("Condition1_Sample", 1:num_samples_per_condition),
+                          paste0("Condition2_Sample", 1:num_samples_per_condition))
+
+# Add row names for gene IDs
+rownames(count_data) <- paste0("Gene", 1:num_genes)
+
+# Show the first few rows of the count data
+head(count_data)
+```
+
+```{r}
+# Install and load DESeq2 package if not already installed
+if (!requireNamespace("DESeq2", quietly = TRUE)) {
+  install.packages("DESeq2")
+}
+
+
+# Create sample information data frame
+sample_info <- data.frame(
+  condition = factor(rep(c("Condition1", "Condition2"), each = num_samples_per_condition)),
+  row.names = colnames(count_data)
+)
+```
+
+```{r}
+library(DESeq2)
+
+# Create DESeqDataSet object
+dds <- DESeqDataSetFromMatrix(countData = count_data, 
+                              colData = sample_info, 
+                              design = ~ condition)
+
+# Perform differential expression analysis
+dds <- DESeq(dds)
+
+# Get differential expression results
+res <- results(dds)
+
+# Show the top differentially expressed genes
+top_genes <- head(res[order(res$padj), ], 10)
+top_genes
+```
+
+```{r}
+# Install and load necessary packages if not already installed
+if (!requireNamespace("gplots", quietly = TRUE)) {
+  install.packages("gplots")
+}
+library(gplots)
+
+# Extract normalized counts from DESeqDataSet object
+normalized_counts <- counts(dds, normalized = TRUE)
+
+# Subset normalized counts to include only the top differentially expressed genes
+top_genes_ids <- rownames(top_genes)
+normalized_counts_top <- normalized_counts[top_genes_ids, ]
+
+# Create a heatmap
+heatmap.2(as.matrix(normalized_counts_top), 
+          scale = "row",  # Scale rows to z-scores
+          trace = "none", # Remove grid lines
+          margins = c(10, 15), # Increase margins for row and column dendrogram
+          main = "Heatmap of Top Differentially Expressed Genes",
+          Colv = FALSE, # Do not cluster columns
+          dendrogram = "row", # Add row dendrogram
+          key = TRUE, keysize = 0.85, key.title = "Z-score",
+          density.info = "none", # Do not show density plot
+          cexRow = 0.8, cexCol = 0.8, # Adjust font size
+          labRow = FALSE) # Do not show row labels
+
+```
+
+```
+> head(count_data)
+      Condition1_Sample1 Condition1_Sample2 Condition1_Sample3 Condition1_Sample4
+Gene1                  8                  9                 12                 12
+Gene2                  9                 12                  9                  9
+Gene3                 14                 10                  6                  8
+Gene4                 10                 11                  9                  8
+Gene5                 10                 12                 10                  8
+Gene6                 15                  7                 10                  4
+      Condition2_Sample2 Condition2_Sample3 Condition2_Sample4 Condition2_Sample5
+Gene1                  9                 13                  9                 14
+Gene2                 13                  9                 15                 12
+Gene3                 11                 15                 11                 11
+Gene4                  7                  9                 10                  6
+Gene5                  7                  6                 17                 14
+Gene6                 20                 10                  6                 11
+```
+
+```
+sample_info
+                    condition
+Condition1_Sample1 Condition1
+Condition1_Sample2 Condition1
+Condition1_Sample3 Condition1
+Condition1_Sample4 Condition1
+Condition1_Sample5 Condition1
+Condition2_Sample1 Condition2
+Condition2_Sample2 Condition2
+Condition2_Sample3 Condition2
+Condition2_Sample4 Condition2
+Condition2_Sample5 Condition2
+```
+
+
+
+## Real Data
+
+```{r}
+source("~/VHH/lib/utilities.R")
+library(DESeq2)
+library(stringdist)
+
+# Function to calculate Levenshtein distance between two strings
+calc_w_lev_dist <- function(str1, str2) {
+  stringdist::stringdist(str1, str2, method = "lv", weight = c(0.99, 
+                                                               0.99, 
+                                                               0.01, 
+                                                               0.01))
+}
+
+root_dir <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/"
+list.files(root_dir)[grepl("Cleaned", list.files(root_dir))]
+```
+
+## Load
+
+```{r}
+files <- list()
+
+# Populate files
+files[["S13"]]<- "13_VecF1_R2_S13-Cleaned19Apr24.csv"
+files[["S14"]] <- "14_VecF1_R2_S14-Cleaned19Apr24.csv"
+
+files[["S19"]] <- "19_VecF1_R3_S19-Cleaned19Apr24.csv"
+files[["S20"]] <- "20_VecF2_R3_S20-Cleaned19Apr24.csv"
+files[["S21"]] <- "21_VecF4_R3_S21-Cleaned19Apr24.csv" 
+
+for (nm in names(files)){
+  files[[nm]] <- read.csv(paste(root_dir, files[[nm]], sep = ''), header = T, stringsAsFactors = F)
+}
+```
+
+## First Step: Aggregate to Clone Level
+
+## Aggregate
+
+```{r}
+#df_one <- aggregate(duplicate_count ~ junction_aa + clone_id + source_file, data = tmp_one, sum)
+#df_two <- aggregate(duplicate_count ~ junction_aa + clone_id + source_file, data = tmp_two, sum)
+
+dfs <- list()
+
+dfs[["S13"]] <- clonal_statistics(files[["S13"]])
+dfs[["S13"]]$clone_id <- NULL
+dfs[["S14"]] <- clonal_statistics(files[["S14"]])
+dfs[["S14"]]$clone_id <- NULL
+dfs[["S19"]] <- clonal_statistics(files[["S19"]])
+dfs[["S19"]]$clone_id <- NULL
+dfs[["S20"]] <- clonal_statistics(files[["S20"]])
+dfs[["S20"]]$clone_id <- NULL
+dfs[["S21"]] <- clonal_statistics(files[["S21"]])
+dfs[["S21"]]$clone_id <- NULL
+```
+
+```{r}
+tmp <- merge(dfs[["S13"]], dfs[["S14"]], by = "median_CDR3", all.x = T, suffixes = c("S13", "S14"))
+
+for (i in 3:length(names(dfs))){
+  tmp <- merge(tmp, dfs[[i]], all.x = T, by = "median_CDR3", suffixes = c(names(dfs)[i-1], names(dfs)[i]))
+}
+
+colnames(tmp)[ncol(tmp)] <- "abundanceS21"
+```
+
+### Remove <NA> 
+
+```{r}
+# df <- na.omit(tmp)
+```
+
+### Replace <NA> with Zero
+
+```{r}
+tmp[is.na(tmp)] <- 0
+
+df <- tmp
+```
+
+### Third Step (for now) Properly Structure Data
+
+```
+> head(count_data)
+      Condition1_Sample1 Condition1_Sample2 Condition1_Sample3 Condition1_Sample4
+Gene1                  8                  9                 12                 12
+Gene2                  9                 12                  9                  9
+Gene3                 14                 10                  6                  8
+Gene4                 10                 11                  9                  8
+Gene5                 10                 12                 10                  8
+Gene6                 15                  7                 10                  4
+      Condition2_Sample2 Condition2_Sample3 Condition2_Sample4 Condition2_Sample5
+Gene1                  9                 13                  9                 14
+Gene2                 13                  9                 15                 12
+Gene3                 11                 15                 11                 11
+Gene4                  7                  9                 10                  6
+Gene5                  7                  6                 17                 14
+Gene6                 20                 10                  6                 11
+```
+
+```
+sample_info
+                    condition
+Condition1_Sample1 Condition1
+Condition1_Sample2 Condition1
+Condition1_Sample3 Condition1
+Condition1_Sample4 Condition1
+Condition1_Sample5 Condition1
+Condition2_Sample1 Condition2
+Condition2_Sample2 Condition2
+Condition2_Sample3 Condition2
+Condition2_Sample4 Condition2
+Condition2_Sample5 Condition2
+```
+
+```{r}
+count_data  <- as.matrix(cbind(df$abundanceS13,
+                               df$abundanceS14,
+                               df$abundanceS19,
+                               df$abundanceS20,
+                               df$abundanceS21))
+
+
+colnames(count_data) <- c("Source-13", "Source-14", "Selected-19", "Selected-20", "Selected-21")
+
+count_data <- as.matrix(apply(count_data, 2, as.numeric))
+
+row.names(count_data) <- df$median_CDR3
+
+
+#sapply(count_data, as.numeric)
+#class(count_data) <- "numeric"
+```
+
+```{r}
+num_samples_per_condition <- 1
+
+# Create sample information data frame
+sample_info <- data.frame(
+  condition = factor(rep(c("Source", "Source", "Selected", "Selected", "Selected"), each = num_samples_per_condition)),
+  row.names = colnames(count_data)
+)
+```
+
+## Modeling
+
+```{r}
+# Create DESeqDataSet object
+dds <- DESeqDataSetFromMatrix(countData = count_data, 
+                              colData = sample_info, 
+                              design = ~ condition)
+
+# Perform differential expression analysis
+dds <- DESeq(dds)
+```
+
+```{r}
+# Get differential expression results
+res <- results(dds)
+
+# Show the top differentially expressed genes
+top_genes <- head(res[order(res$padj), ], 100)
+```
+
+## Visualization
+
+
+```{r}
+# Install and load necessary packages if not already installed
+library(gplots)
+
+# Extract normalized counts from DESeqDataSet object
+normalized_counts <- counts(dds, normalized = TRUE)
+
+# Subset normalized counts to include only the top differentially expressed genes
+top_genes_ids <- rownames(top_genes)
+normalized_counts_top <- normalized_counts[top_genes_ids, ]
+
+# Create a heatmap
+heatmap.2(as.matrix(normalized_counts_top), 
+          scale = "row",  # Scale rows to z-scores
+          trace = "none", # Remove grid lines
+          margins = c(10, 15), # Increase margins for row and column dendrogram
+          main = "Heatmap of Top Differentially Expressed Antibodies",
+          Colv = FALSE, # Do not cluster columns
+          dendrogram = "row", # Add row dendrogram
+          key = TRUE, keysize = 0.85, key.title = "Z-score",
+          density.info = "none", # Do not show density plot
+          cexRow = 0.8, cexCol = 0.8, labRow = FALSE)#, # Adjust font size
+          #labRow = paste0(1:nrow(top_genes),' ', rownames(top_genes))) # Do not show row labels
+
+```
+
+
+
+```{r}
+res <- res[order(res$log2FoldChange, decreasing = T),]
+
+write.csv(res, file = "~/Downloads/Expression-Analysis-S13-S13-vs-S19-S20-S21.csv")
+
+tmp <- as.data.frame(na.omit(res))
+
+top_genes <- tmp[tmp$pvalue <= 0.05,]
+
+write.csv(top_genes, file = "~/Downloads/Shortlist-Expression-Analysis-S13-S13-vs-S19-S20-S21.csv")
+```
+
+
+
+
+```{r}
+plotMA(res)#, ylim=c(-0.00001,0.00001))
+```
+
+```{r}
+library(pheatmap)
+
+# select the 20 most differentially expressed genes
+#orderedRes <- res[order(res$padj, decreasing = F),]
+
+## ###
+## Omit NA values
+## ###
+
+#test <- na.omit(res)
+sig_res <- res
+orderedRes <- na.omit(sig_res)
+orderedRes <- orderedRes[order(orderedRes$padj, decreasing = F),]
+orderedRes <- orderedRes[orderedRes$pvalue < 0.05,]
+orderedRes <- orderedRes[1:50,]
+
+##
+select <- row.names(orderedRes[1:50, ])
+
+# transform the counts to log10
+log10_normCounts <- log10(normalized_counts + 1)
+
+# get the values for the selected genes
+values <- log10_normCounts[ select, ]
+
+#par(family = "Courier")
+
+pheatmap(values,
+         main = "CDR3 Family Enrichment by p-value (lowest p-value on top, adjusted for multiple hypotheses)\n Scale colors and labels refers to normalized counts (Red Hot, Blue Cold).",
+         #font = "Courier",
+         scale = "none", 
+         cluster_rows = FALSE, 
+         cluster_cols = FALSE,
+         fontsize_row = 8,
+         annotation_names_col = FALSE,
+         gaps_col = c(2),
+         display_numbers = TRUE,
+         number_format = "%.2f",         
+         height=12,
+         width=6)
+```
+

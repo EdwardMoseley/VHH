@@ -1,0 +1,24 @@
+---
+title: "Failed-Sequences"
+output: html_document
+date: "2024-04-22"
+---
+
+## Load Data
+
+```{r}
+# Imports
+source("~/VHH/lib/utilities.R")
+suppressPackageStartupMessages(library(ggseqlogo))
+suppressPackageStartupMessages(library(stringdist))
+
+dat <- read.csv("~/Downloads/VHH-DNA-Queries14Apr24_db.csv", header = T,stringsAsFactors = F)
+```
+
+```{r}
+dat$VHH <- fixed_translate_DNA(dat$sequence_alignment)
+```
+
+```{r}
+write.csv(dat, file = "~/Downloads/VHH-DNA-Queries22Apr24.csv", row.names = F)
+```

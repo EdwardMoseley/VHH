@@ -1,0 +1,790 @@
+---
+title: "[VHH]-Cluster-Analysis-Pilot"
+output: html_document
+date: "2024-03-08"
+---
+
+We are interested in querying: `YADWGLYGDFDDY` within `13_VecF1_R2_S13`, `14_VecF1_R2_S14`, and `15_VecF3_R2_S15`, `16_VecF4_R2_S16`, and `19_VecF1_R3_S19`, `20_VecF2_R3_S20`, `21_VecF4_R3_S21`.
+
+#### Imports
+
+```{r}
+# Load utilities
+source("~/VHH/lib/utilities.R")
+```
+
+## List Files
+
+```{r}
+root_dir <- "~/VHH/data/Cluster-DBs/clean_results/"
+files <- list.files(root_dir)
+print(files)
+```
+
+```{r}
+#test <- files[grepl(".csv", files)]
+
+#files <- files[!(gsub(".tsv|.csv",'', files) %in% gsub(".tsv|.csv",'', test))]
+
+#for (f in files){
+#  tmp <- read.csv(paste(root_dir, f, sep = ''), header = T, stringsAsFactors = F, sep = '\t')
+#  write.csv(tmp, file = paste(root_dir, gsub(".tsv", ".csv", f), sep = ''), row.names = F)
+#}
+```
+
+
+
+
+
+
+### Query Sequence and error tolerance
+
+```{r}
+df <- read.csv("~/VHH/data/Cluster-DBs/results/V600-Cluster-DB26Feb24.csv",
+               header = T, stringsAsFactors = F)
+
+query_seq <- "YADWGLYGDFDDY"
+rate <- 0.4
+```
+
+### Iterate over files, querying
+
+```{r}
+results <- data.frame()
+
+for (f in files){
+  cat("Loading:", f, '\n')
+  tmp <- read.csv(paste(root_dir, f, sep = ''), 
+                  header = T, stringsAsFactors = F, sep = '\t')
+  # Tag it
+  tmp$f <- rep(f, each = nrow(tmp))
+  # Elevator music
+  cat("Querying for:", query_seq, '\n')
+  # Pre-process loaded data
+  tmp$junction_aa <- trim_CDR3(tmp$junction_aa)
+  # Store the resulting distances
+  tmp$query_dist <- as.vector(adist(query_seq, tmp$junction_aa))
+  # Convert distance to homology
+  tmp$homology <- 1 - (tmp$query_dist/nchar(query_seq))
+  # Demand homology and sequence length
+  # tmp_frame 
+  tmp_frame <- tmp[tmp$homology >= rate,]
+  # Demand identical sequence length
+  tmp_frame <- tmp_frame[nchar(tmp_frame$consensus_sequence) == nchar(query_seq),]
+  # rbind results
+  results <- rbind(results, tmp_frame)
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Load Data
+
+```{r}
+df <- read.csv("~/VHH/data/Cluster-DBs/results/V600-Cluster-DB26Feb24.csv",
+               header = T, stringsAsFactors = F)
+```
+
+### Query Aggregate Databases
+
+First, we parallelize the computations.
+
+```{r}
+library(parallel)
+
+# Set the number of cores to use in parallel
+num_cores <- detectCores()
+
+# Define Query Sequence id
+query_seq <- "YADWGLYGDFDDY"
+
+# Perform parallel computation of Levenshtein distances
+cl <- makeCluster(num_cores)
+clusterExport(cl, c("query_seq", "df"))
+distances <- parSapply(cl, df$consensus_sequence, calculate_levenshtein, query_seq)
+stopCluster(cl)
+
+# Store the resulting distances
+df$query_dist <- distances
+
+# Percent similarity
+df$percent_sim <- 1 - (distances/nchar(query_seq))
+```
+
+### Iterate over percent cutoffs, merging data
+
+**We are interested in YADWGLYGDFDDY, at 50% of homology.**
+
+```
+f_vals <- c("13_VecF1_R2_S13_min_threshold_clone-pass.tsv",
+            "14_VecF1_R2_S14_min_threshold_clone-pass.tsv",
+            "15_VecF3_R2_S15_min_threshold_clone-pass.tsv",
+            "16_VecF4_R2_S16_min_threshold_clone-pass.tsv",
+            "19_VecF1_R3_S19_min_threshold_clone-pass.tsv",
+            "20_VecF2_R3_S20_min_threshold_clone-pass.tsv",
+            "21_VecF4_R3_S21_min_threshold_clone-pass.tsv")
+```
+
+```{r}
+error_tolerance <- 0.5#seq(1, 0.1, -0.1)
+
+res_frame <- data.frame()
+
+for (rate in error_tolerance){
+  # Subset based on similarity
+  tmp_frame <- df[df$percent_sim >= rate,]
+  # Demand identical lengths
+  tmp_frame <- tmp_frame[nchar(tmp_frame$consensus_sequence) == nchar(query_seq),]
+  # Store cutoff value
+  tmp_frame$cutoff <- rep(rate, each = nrow(tmp_frame))
+  res_frame <- rbind(res_frame, tmp_frame)
+}
+
+# Drop any runs we are not interested in
+res_frame <- res_frame[(res_frame$f %in% f_vals),]
+
+res_frame <- res_frame[order(res_frame$cutoff, res_frame$percent_sim, decreasing = T),]
+```
+
+## Load Data, Align Sequences, etc.
+
+Now that we have subset clones within some % homology, we will load all clonal families and, for each, we will create:
+
+1. Sequence Alignments **Bonus: order by similarity to consensus**
+
+2. Logo Plots
+
+```
+data_dir <- "~/VHH/data/Cluster-DBs"
+res_dir <- "~/VHH/data/Cluster-DBs/cluster_database"
+
+files <- list.files(data_dir)[grepl(".tsv", list.files(data_dir))]
+```
+
+
+```{r}
+root_dir <- "~/VHH/data/Cluster-DBs/clean_results/"
+
+results <- data.frame()
+
+# Iterate over files
+for (file_name in unique(res_frame$f)){
+  # Load the VHH database
+  tmp <- read.csv(paste(root_dir, file_name, sep = ''), sep = '\t', header = T, stringsAsFactors = F)
+  
+  # iterate over thresholds
+  for (threshold in unique(res_frame$cutoff)){
+    tmp_frame <- res_frame[res_frame$f == file_name & res_frame$cutoff == threshold,
+                           c("f", "consensus_sequence", "cluster_id", "cutoff")]
+    colnames(tmp_frame) <- c("f", "consensus_sequence", "clone_id", "cutoff")
+    
+    # Pull all clones by merging
+    tmp_frame <- merge(tmp, tmp_frame, by = "clone_id")
+    # Dist nearest isn't defined on all
+    tmp_frame$dist_nearest <- NULL
+    print(file_name)
+    print(colnames(tmp_frame))
+    # Bind results
+    results <- rbind(results, tmp_frame)
+  }
+  
+  # Subset only clones of interest
+}
+```
+
+## Cleanup for Presentation
+
+1. Trim CDR3s
+
+2. Translate VHHs
+
+3. Drop unproductive sequences
+
+```{r}
+results$junction_aa <- trim_CDR3(results$junction_aa)
+
+distances <- as.vector(adist(results$junction_aa, query_seq))
+
+# Store the resulting distances
+#results$query_dist <- distances
+
+# Percent similarity
+results$percent_sim_to_query <- 1 - (distances/nchar(query_seq))
+
+# VHHs
+results$VHH <- translate_DNA(results$sequence_alignment)
+
+# take passes, drop fails
+fails <- results[which(grepl("\\*", results$VHH, fixed = F)),]
+nrow(fails)
+pass <- results[which(!grepl("\\*", results$VHH, fixed = F)),]
+nrow(pass)
+
+## Drop the first 10 amino acids
+pass$VHH <- substr(pass$VHH, 11, nchar(pass$VHH))
+```
+
+## Align and Order by cutoff, and save
+
+```{r}
+res_out <- list()
+counter <- 1
+
+for (threshold in unique(pass$cutoff)){
+  tmp_frame <- pass[pass$cutoff == threshold,]
+  sequences <- Biostrings::AAStringSet(tmp_frame$VHH)
+  # Perform multiple sequence alignment
+  msa_result <- msa::msa(sequences, method = "ClustalOmega", order = "input")
+  # Store aligned results
+  tmp_frame$Aligned_VHHs <- as.character(msa_result@unmasked)
+  res_out[[counter]] <- tmp_frame
+  counter <- counter + 1
+}
+```
+
+
+```{r}
+for (i in 1:length(res_out)){
+  tmp_frame <- res_out[[i]]
+  tmp_frame$query_seq <- rep(query_seq, each = nrow(tmp_frame))
+  tmp_frame <- tmp_frame[,c("f", 
+                "sequence_id",
+                "duplicate_count",
+                "clone_id",
+                "v_call",
+                "d_call",
+                "j_call",
+                "junction_aa",
+                "consensus_sequence",
+                "query_seq",
+                "percent_sim_to_query",
+                "cutoff",
+                "Aligned_VHHs")]
+  
+  # Gsub spaces
+  tmp_frame$Aligned_VHHs <- gsub("-", " ", tmp_frame$Aligned_VHHs)
+  
+  # write.csv(tmp_frame, file = paste("~/Downloads/Consensus-Query-", query_seq, "-Threshold-", tmp_frame$cutoff[1], '-08Mar24.csv', sep = ''), row.names = F)
+}
+```
+
+
+---
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+---
+
+
+
+Sequences of interest include clones from with >= 50% homology to: `RLLSVTNPKGIY`, from Illumina run: `19_VecF1_R3_S19`.
+
+Strategy: identify all `clone_id`s with consensus sequences within 50% homology of `RLLSVTNPKGIY`.
+
+Present data:
+
+1. Name of clone
+
+2. DB source
+
+3. sequence
+
+4. sequence alignment
+
+5. Percent homology to consensus
+
+# Demand same length!
+
+## Cluster Database Queries
+
+### Query Clonal Databases
+
+Load `df` as the derived consensus sequence database.
+
+```{r}
+library(airr)
+library(shazam)
+library(ggtree)
+
+df <- read.csv("~/VHH/data/Cluster-DBs/results/V600-Cluster-DB26Feb24.csv",
+               header = T, stringsAsFactors = F)
+```
+
+### Query Clonal Consensus Sequences
+
+We will query the aggregate clonal database for consensus sequences with close matches.
+
+```{r}
+# Specify query sequence
+query_seq <- "YADWGLYGDFDDY"
+
+# Store the resulting distances
+df$query_dist <- as.vector(adist(query_seq, df$consensus_sequence))
+
+df$percent_sim <- 1 - (df$query_dist/nchar(query_seq))
+
+rate <- 0.6
+
+# tmp_frame 
+tmp_frame <- df[df$percent_sim >= rate,]
+
+# Demand identical sequence length
+tmp_frame <- tmp_frame[nchar(tmp_frame$consensus_sequence) == nchar(query_seq),]
+```
+
+Now that we have the clones whose consensus sequences is within 50% of the consensus of our query sequence, we can load the data from the databases (Illumina Runs), and begin to hierarchically cluster from there.
+
+## Pull Identified Clonal Groups
+
+```{r}
+root_dir <- "~/VHH/data/Cluster-DBs/clean_results/"
+
+results <- data.frame()
+
+failed_res <- list()
+counter <- 1
+
+for (f in unique(tmp_frame$f)){
+  tmp <- tmp_frame[tmp_frame$f == f,]
+  # Pull observations from the database itself
+  db <- read_rearrangement(paste(root_dir, f, sep = ''))
+  # Subset clones of interest (specific to the file)
+  db <- db[db$clone_id %in% tmp$cluster_id,]
+  # Keep file name
+  db$f <- rep(f, each = nrow(db))
+  print(f)
+  print(head(db))
+  if (ncol(db) == 55){
+      # rbind data to results
+      results <- rbind(results, db)
+  } else {
+    cat("The following database may be missing dist_nearest values:\n")
+    cat(f, '\n')
+    #failed_res[[counter]] <- db
+    #counter <- counter + 1
+    db <- distToNearest(db, model = "ham", normalize = "len", 
+                      vCallColumn = "v_call", 
+                      jCallColumn = "j_call",
+                      nproc = 4)
+    results <- rbind(results, db)
+  }
+
+}
+
+results$junction_aa <- trim_CDR3(results$junction_aa)
+```
+
+
+## Calculate file, clone-level statistics
+
+First, paste run_id to clone_id for disambiguation
+
+```{r}
+results$f <- gsub("_min_threshold_clone-pass.tsv", '', results$f)
+
+results$clone_id <- paste(results$f, '-', results$clone_id, sep = '')
+
+```
+
+Like below
+
+
+```{r}
+dat <- results
+
+tmp_res <- data.frame()
+
+for (nm in unique(results$clone_id)){
+  # Subset the clones of interest
+  tmp_frame <- dat[dat$clone_id == nm,]
+  # Pull cluster id
+  cluster_id <- nm
+  ## Note: here we need to ensure that we account for the 
+  # Duplicate count
+  unrolled_CDR3s <- unroll_dupes_fast(tmp_frame, "junction_aa")
+  
+  # Make consensus sequence
+  consensus_sequence <- strict_consensus(unrolled_CDR3s)
+  
+  # Calculate entropy
+  CDR3_entropy <- string_entropy(unrolled_CDR3s)
+  
+  # Sum duplicate count for the number of TOTAL DNA seqs
+  Dup_count <- sum(tmp_frame$duplicate_count)
+  # Unique DNA sequences
+  DNA_seqs_in_cluster <- length(unique(tmp_frame$sequence))
+  # Unique CDR3s
+  CDR3s_in_cluster <- length(unique(tmp_frame$junction_aa))
+  
+  # Bind results
+  tmp_res <- rbind(tmp_res, cbind(f,
+                                  cluster_id,
+                                  consensus_sequence,
+                                  Dup_count,
+                                  DNA_seqs_in_cluster,
+                                  CDR3s_in_cluster,
+                                  CDR3_entropy))
+
+}
+
+# f is meaningless here
+tmp_res$f <- NULL
+
+tmp_res$clone_id <- gsub("^[^-]*-", "", tmp_res$cluster_id)
+tmp_res$f <-  gsub("-.*$", "", tmp_res$cluster_id)
+
+rm(db, tmp_frame)
+```
+
+Write summary
+
+```{r}
+write.csv(tmp_res, file = "~/Downloads/YADWGLYGDFDDY-Clonal-family-summary-stats-CDR3-17Mar24.csv", row.names = F)
+```
+
+Now we iterate over every `f` and `clone_id`, pulling all VHHs associated with them.
+
+```{r}
+tmp <- as.data.frame(results)
+```
+
+### Draw all VHH's/CDR3s, Cluster with MMseqs2
+
+## Load MMseqs2 90% Homology Results
+
+Create table with summary statistics as above, but aggregate to the MMseqs2 clonal family level.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Load Germline Sequences
+
+```{r}
+# Read in IMGT-gapped sequences
+references <- readIMGT(dir = "/Users/emoseley/Desktop/Tufts/Cowen Lab/alpaca/rawseqdata/igblast/vdj")
+
+# Reconstruct germline sequences
+results <- createGermlines(results, references, nproc=4)
+```
+
+## Format Clones
+
+Before trees can be built, data must be formatted into a data table of AIRR clone objects. This is accomplished using the formatClones function. This function will:
+
+1. Change non-nucleotide characters to N characters.
+
+2. By default, collapse sequences that are either identical or differ only by ambiguous characters.
+
+3. Sequences will not be collapsed if they differ by columns specified in the traits option, or if the `collapse` option is set to `FALSE`.
+
+4. Include data columns specified by num_fields or text_fields.
+
+5. Remove uninformative sequence sites in which all sequences have N characters.
+
+```{r}
+# Process example data keeping samples from different times
+# distinct, adding duplicate_count among collapsed sequences,
+# and show the sample_id within each clone in the tibble.
+clones <- formatClones(results, traits=c("junction_aa"),
+    # num_fields=c("duplicate_count"), 
+    columns=c("f"))
+
+print(clones)
+```
+
+
+```{r}
+# Add tree info
+clones <- getTrees(clones, nproc=4)
+```
+
+
+## Plot Trees
+
+```{r}
+plots = plotTrees(clones, 
+                  #tips = "junction_aa", 
+                  #tips = "v_call",
+                  #tips = "locus",
+                  tipsize = "seqs", 
+                  scale = 0.01)
+```
+
+Change plot names
+
+```{r}
+for (i in 1:length(plots)){
+  plots[[i]]$labels$title <- paste("Run: S", 
+                                   gsub("_.*", '',
+                                        clones$f[i]), 
+                                   ", Clone ID: ", 
+                                   clones$clone_id[i], 
+                                   ' --- ',
+                                   "Consensus: ", df[df$cluster_id == clones$clone_id[i] & df$f == clones$f[i],]$consensus_sequence,
+                                   sep = '')
+}
+```
+
+
+```{r}
+#Plot the largest tree
+#To plot second largest tree, use plots[[2]], and so on
+#plots[[1]]#Plot the largest tree
+treeplot  <- plots[[9]] + ggtree::geom_tiplab(aes(label=junction_aa)) + 
+    #geom_vline(xintercept=c(0.05,0.1,0.15,0.2,0.25),
+    #    linetype="dashed",color="grey") + xlim(0,0.3) +
+  #  ggtitle("Example B cell tree") + 
+  xlim(0, 2)
+
+print(treeplot)
+```
+
+```{r}
+treesToPDF(plots, file="trees06Mar24.pdf", nrow=1, ncol=1)
+```
+
+## Do again, but drop duplicate CDR3s
+
+
+```{r}
+results <- results[!duplicated(results$junction_aa),]
+# Process example data keeping samples from different times
+# distinct, adding duplicate_count among collapsed sequences,
+# and show the sample_id within each clone in the tibble.
+clones <- formatClones(results, traits=c("junction_aa"),
+    # num_fields=c("duplicate_count"), 
+    columns=c("f"))
+
+print(clones)
+```
+
+
+```{r}
+# Add tree info
+clones <- getTrees(clones, nproc=4)
+```
+
+
+## Plot Trees
+
+```{r}
+plots = plotTrees(clones, 
+                  #tips = "junction_aa", 
+                  #tips = "v_call",
+                  #tips = "locus",
+                  tipsize = "seqs", 
+                  scale = 0.01)
+```
+
+Change plot names
+
+```{r}
+for (i in 1:length(plots)){
+  plots[[i]]$labels$title <- paste("Run: S", 
+                                   gsub("_.*", '',
+                                        clones$f[i]), 
+                                   ", Clone ID: ", 
+                                   clones$clone_id[i], 
+                                   ' --- ',
+                                   "Consensus: ", df[df$cluster_id == clones$clone_id[i] & df$f == clones$f[i],]$consensus_sequence,
+                                   sep = '')
+}
+```
+
+
+```{r}
+#Plot the largest tree
+#To plot second largest tree, use plots[[2]], and so on
+#plots[[1]]#Plot the largest tree
+treeplot  <- plots[[3]] + ggtree::geom_tiplab(aes(label=junction_aa)) + 
+    #geom_vline(xintercept=c(0.05,0.1,0.15,0.2,0.25),
+    #    linetype="dashed",color="grey") + xlim(0,0.3) +
+  #  ggtitle("Example B cell tree") + 
+  xlim(0, 2)
+
+print(treeplot)
+```
+
+```{r}
+treesToPDF(plots, file="trees-no-repeats-06Mar24.pdf", nrow=1, ncol=1)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Clonal Consensus Cluster Dendrograms (Non-Hierarchical)
+
+35in seems to work for width with portrait orientation
+
+Note: Complete Linkage: Merges clusters based on the maximum pairwise dissimilarity.
+
+```{r}
+# Install and load necessary packages
+#install.packages("stringdist")
+library(stringdist)
+
+strings <- df[df$f == "19_VecF1_R3_S19_min_threshold_clone-pass.tsv",]$consensus_sequence
+
+strings <- strings[!duplicated(strings)]
+
+# strings <- strings[nchar(strings) < 20]
+
+# Compute the distance matrix using Jaccard distance
+dist_matrix <- stringdistmatrix(strings, method = "jaccard")
+
+# Perform hierarchical clustering
+cluster_tree <- hclust(as.dist(dist_matrix), method = "complete")
+
+# Plot the dendrogram with labels
+plot(cluster_tree, main = "Cluster Dendrogram of 19_VecF1_R3_S19\nDistance Metric: Jaccard Similarity", xlab = "Clonal Family Consensus CDR3s", sub = NULL, labels = strings, ylab = "Distance (Jaccard Similarity)")
+```
+
+
+
+```{r}
+# Install and load necessary packages
+#install.packages("stringdist")
+library(stringdist)
+
+# Sample character strings
+# strings <- c("apple", "appla", "orange", "banana", "appld", "orqnge", "banxna")
+strings <- df[df$f == "19_VecF1_R3_S19_min_threshold_clone-pass.tsv",]$consensus_sequence
+
+strings <- strings[!duplicated(strings)]
+
+# strings <- strings[nchar(strings) < 20]
+
+# Compute the distance matrix using Jaccard distance
+dist_matrix <- stringdistmatrix(strings, method = "lv")
+
+# Perform hierarchical clustering
+cluster_tree <- hclust(as.dist(dist_matrix), method = "complete")
+
+# Plot the dendrogram with labels
+plot(cluster_tree, main = "Cluster Dendrogram of 19_VecF1_R3_S19\nDistance Metric: Levenshtein", xlab = "Clonal Family Consensus CDR3s", sub = NULL, labels = strings, ylab = "Distance (Levenshtein)")
+```

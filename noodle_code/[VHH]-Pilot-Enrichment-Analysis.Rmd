@@ -1,0 +1,180 @@
+---
+title: "[VHH]-Pilot-Enrichment-Analysis"
+output: html_document
+date: "2024-04-23"
+---
+
+## Load Databases (DNA-based)
+
+### Display Libraries
+
+* S13 - Marvel/Mikka VHH display library (XLI-2) (repeat 1) – VHH-VecF1 in combination with VHH-VecR2 (VecF1/R2)
+
+* S14 - Marvel/Mikka VHH display library (XLI-2) (repeat 2) – VHH-VecF2 in combination with VHH-VecR2 (VecF2/R2)
+
+### (De-)Enriched Databases
+
+* S17 - XLI-2 library panned twice on coated **SmAP** – VHH-VecF3 in combination with VHH-VecR3 (VecF3/R3)
+
+* S18 - XLI-2 library panned twice on coated **SmAC2** – VHH-VecF3 in combination with VHH-VecR4 (VecF3/R4)
+
+* S20 - XLI-2 library panned twice on coated **SmPDE** – VHH-VecF2 in combination with VHH-VecR3 (VecF2/R3), standard 10 ng of vector template
+
+* S22 - XLI-2 library panned twice on coated **SmCA** – VHH-VecF4 in combination with VHH-VecR4 (VecF4/R4)
+
+```{r}
+root_dir <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/"
+
+files <- list()
+
+# Populate files
+
+files[["S13"]]<- "13_VecF1_R2_S13_min_threshold_clone-pass.csv"
+files[["S14"]] <- "14_VecF1_R2_S14_min_threshold_clone-pass.csv"
+
+files[["S17"]] <- "17_VecF3_R3_S17_min_threshold_clone-pass.csv"
+files[["S18"]] <- "18_VecF3_R4_S18_min_threshold_clone-pass.csv"
+
+files[["S20"]] <- "20_VecF2_R3_S20_min_threshold_clone-pass.csv"
+files[["S22"]] <- "22_VecF4_R4_S22_min_threshold_clone-pass.csv"
+
+for (nm in names(files)){
+  files[[nm]] <- read.csv(paste(root_dir, files[[nm]], sep = ''), header = T, stringsAsFactors = F)
+}
+```
+
+### Notes:
+
+1.`Differential abundance analysis`: This involves comparing the abundance of antibody sequences (clones) between different conditions or sequencing runs. You can use statistical tests like the Wilcoxon rank-sum test or edgeR to identify significantly enriched or depleted antibodies.
+
+2. `Fold change analysis`: Calculate the fold change in abundance of each antibody sequence between two conditions or sequencing runs. Antibodies with a large fold change in abundance are likely to be enriched or depleted.
+
+3. `Relative abundance analysis`: Compare the relative abundance of antibody sequences in different conditions. This can involve calculating the proportion of each antibody sequence in the total repertoire and comparing these proportions between conditions.
+
+4. `Entropy-based measures`: Calculate diversity measures such as Shannon entropy or Simpson diversity index for each sequencing run, and compare them to identify differences in repertoire diversity that may indicate enrichment or depletion of specific antibodies.
+
+Before performing any analysis, it's essential to preprocess the sequencing data, including filtering for quality, removing PCR duplicates, and clustering similar antibody sequences into clones.
+
+####: Idea
+
+Perform A/B testing between `{13, 14}` and `{17, 18, 20, 22}`.
+
+We will do this for the top-5 (or top decile?) most abundant clones found in each selected database.
+
+**Idea:** Linear regression on % abundance with the clonal family MAV CDR3 and S13, S13, S17, S18, S20, S22 as the independent variables to solve for beta coefficients?
+
+**Idea:** Do the same thing, but with information entropy as a measure of variability of clonal families with the same MAV CDR3?
+
+
+```
+dat$perc_abundance <- dat$duplicate_count/sum(dat$duplicate_count)*100
+```
+
+## Analyze abundances
+
+Subset data.
+
+```{r}
+dat <- files[["S13"]]
+
+dat$perc_abundance <- dat$duplicate_count/sum(dat$duplicate_count)*100
+```
+
+### Aggregate to Clone Level
+
+```{r}
+results <- data.frame()
+for (nm in names(files)){
+  tmp <- files[[nm]]
+  
+  tmp$perc_abundance <- tmp$duplicate_count/sum(tmp$duplicate_count)*100
+  tmp$group <- rep(nm, each = nrow(tmp))
+  
+  tmp$dist_nearest <- NULL
+  
+  results <- rbind(results, tmp)
+}
+
+dat <- results
+
+rm(files, results, tmp)
+```
+
+### Look at Top Sequences, and find them again
+
+Pull most abundance sequence (from an enriched library).
+
+```{r}
+tmp <- dat[which.max(dat$duplicate_count),]
+```
+
+Are there more sequences?
+
+```{r}
+test <- dat[dat$sequence_alignment == tmp$sequence_alignment,]
+# 80 matches
+
+test_two <- dat[dat$sequence == tmp$sequence,]
+# 4 matches
+```
+
+
+```{r}
+tmp <- dat[dat$duplicate_count == 573,]
+
+test <- dat[dat$sequence_alignment == tmp$sequence_alignment,]
+# 14 matches
+
+test_two <- dat[dat$sequence == tmp$sequence,]
+# 3 matches
+```
+
+
+### Look at Top Clonal Family and Find them again
+
+
+
+
+
+## Regression
+
+```{r}
+tmp <- dat[which.max(dat$duplicate_count),]
+tmp <- dat[dat$sequence_alignment == tmp$sequence_alignment,]
+tmp <- tmp[,c("duplicate_count", "clone_id", "group")]
+tmp <- rbind(tmp, c(0, 0, "S19"))
+tmp <- rbind(tmp, c(0, 0, "S21"))
+tmp$duplicate_count <- as.numeric(tmp$duplicate_count)
+tmp$group <- as.factor(tmp$group)
+```
+
+
+```{r}
+tmp <- dat[dat$duplicate_count == 573,]
+tmp <- dat[dat$sequence_alignment == tmp$sequence_alignment,]
+tmp <- tmp[,c("junction_aa","duplicate_count", "clone_id", "group")]
+
+tmp <- rbind(tmp, c(tmp$junction_aa[1],0, 0, "S17"))
+tmp <- rbind(tmp, c(tmp$junction_aa[1],0, 0, "S18"))
+tmp <- rbind(tmp, c(tmp$junction_aa[1],0, 0, "S19"))
+tmp <- rbind(tmp, c(tmp$junction_aa[1],0, 0, "S21"))
+tmp <- rbind(tmp, c(tmp$junction_aa[1],0, 0, "S22"))
+
+tmp$duplicate_count <- as.numeric(tmp$duplicate_count)
+tmp$group <- as.factor(tmp$group)
+
+# Clone: "AAAQTYRYSTRSADDFSD"
+
+m.poisson <- glm(duplicate_count ~ relevel(group, ref = "S13"),
+                 family = "poisson", data = tmp)
+
+summary(m.poisson)
+```
+
+
+
+---
+
+```{r}
+library("DESeq2")
+```
