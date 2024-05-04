@@ -11,6 +11,7 @@
 # Rscript CleanCluster-Pool.R 13_VecF1_R2_S13_min_threshold_clone-pass.csv
 # Rscript CleanCluster-Pool.R 14_VecF1_R2_S14_min_threshold_clone-pass.csv
 # Rscript CleanCluster-Pool.R 17_VecF3_R3_S17_min_threshold_clone-pass.csv
+# Rscript CleanCluster-Pool.R 18_VecF3_R4_S18_min_threshold_clone-pass.csv
 ## Last pass call:
 # Rscript CleanCluster-Pool.R 19_VecF1_R3_S19-rule-Pooled-Cleaning-Reclustering-Initial-Results-H90.csv 
 
