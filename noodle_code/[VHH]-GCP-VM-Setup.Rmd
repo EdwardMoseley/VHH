@@ -1,0 +1,113 @@
+---
+title: "[VHH]-GCP-VM-Setup"
+output: html_document
+date: "2024-05-06"
+---
+
+Virtual Machine: E2 16 vGPU 32gb RAM
+Boot Disk: Deep Learning
+
+## Install Brew
+
+Instructions from: [Brew Website](https://brew.sh/)
+
+```
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+After installation:
+
+```
+==> Next steps:
+- Run these two commands in your terminal to add Homebrew to your PATH:
+    (echo; echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"') >> /home/moseley_et/.bashrc
+    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+- Install Homebrew's dependencies if you have sudo access:
+    sudo apt-get install build-essential
+  For more information, see:
+    https://docs.brew.sh/Homebrew-on-Linux
+- We recommend that you install GCC:
+    brew install gcc
+- Run brew help to get started
+- Further documentation:
+    https://docs.brew.sh
+```
+
+## Install R
+
+```
+brew install r
+```
+
+## Install Github
+
+```
+brew install gh
+```
+
+## Install pRESTO/Changeo
+
+```
+pip3 install presto changeo --user
+```
+
+```
+ls .local/bin
+AlignRecords.py   BuildConsensus.py  ConvertDb.py        EstimateError.py  PairSeq.py       SplitSeq.py
+AlignSets.py      BuildTrees.py      ConvertHeaders.py   FilterSeq.py      ParseDb.py       UnifyHeaders.py
+AssemblePairs.py  ClusterSets.py     CreateGermlines.py  MakeDb.py         ParseHeaders.py  __pycache__
+AssignGenes.py    CollapseSeq.py     DefineClones.py     MaskPrimers.py    ParseLog.py      airr-tools
+```
+
+Note:
+
+```
+  WARNING: The script airr-tools is installed in '/home/moseley_et/.local/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+```
+
+## Install MMSeqs2 [FAILED]
+
+```
+brew install mmseqs2
+```
+
+Note: 
+
+```
+==> Caveats
+==> mmseqs2
+MMseqs2 requires at least SSE4.1 CPU instruction support.
+```
+
+## Storage Bucket Considerations
+
+Look in the bucket
+
+```
+gsutil ls gs://vhh-bucket
+```
+
+### Download Code/Data
+
+```
+gh auth login
+```
+
+```
+gh repo clone EdwardMoseley/VHH
+```
+
+```
+cd VHH
+mkdir data
+cd data
+mkdir Assembly
+mkdir tmp
+mkdir Assembled
+gsutil cp gs://vhh-bucket/* ~/VHH/data
+```
+
+## Running Program
+
+python3 .local/bin/AssemblePairs.py

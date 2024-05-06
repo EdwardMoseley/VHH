@@ -16,131 +16,23 @@ This notebook relies heavily on:
 
 5. [Exploring DESeq2 results: Wald test](https://hbctraining.github.io/DGE_workshop_salmon_online/lessons/05b_wald_test_results.html)
 
-## Dummy Data Set
 
-```{r}
-# Set seed for reproducibility
-set.seed(123)
-
-# Number of genes
-num_genes <- 1000
-
-# Number of samples per condition
-num_samples_per_condition <- 5
-
-# Total number of samples
-total_samples <- 2 * num_samples_per_condition
-
-# Generate synthetic count data
-count_data <- matrix(rpois(num_genes * total_samples, lambda = 10), 
-                     nrow = num_genes, 
-                     ncol = total_samples)
-
-# Add column names for sample annotation
-colnames(count_data) <- c(paste0("Condition1_Sample", 1:num_samples_per_condition),
-                          paste0("Condition2_Sample", 1:num_samples_per_condition))
-
-# Add row names for gene IDs
-rownames(count_data) <- paste0("Gene", 1:num_genes)
-
-# Show the first few rows of the count data
-head(count_data)
-```
-
-```{r}
-# Install and load DESeq2 package if not already installed
-if (!requireNamespace("DESeq2", quietly = TRUE)) {
-  install.packages("DESeq2")
-}
-
-# Create sample information data frame
-sample_info <- data.frame(
-  condition = factor(rep(c("Condition1", "Condition2"), each = num_samples_per_condition)),
-  row.names = colnames(count_data)
-)
-```
-
-```{r}
-library(DESeq2)
-
-# Create DESeqDataSet object
-dds <- DESeqDataSetFromMatrix(countData = count_data, 
-                              colData = sample_info, 
-                              design = ~ condition)
-
-# Perform differential expression analysis
-dds <- DESeq(dds)
-
-# Get differential expression results
-res <- results(dds)
-
-# Show the top differentially expressed genes
-top_genes <- head(res[order(res$padj), ], 10)
-top_genes
-```
-
-```{r}
-# Install and load necessary packages if not already installed
-if (!requireNamespace("gplots", quietly = TRUE)) {
-  install.packages("gplots")
-}
-library(gplots)
-
-# Extract normalized counts from DESeqDataSet object
-normalized_counts <- counts(dds, normalized = TRUE)
-
-# Subset normalized counts to include only the top differentially expressed genes
-top_genes_ids <- rownames(top_genes)
-normalized_counts_top <- normalized_counts[top_genes_ids, ]
-
-# Create a heatmap
-heatmap.2(as.matrix(normalized_counts_top), 
-          scale = "row",  # Scale rows to z-scores
-          trace = "none", # Remove grid lines
-          margins = c(10, 15), # Increase margins for row and column dendrogram
-          main = "Heatmap of Top Differentially Expressed Genes",
-          Colv = FALSE, # Do not cluster columns
-          dendrogram = "row", # Add row dendrogram
-          key = TRUE, keysize = 0.85, key.title = "Z-score",
-          density.info = "none", # Do not show density plot
-          cexRow = 0.8, cexCol = 0.8, # Adjust font size
-          labRow = FALSE) # Do not show row labels
+**To query (with insertions/deletions weighted heavily):**
 
 ```
+# tmp is merged abundance values
 
-```
-> head(count_data)
-      Condition1_Sample1 Condition1_Sample2 Condition1_Sample3 Condition1_Sample4
-Gene1                  8                  9                 12                 12
-Gene2                  9                 12                  9                  9
-Gene3                 14                 10                  6                  8
-Gene4                 10                 11                  9                  8
-Gene5                 10                 12                 10                  8
-Gene6                 15                  7                 10                  4
-      Condition2_Sample2 Condition2_Sample3 Condition2_Sample4 Condition2_Sample5
-Gene1                  9                 13                  9                 14
-Gene2                 13                  9                 15                 12
-Gene3                 11                 15                 11                 11
-Gene4                  7                  9                 10                  6
-Gene5                  7                  6                 17                 14
-Gene6                 20                 10                  6                 11
-```
+test <- stringdist::stringdist("NADSRDLTGDWDGMDY", tmp$median_CDR3, method = "lv", weight = c(0.99, 
+                                                                                              0.99, 
+                                                                                              0.01, 
+                                                                                              0.01))
 
-```
-sample_info
-                    condition
-Condition1_Sample1 Condition1
-Condition1_Sample2 Condition1
-Condition1_Sample3 Condition1
-Condition1_Sample4 Condition1
-Condition1_Sample5 Condition1
-Condition2_Sample1 Condition2
-Condition2_Sample2 Condition2
-Condition2_Sample3 Condition2
-Condition2_Sample4 Condition2
-Condition2_Sample5 Condition2
-```
 
+tmp[which.min(test),]
+
+          median_CDR3 abundanceS13 abundanceS14 abundanceS17 abundanceS18 abundanceS22 abundanceS19 abundanceS20 abundanceS21
+5025 KADSREGLSQRDEKDY            3            3            0            0            0            0            0            0
+```
 
 
 ## Real Data
@@ -173,6 +65,12 @@ files[["S13"]] <- "13_VecF1_R2_S13-Cleaned19Apr24.csv"
 files[["S14"]] <- "14_VecF1_R2_S14-Cleaned19Apr24.csv"
 
 files[["S17"]] <- "17_VecF3_R3_S17-Cleaned19Apr24.csv"
+
+## Added May 4th
+files[["S18"]] <- "18_VecF3_R4_S18-Cleaned19Apr24.csv"
+files[["S22"]] <- "22_VecF4_R4_S22-Cleaned19Apr24.csv"
+## Ended added point
+
 files[["S19"]] <- "19_VecF1_R3_S19-Cleaned19Apr24.csv"
 files[["S20"]] <- "20_VecF2_R3_S20-Cleaned19Apr24.csv"
 files[["S21"]] <- "21_VecF4_R3_S21-Cleaned19Apr24.csv" 
@@ -280,26 +178,10 @@ test[which.max(test$abundanceS13),]
 6906 NAPRLITTDTTPLLDRMLEV         1009         <NA>
 ```
 
-```{r}
-tmp <- merge(dfs[["S13"]], dfs[["S14"]], by = "median_CDR3", all.x = T, suffixes = c("S13", "S14"))
-
-for (i in 3:length(names(dfs))){
-  tmp <- merge(tmp, dfs[[i]], all.x = T, by = "median_CDR3", suffixes = c(names(dfs)[i-1], names(dfs)[i]))
-}
-```
-
 ## Simplified merge routine
 
 
 ```{r}
-tmp <- merge(dfs[["S13"]], dfs[["S14"]], by = "median_CDR3", all.x = T, suffixes = c("S13", "S14"))
-
-for (i in 3:length(names(dfs))){
-  tmp <- merge(tmp, dfs[[i]], all.x = T, by = "median_CDR3", suffixes = c(names(dfs)[i-1], names(dfs)[i]))
-}
-
-colnames(tmp)[ncol(tmp)] <- "abundanceS21"
-
 ## Convert to numeric
 for (nm in colnames(tmp)[2:ncol(tmp)]){
   tmp[[nm]] <- as.numeric(tmp[[nm]])
@@ -316,19 +198,24 @@ for (nm in colnames(tmp)[2:ncol(tmp)]){
   tmp[[nm]] <- as.numeric(tmp[[nm]])
 }
 
+ 
 tmp$enriched_total <- rowSums(tmp[,4:ncol(tmp)])
 
 tmp <- tmp[tmp$enriched_total != 0,]
 tmp$enriched_total <- NULL
 ```
 
-```
-> nrow(tmp)
-[1] 11809
 
-> nrow(test)
-[1] 253
 ```
+> tmp[tmp$median_CDR3 == "NADVWWYGDQSEY",]
+       median_CDR3 abundanceS13 abundanceS14 abundanceS17 abundanceS18 abundanceS22 abundanceS19 abundanceS20 abundanceS21
+6124 NADVWWYGDQSEY           23           12            0            0            0         2203         1406         1496
+```
+
+
+
+
+
 
 
 ### Third Step (for now) Properly Structure Data
@@ -370,17 +257,21 @@ Condition2_Sample5 Condition2
 count_data  <- as.matrix(cbind(tmp$abundanceS13,
                                tmp$abundanceS14,
                                tmp$abundanceS17,
+                               tmp$abundanceS18,
                                tmp$abundanceS19,
                                tmp$abundanceS20,
-                               tmp$abundanceS21))
+                               tmp$abundanceS21,
+                               tmp$abundanceS22))
 
 
-colnames(count_data) <- c("Source-13", 
-                          "Source-14", 
-                          "Selected-17",
-                          "Selected-19", 
-                          "Selected-20", 
-                          "Selected-21")
+colnames(count_data) <- c("Source_S13", 
+                          "Source_S14", 
+                          "S17_SmAP",
+                          "S18_SmAC2",
+                          "S19_SmPDE", 
+                          "S20_SmPDE", 
+                          "S21_SmPDE",
+                          "S22_SmCA")
 
 count_data <- as.matrix(apply(count_data, 2, as.numeric))
 
@@ -396,7 +287,14 @@ num_samples_per_condition <- 1
 
 # Create sample information data frame
 sample_info <- data.frame(
-  condition = factor(rep(c("Source", "Source", "Selected_SmAP", "Selected_SmPDE", "Selected_SmPDE", "Selected_SmPDE"), each = num_samples_per_condition)),
+  condition = factor(rep(c(c("Source", 
+                          "Source", 
+                          "S17_SmAP",
+                          "S18_SmAC2",
+                          "S19_SmPDE", 
+                          "S20_SmPDE", 
+                          "S21_SmPDE",
+                          "S22_SmCA")), each = num_samples_per_condition)),
   row.names = colnames(count_data)
 )
 ```
@@ -456,7 +354,7 @@ heatmap.2(as.matrix(normalized_counts_top),
 ```
 
 
-
+## Saving Data with Stats
 
 ```{r}
 
@@ -467,7 +365,7 @@ test$median_CDR3 <- row.names(res)
 res_out <- merge(tmp, test, by = "median_CDR3")
 
 
-write.csv(res_out, file = "~/Downloads/Source-and-Selected-Abundance-vs-Differential-Enrichment-Model03May24.csv",row.names=F)
+write.csv(res_out, file = "~/Downloads/Source-and-Selected-Abundance-vs-Differential-Enrichment-Model05May24.csv",row.names=F)
 ```
 
 
