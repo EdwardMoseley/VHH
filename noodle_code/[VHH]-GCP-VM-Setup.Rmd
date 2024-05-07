@@ -66,6 +66,22 @@ Note:
   Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
 ```
 
+
+
+**May have broken it with:**
+
+```
+pip3 install presto changeo --user --break-system-packages
+```
+
+
+```
+pip3.12 install presto --break-system-packages
+```
+
+
+
+
 ## Install MMSeqs2 [FAILED]
 
 ```
@@ -86,6 +102,12 @@ Look in the bucket
 
 ```
 gsutil ls gs://vhh-bucket
+```
+
+## Copt over data
+
+```
+gsutil cp gs://vhh-bucket/240502_0039_Charles_Shoemaker-8124/fastq_Lane1/*.gz ~/VHH/data/Assembly
 ```
 
 ### Download Code/Data
@@ -110,4 +132,28 @@ gsutil cp gs://vhh-bucket/* ~/VHH/data
 
 ## Running Program
 
-python3 .local/bin/AssemblePairs.py
+```
+/usr/bin/python3 .local/bin/AssemblePairs.py
+```
+
+```
+/opt/conda/lib/python3.7 .local/bin/AssemblePairs.py
+```
+
+```
+python3.12 .local/bin/AssemblePairs.py
+```
+
+## Download R Packages
+
+
+
+
+
+```{r}
+install.packages("shazam")
+```
+
+
+
+

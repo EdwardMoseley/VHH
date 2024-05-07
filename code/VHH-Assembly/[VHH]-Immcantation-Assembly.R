@@ -2,6 +2,13 @@
 ## VHH Assembly Script
 ## ###
 
+if(!require(ShortRead)){
+  install.packages("ShortRead")
+}
+
+## Libraries
+library(ShortRead)
+
 ## Assemble Pairs
 
 # List the files we need to assemble pairs for
@@ -11,10 +18,20 @@ final_dir <- "~/VHH/data/Assembled"
 files <- list.files(root_dir)
 
 
+ncbi_directory <- "~/ncbi-igblast-1.17.1"
+## Set the working directory
+setwd(ncbi_directory)
+
+
 # files <- c("5_S3_L001_R1_001.fastq")
 
-files <- gsub("*_L001_R[1|2]_001.fastq", "", files)
+# Unique because there's two for each
+files <- unique(gsub("*_L001_R[1|2]_001.fastq", "", files))
+# Drop extensions
+files <- files[!grepl("\\.", files)]
 
+# Find prefixes of files again to ensure we don't run through the data twice
+completed_files <- gsub(".fmt7", "", list.files(final_dir))
 
 # Reads one and two
 R1 <- "_L001_R1_001.fastq"
@@ -22,6 +39,7 @@ R2 <- "_L001_R2_001.fastq"
 
 
 for (f in files){
+  if (!(f %in% completed_files)){
 
 ## Iterate over each file
 #for (f in files){
@@ -233,5 +251,94 @@ suffix <- "_collapse-unique.fastq"
           " -f DUPCOUNT --num 1 --outname ",
           paste(f, sep = ''), sep = '')
   )
+  
+  
+  
+  
+  
+## ###
+## Make Database
+## ###
+
+# List the files 
+## Pull the directory
+#ncbi_directory <- "~/ncbi-igblast-1.17.1"
+## Pull files we've already assembled
+#files <- list.files(tmp_dir)[grepl("_atleast-1", list.files(tmp_dir))]
+## Pull their prefixes
+#assembled_files <- unique(gsub("_atleast-1.*", "", files))
+## Pull the ones we need
+#file_set <- assembled_files
+
+
+# First, we'll read the fastq from ~/VHH/data/tmp
+# Then we'll move it to ncbi_directory as a fasta
+
+tmp <- readFastq(paste(root_dir, paste(f, "_atleast-1.fastq", sep = ''), sep = '/'))
+
+# We need it in the ncbi directory AND the data directory (for making database)
+writeFasta(tmp, file = paste(ncbi_directory, paste(f, "_atleast-1.fasta", sep = ''), sep = '/'))
+writeFasta(tmp, file = paste(final_dir, paste(f, "_atleast-1.fasta", sep = ''), sep = '/'))
+
+# Cleanup
+rm(tmp)
+
+# Some elevator music
+print(f)
+
+# So we can see what we're doing
+print(
+  paste("bin/igblastn -germline_db_V database/alpaca_vhh_clean/alpaca_V -germline_db_D ",
+        "database/alpaca_vhh_clean/alpaca_D -germline_db_J database/alpaca_vhh_clean/alpaca_J ",
+        "-domain_system imgt -ig_seqtype Ig -organism alpaca -auxiliary_data optional_file/alpaca_gl.aux ",
+        "-outfmt '7 std qseq sseq btop' ",
+        paste("-query ", ncbi_directory,'/', f, "_atleast-1.fasta ", sep = ''),
+        paste("-out ", final_dir, '/', f, ".fmt7", sep = ''), sep = '')
+)
+
+# Tell the system
+system(
+  paste("bin/igblastn -germline_db_V database/alpaca_vhh_clean/alpaca_V -germline_db_D ",
+        "database/alpaca_vhh_clean/alpaca_D -germline_db_J database/alpaca_vhh_clean/alpaca_J ",
+        "-domain_system imgt -ig_seqtype Ig -organism alpaca -auxiliary_data optional_file/alpaca_gl.aux ",
+        "-outfmt '7 std qseq sseq btop' ",
+        paste("-query ", ncbi_directory,'/', f, "_atleast-1.fasta ", sep = ''),
+        paste("-out ", final_dir, '/', f, ".fmt7", sep = ''), sep = '')
+)
+  
+  
+# Some elevator musi
+print(f)
+
+# So we can see what we're doing
+print(
+  paste("docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 ",
+        paste("MakeDb.py igblast -i ", sep = ''),
+        paste("/data/Assembled", f, ".fmt7", sep = ''),
+        paste(" -s ", sep = ''),
+        paste("/data/Assembled", f, "_atleast-1.fasta", sep = ''), 
+        paste(" -r /data/imgt-data/imgt_gapped_alpaca_IGHV.fasta ", 
+              "/data/imgt-data/imgt_gapped_alpaca_IGHD.fasta ",
+              "/data/imgt-data/imgt_gapped_alpaca_IGHJ.fasta ",
+              " --outdir /data/Assembled/ --failed --format airr --extended ", sep = ''), sep = '')
+  
+)
+
+# Tell the system
+system(
+  paste("docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 ",
+        paste("MakeDb.py igblast -i ", sep = ''),
+        paste("data/Assembled/", f, ".fmt7", sep = ''),
+        paste(" -s ", sep = ''),
+        paste("data/Assembled/", f, "_atleast-1.fasta", sep = ''), 
+        paste(" -r /data/imgt-data/imgt_gapped_alpaca_IGHV.fasta ", 
+              "/data/imgt-data/imgt_gapped_alpaca_IGHD.fasta ",
+              "/data/imgt-data/imgt_gapped_alpaca_IGHJ.fasta ",
+              " --outdir /data/Assembled/ --failed --format airr --extended ", sep = ''), sep = '')
+)
+  
 #}
+  # Find prefixes of files again to ensure we don't run through the data twice
+  completed_files <- gsub(".fmt7", "", list.files(final_dir))
+  }
 }
