@@ -2,83 +2,80 @@
 ## Relies on MMseqs2
 # https://github.com/soedinglab/MMseqs2
 
+# Utilities
+source("~/VHH/lib/utilities.R")
+
 # Path
 mmseqs_path <- "/usr/local/Cellar/mmseqs2/15-6f452/bin/mmseqs "
 
-query_dir <- "~/VHH/code/VHH-Query/queries"
-root_dir <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs"
-output_dir <- "~/VHH/code/VHH-Query/tmp"
+query_dir <- "~/VHH/code/VHH-Query/queries/"
+root_dir <- "~/VHH/data/"
+output_dir <- "~/VHH/code/VHH-Query/tmp/"
+
+# Tmp data dir
+# data_dir <- "~/Downloads/"
+
+data_dir <- "/Users/emoseley/VHH/data/Assembled/"
+
+files <- list.files(data_dir)[grepl("_db-pass.tsv", list.files(data_dir))]
+files <- files[!grepl("demand",files)]
 
 # Load Query File
-query_file <- list.files(query_dir)
+query_file <- list.files(query_dir)[1]
+
+# Queries
+queries <- read.csv(paste0(query_dir, query_file), header = T, stringsAsFactors = F)
+
+# Write query to fasta
+write_fasta(queries, "VHH", "query_seq", paste0(output_dir, "queries.fasta"))
 
 
+# Perform Queries on FASTA files
 
 
-
-
-# Below is the easy-cluster code, which ought to be similar ot easy-cluster?
-
-
-
-
-# Load the file
-tmp <- read.csv(paste(root_dir, file_name, sep = ''), header = T, stringsAsFactors = F)
-# Create a data frame for holding results
 results <- data.frame()
-# Iterate over Hierarchically Clustered clone_ids, re-clustering
-for (nm in unique(tmp$clone_id)){
-  # Subset observations
-  tmp_frame <- tmp[tmp$clone_id == nm,]
-  # write fasta for mmseqs2
-  write_fasta(tmp_frame, "VHH", "sequence_id", paste(output_dir, "tmp.fasta", sep = ''))
-  # Prepare mmseqs command
-  command <- paste("/usr/local/Cellar/mmseqs2/15-6f452/bin/mmseqs ", 
-                   "easy-cluster -v 2 --min-seq-id 0.90 ", 
-                   paste(output_dir, "tmp.fasta", sep = ''), 
-                   paste(output_dir, "tmp-H95", sep = ''),
-                   paste(output_dir, "tmp", sep = ''))
-  ## Call mmseqs to do its job
-  system(command)
-  # Load results
-  dat <- read.csv(paste(output_dir,"tmp-H95_cluster.tsv", sep = ''), header = F, stringsAsFactors = F, sep = '\t')
-  # Assign Variable Names
-  colnames(dat) <- c("centroid", "sequence_id")
+
+for (f in files){
+  #f <- "10_S19_db-pass.tsv"
+  # Load data from one spot
+  tmp <- read.csv(paste0(data_dir, f), header = T, stringsAsFactors = F, sep = '\t')
+  # Translate VHHs
+  tmp$VHH <- fixed_translate_DNA(tmp$sequence_alignment)
+  # Trim the beginning
+  tmp$VHH <- substr(tmp$VHH, 11, nchar(tmp$VHH))
+  # Write it as a .fasta
+  write_fasta(tmp, "VHH", "sequence_id", paste0(output_dir, "database.fasta"))
+  # Call mmseqs2
+  system(paste(mmseqs_path, "easy-search",
+               "/Users/emoseley/VHH/code/VHH-Query/tmp/queries.fasta",
+               "/Users/emoseley/VHH/code/VHH-Query/tmp/database.fasta",
+               "/Users/emoseley/VHH/code/VHH-Query/tmp/alnResult.m8",
+               "/Users/emoseley/VHH/code/VHH-Query/tmp/",
+               " --search-type 3 --format-mode 4", sep = ' '))
   
-  ## ###
-  ## Here, we need to fix it to make sure that identical centroid_ids dont exist
-  ## ###
-  
-  # Create a centroid id
-  # dat$centroid_id <- as.numeric(factor(dat$centroid))
-  # Centroid ID will be family ID plus unique centroid identifier
-  dat$centroid_id <- paste(nm, '-', as.numeric(factor(dat$centroid)), sep = '')
-  
-  ## ### Fix probably ends here
-  
-  # We're going to use the sequence ids as keys, so we want to clean them
-  tmp$sequence_id <- clean_seq_ids(tmp$sequence_id)
-  dat$centroid <- clean_seq_ids(dat$centroid)
-  dat$sequence_id <- clean_seq_ids(dat$sequence_id)
-  # merge results
-  dat <- merge_db_to_centroids(dat, tmp)
-  # Combine results and move on
-  results <- rbind(results, dat)
+  # Load res
+  tmp_frame <- read.csv("~/VHH/code/VHH-Query/tmp/alnResult.m8", header = T, stringsAsFactors = F, sep = '\t')
+  # Change names quickly
+  colnames(tmp_frame)[2] <- "sequence_id"
+  # Order to pull top hits
+  tmp_frame <- tmp_frame[order(tmp_frame$fident, decreasing = T),]
+  # Pull only top hit
+  tmp_frame <- tmp_frame[!duplicated(tmp_frame$query),]
+  # Merge to get VHH
+  tmp_frame <- merge(tmp_frame, tmp[,c("sequence_id", "VHH", "junction_aa")], by = "sequence_id")
+  # Change names again
+  colnames(queries)[1] <- "query"
+  tmp_frame <- merge(tmp_frame, queries, by = "query", suffixes = c("", "_query"), all.x = T)
+  tmp_frame$database <- rep(f, times = nrow(tmp_frame))
+  results <- rbind(results, tmp_frame)
 }
 
-file_name <- gsub("VHH_database.csv", "subclustered_database.csv", file_name)
 
-cat("Writing: ", paste(root_dir, file_name, sep = ''), '\n', sep = '')
+# Trim junction from database seqs
+results$junction_aa <- trim_CDR3(results$junction_aa)
 
-write.csv(results, file = paste(root_dir, file_name, sep = ''), row.names = F)
+# order
+results <- results[order(results$fident, decreasing = T),]
 
-## Route the traffic out
-if (grepl("_subclustered_database.csv", file_name)){
-  # Pass the file to the next script in the pipeline
-  cat(paste("Rscript CleanCluster-Refining.R", file_name), '\n')
-  system(paste("Rscript CleanCluster-Refining.R", file_name))
-} else if (grepl("later file name for final pooling...", file_name)){
-  cat("ERROR in [CleanCluster-toAA.R]: Wrong file name?")
-  # change file name
-  # write
-}
+
+write.csv("~/Downloads/Query_Results.csv", row.names = F)
