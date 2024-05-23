@@ -1,0 +1,922 @@
+---
+title: "[VHH]-DESeq2-Experimentsv2"
+output: html_document
+date: "2024-04-29"
+---
+
+This notebook relies heavily on: 
+
+1. [Analyzing RNA-seq data with DESeq2](https://www.bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html)
+
+2. [RNA-Seq workflow: gene-level exploratory analysis and differential expression](https://f1000research.com/articles/4-1070/v2)
+
+3. [Beginner’s guide to using the DESeq2 package](https://bioc.ism.ac.jp/packages/2.14/bioc/vignettes/DESeq2/inst/doc/beginner.pdf)
+
+4. [Count Regression](https://stats4nr.com/count-regression)
+
+5. [Exploring DESeq2 results: Wald test](https://hbctraining.github.io/DGE_workshop_salmon_online/lessons/05b_wald_test_results.html)
+
+
+
+## Strategy
+
+1. Load Master Data set
+
+2. Load Individual Sample Data Sets
+
+3. For each VHH in the sample sets
+  * Locate in master set, and assign clone id
+
+4. Proceed with DESeq2
+
+
+Global_Clone_Experiment_9_S18_demand_two_min_threshold_clone-pass.csv
+
+## Real Data
+
+```{r}
+source("~/VHH/lib/utilities.R")
+library(DESeq2)
+library(stringdist)
+library(gplots)
+
+# Function to calculate Levenshtein distance between two strings
+calc_w_lev_dist <- function(str1, str2) {
+  stringdist::stringdist(str1, str2, method = "lv", weight = c(0.99, 
+                                                               0.99, 
+                                                               0.01, 
+                                                               0.01))
+}
+
+# root_dir <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/"
+root_dir <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/"
+
+# list.files(root_dir)[grepl("Cleaned", list.files(root_dir))]
+#list.files(root_dir)[grepl("Global", list.files(root_dir))]
+```
+
+## Load the Clean Databases, Finding Most Clonal Familes
+
+```{r}
+# Create a list to use as a dictionary
+files <- list()
+
+# Populate key/values with files and their keys
+#files[["S13"]] <- "13_VecF1_R2_S13-Cleaned19Apr24.csv"
+#files[["S14"]] <- "14_VecF1_R2_S14-Cleaned19Apr24.csv"
+
+files[["master"]] <- "/translated_dbs/culled_databases/GS18May24-Cleaned19Apr24.csv"
+
+files[["09"]] <- "Clones_Inferred_Assembled_9_S18_min_threshold_clone-pass.csv"
+files[["10"]] <- "Clones_Inferred_Assembled_10_S19_min_threshold_clone-pass.csv"
+files[["11"]] <- "Clones_Inferred_Assembled_11_S20_min_threshold_clone-pass.csv"
+files[["12"]] <- "Clones_Inferred_Assembled_12_S21_min_threshold_clone-pass.csv"
+
+files[["33"]] <- "Clones_Inferred_Assembled_33_S7_min_threshold_clone-pass.csv"
+files[["34"]] <- "Clones_Inferred_Assembled_34_S8_min_threshold_clone-pass.csv"
+files[["35"]] <- "Clones_Inferred_Assembled_35_S9_min_threshold_clone-pass.csv"
+files[["37"]] <- "Clones_Inferred_Assembled_37_S11_min_threshold_clone-pass.csv"
+files[["41"]] <- "Clones_Inferred_Assembled_41_S16_min_threshold_clone-pass.csv"
+
+
+max_clone_count <- 0
+max_id <- "S0"
+
+for (nm in names(files)){
+  files[[nm]] <- read.csv(paste(root_dir, files[[nm]], sep = ''), header = T, stringsAsFactors = F)
+  print(nm)
+  print("Pre-Cleaning:")
+  clone_count <- length(unique(files[[nm]]$clone_id))
+  print(clone_count)
+  print(sum(files[[nm]]$duplicate_count))
+  
+  if (nm != "master"){
+    files[[nm]]$junction_aa <- trim_CDR3(files[[nm]]$junction_aa)
+    files[[nm]]$VHH <- fixed_translate_DNA(files[[nm]]$sequence_alignment)
+    # Note: Substring 12? What's up here? # 17? 11?
+    files[[nm]]$VHH <- substr(files[[nm]]$VHH, 11, nchar(files[[nm]]$VHH))
+    files[[nm]] <- unproductive(files[[nm]])
+  }
+  
+  print("After-Cleaning:")
+  print(length(unique(files[[nm]]$clone_id)))
+  print(sum(files[[nm]]$duplicate_count))
+  cat('\n')
+  
+  if (max_clone_count < clone_count){
+    max_clone_count <- clone_count
+    max_id <- nm
+  }
+}
+```
+
+
+```
+[1] "master"
+[1] "Pre-Cleaning:"
+[1] 6600
+[1] 6914266
+[1] "After-Cleaning:"
+[1] 6600
+[1] 6914266
+
+[1] "09"
+[1] "Pre-Cleaning:"
+[1] 872
+[1] 420404
+[1] "After-Cleaning:"
+[1] 716
+[1] 416921
+
+[1] "10"
+[1] "Pre-Cleaning:"
+[1] 1083
+[1] 369840
+[1] "After-Cleaning:"
+[1] 908
+[1] 366123
+
+[1] "11"
+[1] "Pre-Cleaning:"
+[1] 1136
+[1] 584751
+[1] "After-Cleaning:"
+[1] 936
+[1] 578692
+
+[1] "12"
+[1] "Pre-Cleaning:"
+[1] 309
+[1] 547818
+[1] "After-Cleaning:"
+[1] 269
+[1] 538897
+
+[1] "33"
+[1] "Pre-Cleaning:"
+[1] 962
+[1] 522298
+[1] "After-Cleaning:"
+[1] 782
+[1] 518242
+
+[1] "34"
+[1] "Pre-Cleaning:"
+[1] 792
+[1] 296461
+[1] "After-Cleaning:"
+[1] 657
+[1] 293643
+
+[1] "35"
+[1] "Pre-Cleaning:"
+[1] 894
+[1] 446099
+[1] "After-Cleaning:"
+[1] 733
+[1] 442254
+
+[1] "37"
+[1] "Pre-Cleaning:"
+[1] 4665
+[1] 436390
+[1] "After-Cleaning:"
+[1] 3853
+[1] 423417
+
+[1] "41"
+[1] "Pre-Cleaning:"
+[1] 129
+[1] 397436
+[1] "After-Cleaning:"
+[1] 117
+[1] 391340
+```
+
+
+## We need only those in master
+
+```{r}
+master <- files[["master"]]
+```
+
+```{r}
+for (f in names(files)){
+  print(f)
+  print(nrow(files[[f]]))
+  files[[f]] <- files[[f]][which(files[[f]]$VHH %in% master$VHH),]
+  print(nrow(files[[f]]))
+}
+```
+
+```
+[1] "master"
+[1] 132776
+[1] 132776
+[1] "09"
+[1] 83960
+[1] 57729
+[1] "10"
+[1] 138491
+[1] 91696
+[1] "11"
+[1] 175491
+[1] 117776
+[1] "12"
+[1] 177758
+[1] 100524
+[1] "33"
+[1] 107636
+[1] 70928
+[1] "34"
+[1] 94118
+[1] 61792
+[1] "35"
+[1] 90347
+[1] 60562
+[1] "37"
+[1] 194754
+[1] 126182
+[1] "41"
+[1] 121929
+[1] 67927
+```
+
+## First Step: Assign Identical Clonal Families across Experiments
+
+We'll do this with `junction_aa` for now, then we will use `VHH` later?
+
+```{r}
+res <- data.frame()
+
+for (f in names(files)[names(files) != "master"]){
+  # Subset data frame
+  tmp <- files[[f]]
+  print(f)
+  #print(table(tmp$clone_id))
+  # Iterate over each VHH
+  count <- 0
+  max_count <- length(unique(tmp$junction_aa))
+  for (CDR3 in unique(tmp$junction_aa)){
+    count <- count + 1
+    if (round(count/max_count*100, 2) %% 5 == 0) cat("Progress:", round(count/max_count*100, 2), '\n')
+    tmp_frame <- tmp[tmp$junction_aa == CDR3,]
+    tmp_frame$clone_id <- rep(master[which(master$junction_aa == CDR3),]$clone_id[1], nrow(tmp_frame))
+    tmp_frame$f <- rep(f, nrow(tmp_frame))
+    # Rbind those
+    res <- rbind(res, tmp_frame)
+  }
+}
+```
+
+
+### Save files for making Logoplots, etc.
+
+```{r}
+for (nm in unique(res$f)){
+  tmp_frame <- res[res$f == nm,]
+  write.csv(tmp_frame, file = paste0("~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/", nm, "-pilot-cleaned22May24.csv"), row.names = F)
+}
+```
+
+## Second Step: Aggregate to Clone Level
+
+
+## Aggregate
+
+```{r}
+dfs <- list()
+
+for (nm in names(files)){
+  print(nm)
+  dfs[[nm]] <- clonal_statistics(res[res$f == nm,])
+  # We don't need clone_id in this case
+ 
+  #dfs[[nm]]$clone_id <- NULL
+}
+
+# Remove clone ids
+for (nm in names(files)){
+  print(nm)
+  dfs[[nm]]$clone_id <- NULL
+  # We don't need clone_id in this case
+}
+
+dfs[["master"]] <- NULL
+```
+
+```{r}
+merge_order <- data.frame()
+
+for (nm in names(dfs)){
+    print(nm)
+    print(nrow(dfs[[nm]]))
+    print(length(unique(dfs[[nm]]$median_CDR3)))
+    # Look at counts
+    # print(as.numeric(sum(dfs[[nm]]$abundance)))
+    
+    merge_order <- rbind(merge_order, cbind(nm, length(unique(dfs[[nm]]$median_CDR3))))
+}
+
+merge_order <- as.data.frame(merge_order)
+colnames(merge_order) <- c("run", "counts")
+merge_order$counts <- as.numeric(as.character(merge_order$counts))
+merge_order <- merge_order[order(merge_order$counts, decreasing = T),]
+
+```
+
+
+```
+> head(tmp)
+      median_CDR3 abundance  median_CDR3S14 abundanceS14  median_CDR3S21 abundanceS21  median_CDR3S19
+1 NIWGKAAPTGQIKSY     16959 NIWGKAAPTGQIKSY         8278 NIWGKAAPTGQIKSY            4 NIWGKAAPTGQIKSY
+2  NALSGTGWVRRGDY      9322  NALSGTGWVRRGDY         4670  NALSGTGWVRQGDY            2  NALSGTGWVRRGDY
+3          NAGAGD      6930          NAGAGD         3675          NAGAGD            2          NAGAGD
+4       KRTYIGRDY      5398       KRTYIGRDY         2683       KRTYIGRDY         8218       KRTYIGRDY
+5           NEQDY      4062           NEQDY         2024           NEQDY       180741           NEQDY
+6     YAEGIMTRRQY      2828     YAEGIMTRRQY         1567     YAEGIMTRRQY         5939     YAEGIMTRRQY
+  abundanceS19  median_CDR3S20 abundanceS20
+1            5 NIWGKAAPTGQIKSY           14
+2            8  NALSGTGWVRRGDY            4
+3            3          NAGAGD            1
+4         5880       KRTYIGRDY         6807
+5       122772           NEQDY       175909
+6         3716     YAEGIMTRRQY         3452
+```
+
+
+
+
+
+
+## Merge Routine (Source Libraries)
+
+
+```{r}
+for (i in 1:nrow(merge_order)){
+  # Rename abundance
+  colnames(dfs[[merge_order$run[i]]])[2] <- paste0("abundance-", merge_order$run[i])
+}
+```
+
+
+```{r}
+tmp <- merge(dfs[[merge_order$run[1]]], 
+             dfs[[merge_order$run[2]]], 
+             by = "median_CDR3", all.x = T)
+
+
+for (i in 3:nrow(merge_order)){
+  tmp <- merge(tmp, dfs[[merge_order$run[i]]], 
+               all.x = T, 
+               by = "median_CDR3")
+}
+
+```
+
+
+
+## tmp holder
+
+```{r}
+holder <- tmp
+```
+
+```{r}
+tmp <- holder
+```
+
+### Replace <NA> with Zero Drop 0-Enriched Clones
+
+```{r}
+for (nm in colnames(tmp)[2:ncol(tmp)]){
+  tmp[[nm]] <- as.numeric(tmp[[nm]])
+}
+
+tmp[is.na(tmp)] <- 0
+
+# Sum enriched parts
+#tmp$enriched_total <- rowSums(tmp[,3:ncol(tmp)])
+
+#tmp$enriched_total <- NULL
+
+#tmp <- tmp[tmp$enriched_total != 0,]
+#tmp$enriched_total <- NULL
+```
+
+
+
+### Third Step (for now) Properly Structure Data
+
+```
+> head(count_data)
+      Condition1_Sample1 Condition1_Sample2 Condition1_Sample3 Condition1_Sample4
+Gene1                  8                  9                 12                 12
+Gene2                  9                 12                  9                  9
+Gene3                 14                 10                  6                  8
+Gene4                 10                 11                  9                  8
+Gene5                 10                 12                 10                  8
+Gene6                 15                  7                 10                  4
+      Condition2_Sample2 Condition2_Sample3 Condition2_Sample4 Condition2_Sample5
+Gene1                  9                 13                  9                 14
+Gene2                 13                  9                 15                 12
+Gene3                 11                 15                 11                 11
+Gene4                  7                  9                 10                  6
+Gene5                  7                  6                 17                 14
+Gene6                 20                 10                  6                 11
+```
+
+```
+sample_info
+                    condition
+Condition1_Sample1 Condition1
+Condition1_Sample2 Condition1
+Condition1_Sample3 Condition1
+Condition1_Sample4 Condition1
+Condition1_Sample5 Condition1
+Condition2_Sample1 Condition2
+Condition2_Sample2 Condition2
+Condition2_Sample3 Condition2
+Condition2_Sample4 Condition2
+Condition2_Sample5 Condition2
+```
+
+```{r}
+count_data  <- as.matrix(cbind(tmp$abundanceD1,
+                               tmp$abundanceS18,
+                               tmp$abundanceS19,
+                               tmp$abundanceS20))
+
+
+colnames(count_data) <- c("Source-D1", "Selected-19", "Selected-20", "Selected-21")
+
+count_data <- as.matrix(apply(count_data, 2, as.numeric))
+
+row.names(count_data) <- tmp$median_CDR3
+
+
+#sapply(count_data, as.numeric)
+#class(count_data) <- "numeric"
+```
+
+```{r}
+num_samples_per_condition <- 1
+
+# Create sample information data frame
+sample_info <- data.frame(
+  condition = factor(rep(c("Source", "Selected", "Selected", "Selected"), each = num_samples_per_condition)),
+  row.names = colnames(count_data)
+)
+```
+
+## Modeling
+
+```{r}
+# Set reference to source
+sample_info$condition <- relevel(sample_info$condition, ref = "Source")
+
+# Create DESeqDataSet object
+dds <- DESeqDataSetFromMatrix(countData = count_data, 
+                              colData = sample_info, 
+                              design = ~ condition)
+
+# Perform differential expression analysis
+dds <- DESeq(dds)
+```
+
+```{r}
+# Get differential expression results
+res <- results(dds)
+
+# Show the top differentially expressed reads
+top_genes <- res[order(res$padj, decreasing = F), ]
+
+# Ignore those that are downregulated-- they are not important
+top_genes <- na.omit(top_genes[top_genes$log2FoldChange > 0,])
+```
+
+## Visualization
+
+```{r}
+# Install and load necessary packages if not already installed
+library(gplots)
+
+# Extract normalized counts from DESeqDataSet object
+normalized_counts <- counts(dds, normalized = TRUE)
+
+# Subset normalized counts to include only the top differentially expressed genes
+top_genes_ids <- rownames(top_genes)
+normalized_counts_top <- normalized_counts[top_genes_ids, ]
+
+# Create a heatmap
+heatmap.2(as.matrix(normalized_counts_top), 
+          scale = "row",  # Scale rows to z-scores
+          trace = "none", # Remove grid lines
+          margins = c(10, 15), # Increase margins for row and column dendrogram
+          main = "Heatmap of Top Differentially Expressed Antibodies",
+          Colv = FALSE,# TRUE, # Do not cluster columns
+          dendrogram = "none",#"row", # Add row dendrogram
+          key = TRUE, keysize = 0.85, key.title = "Z-score",
+          density.info = "none", # Do not show density plot
+          cexRow = 0.8, cexCol = 0.8, #labRow = FALSE, # Adjust font size
+          labRow = row.names(top_genes))#paste0(1:nrow(top_genes),'-', rownames(top_genes))) # Do not show row labels
+
+```
+
+
+
+
+
+```{r}
+plotMA(res)#, ylim=c(-0.00001,0.00001))
+```
+
+```{r}
+#res <- res[order(res$log2FoldChange, decreasing = T),]
+
+#write.csv(res, file = "~/Downloads/Expression-Analysis-S13-S13-vs-S19-S20-S21.csv")
+
+#tmp <- as.data.frame(na.omit(res))
+
+#top_genes <- tmp[tmp$pvalue <= 0.05,]
+
+#write.csv(top_genes, file = "~/Downloads/Shortlist-Expression-Analysis-S13-S13-vs-S19-S20-S21.csv")
+```
+
+
+
+
+```{r}
+library(pheatmap)
+
+# select the 20 most differential expressed genes
+#orderedRes <- res[order(res$padj, decreasing = F),]
+
+# For p-values
+tmp_frame <- res[which(row.names(res) %in% row.names(normalized_counts_top)),]
+# tmp_frame <- tmp_frame[tmp_frame$padj < 0.05,]
+
+tmp_frame <- tmp_frame[order(tmp_frame$padj, decreasing = T),]
+
+# tmp_frame <- tmp_frame[1:75,]
+
+##
+select <- row.names(tmp_frame)#normalized_counts_top)
+
+# transform the counts to log10
+log10_normCounts <- log10(normalized_counts + 1)
+
+# get the values for the selected genes
+values <- log10_normCounts[ select, ]
+
+#par(family = "Courier")
+
+pheatmap(values,
+         main = "CDR3 Family Enrichment by p-value (lowest p-value on top, adjusted for multiple hypotheses)\n Scale colors and labels refers to normalized counts (Red Hot, Blue Cold).",
+         #font = "Courier",
+         scale = "none", 
+         cluster_rows = FALSE, 
+         cluster_cols = FALSE,
+         fontsize_row = 8,
+         annotation_names_col = FALSE,
+         gaps_col = c(2),
+         display_numbers = TRUE,
+         number_format = "%.2f",         
+         height=12,
+         width=6)
+```
+
+---
+
+### Simulated Experiments
+
+```{r}
+
+
+```
+
+
+```{r}
+source("~/VHH/lib/utilities.R")
+library(DESeq2)
+library(stringdist)
+
+# Function to calculate Levenshtein distance between two strings
+calc_w_lev_dist <- function(str1, str2) {
+  stringdist::stringdist(str1, str2, method = "lv", weight = c(0.99, 
+                                                               0.99, 
+                                                               0.01, 
+                                                               0.01))
+}
+
+root_dir <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/"
+list.files(root_dir)[grepl("Cleaned", list.files(root_dir))]
+```
+
+## Load the Clean Databases, Finding Most Clonal Familes
+
+```{r}
+# Create a list to use as a dictionary
+files <- list()
+
+# Populate key/values with files and their keys
+files[["S13"]]<- "13_VecF1_R2_S13-Cleaned19Apr24.csv"
+files[["S14"]] <- "14_VecF1_R2_S14-Cleaned19Apr24.csv"
+
+files[["S19"]] <- "19_VecF1_R3_S19-Cleaned19Apr24.csv"
+files[["S20"]] <- "20_VecF2_R3_S20-Cleaned19Apr24.csv"
+files[["S21"]] <- "21_VecF4_R3_S21-Cleaned19Apr24.csv" 
+
+max_clone_count <- 0
+max_id <- "S0"
+
+for (nm in names(files)){
+  files[[nm]] <- read.csv(paste(root_dir, files[[nm]], sep = ''), header = T, stringsAsFactors = F)
+  print(nm)
+  clone_count <- length(unique(files[[nm]]$clone_id))
+  print(clone_count)
+  if (max_clone_count < clone_count){
+    max_clone_count <- clone_count
+    max_id <- nm
+  }
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+## First Step: Aggregate to Clone Level
+
+
+## Aggregate
+
+```{r}
+dfs <- list()
+
+for (nm in names(files)){
+  dfs[[nm]] <- clonal_statistics(files[[nm]])
+  # We don't need clone_id in this case
+  dfs[[nm]]$clone_id <- NULL
+}
+
+# Drop files
+rm(files)
+```
+
+```{r}
+merge_order <- data.frame()
+
+for (nm in names(dfs)){
+    print(nm)
+    print(nrow(dfs[[nm]]))
+    print(length(unique(dfs[[nm]]$median_CDR3)))
+    
+    merge_order <- rbind(merge_order, cbind(nm, length(unique(dfs[[nm]]$median_CDR3))))
+}
+
+merge_order <- as.data.frame(merge_order)
+colnames(merge_order) <- c("run", "counts")
+merge_order$counts <- as.numeric(as.character(merge_order$counts))
+merge_order <- merge_order[order(merge_order$counts, decreasing = T),]
+```
+
+
+## Merge Routine (Source Libraries)
+
+We want merge to the most abundant (in terms of clonal families)
+
+```{r}
+tmp <- merge(dfs[[merge_order$run[1]]], dfs[[merge_order$run[2]]], by = "median_CDR3", all.x = T, suffixes = c(merge_order$run[1], merge_order$run[2]))
+
+
+for (i in 3:nrow(merge_order)){
+  tmp <- merge(tmp, dfs[[i]], 
+               all.x = T, 
+               by = "median_CDR3", 
+               suffixes = c(names(dfs)[i-1], 
+                            names(dfs)[i]))
+}
+
+colnames(tmp)[ncol(tmp)] <- "abundanceS21"
+```
+
+## Cleanup
+
+```{r}
+tmp[is.na(tmp)] <- 0
+
+for (nm in colnames(tmp)[2:ncol(tmp)]){
+  tmp[[nm]] <- as.numeric(tmp[[nm]])
+}
+
+tmp$enriched_total <- rowSums(tmp[,4:ncol(tmp)])
+
+#tmp$enriched_total <- NULL
+
+#tmp <- tmp[tmp$enriched_total != 0,]
+#tmp$enriched_total <- NULL
+```
+
+## Create Dummy Replicate Data
+
+```{r}
+tmp$enriched_total <- NULL
+
+
+tmp$dummy_data <- rowMeans(tmp[,c(4:ncol(tmp))])
+```
+
+## Expand out df
+
+````{r}
+
+# Initialize an empty data frame to store the expanded data
+expanded_df <- data.frame()
+
+# Loop through each row in the original data frame
+for (i in 1:nrow(tmp)) {
+  # Get the median_CDR3 and abundance values for the current row
+  cdr3 <- tmp[i, "median_CDR3"]
+  abundance <- as.numeric(tmp[i, "abundanceS19"])
+  
+  # Repeat the median_CDR3 value according to the abundance and create a data frame
+  expanded_row <- data.frame(
+    median_CDR3 = rep(cdr3, times = abundance),
+    abundance = rep(1, times = abundance) # We set abundance to 1 in each repetition
+  )
+  
+  # Combine the expanded row with the existing expanded data frame
+  expanded_df <- rbind(expanded_df, expanded_row)
+}
+
+# Reset row names
+rownames(expanded_df) <- NULL
+
+```
+
+
+
+```{r}
+boot_df <- data.frame()
+
+i <- 1
+while(nrow(boot_df) < 300000){
+  set.seed(i)
+  boot_df <- rbind(boot_df,
+                   expanded_df[sample(1:nrow(expanded_df), 1000),])
+  i <- i + 1
+}
+
+
+boot_df <- aggregate(abundance ~ median_CDR3, boot_df,FUN = sum)
+```
+
+```{r}
+test <- merge(tmp, boot_df, by = "median_CDR3", all.x = T)
+test[is.na(test)] <- 0
+
+test$dummy_data <- NULL
+
+colnames(test)[ncol(test)] <- "abundanceSynth"
+
+tmp <- test
+```
+
+
+```{r}
+count_data  <- as.matrix(cbind(tmp$abundanceS13,
+                               tmp$abundanceS14,
+                               tmp$abundanceS19,
+                               tmp$abundanceS20,
+                               tmp$abundanceS21,
+                               tmp$abundanceSynth))
+
+
+colnames(count_data) <- c("Source-13", "Source-14", "Selected-19", "Selected-20", "Selected-21", "Synthetic")
+
+count_data <- as.matrix(apply(count_data, 2, as.numeric))
+
+row.names(count_data) <- tmp$median_CDR3
+
+
+#sapply(count_data, as.numeric)
+#class(count_data) <- "numeric"
+```
+
+```{r}
+num_samples_per_condition <- 1
+
+# Create sample information data frame
+sample_info <- data.frame(
+  condition = factor(rep(c("Source", "Source", "Selected", "Selected", "Selected", "Selected"), each = num_samples_per_condition)),
+  row.names = colnames(count_data)
+)
+```
+
+## Modeling
+
+```{r}
+# Set reference to source
+sample_info$condition <- relevel(sample_info$condition, ref = "Source")
+
+# Create DESeqDataSet object
+dds <- DESeqDataSetFromMatrix(countData = count_data, 
+                              colData = sample_info, 
+                              design = ~ condition)
+
+# Perform differential expression analysis
+dds <- DESeq(dds)
+```
+
+```{r}
+# Get differential expression results
+res <- results(dds)
+
+# Show the top differentially expressed reads
+top_genes <- res[order(res$padj, decreasing = F), ]
+
+# Ignore those that are downregulated-- they are not important
+top_genes <- na.omit(top_genes[top_genes$log2FoldChange > 0,])
+```
+
+## Visualization
+
+```{r}
+# Install and load necessary packages if not already installed
+library(gplots)
+
+# Extract normalized counts from DESeqDataSet object
+normalized_counts <- counts(dds, normalized = TRUE)
+
+# Subset normalized counts to include only the top differentially expressed genes
+top_genes_ids <- rownames(top_genes)
+normalized_counts_top <- normalized_counts[top_genes_ids, ]
+
+# Create a heatmap
+heatmap.2(as.matrix(normalized_counts_top), 
+          scale = "row",  # Scale rows to z-scores
+          trace = "none", # Remove grid lines
+          margins = c(10, 15), # Increase margins for row and column dendrogram
+          main = "Heatmap of Top Differentially Expressed Antibodies",
+          Colv = FALSE,# TRUE, # Do not cluster columns
+          dendrogram = "none",#"row", # Add row dendrogram
+          key = TRUE, keysize = 0.85, key.title = "Z-score",
+          density.info = "none", # Do not show density plot
+          cexRow = 0.8, cexCol = 0.8, #labRow = FALSE, # Adjust font size
+          labRow = row.names(top_genes))#paste0(1:nrow(top_genes),'-', rownames(top_genes))) # Do not show row labels
+
+```
+
+
+
+
+
+
+```{r}
+library(pheatmap)
+
+# select the 20 most differential expressed genes
+#orderedRes <- res[order(res$padj, decreasing = F),]
+
+# For p-values
+tmp_frame <- res[which(row.names(res) %in% row.names(normalized_counts_top)),]
+tmp_frame <- tmp_frame[tmp_frame$padj < 0.05,]
+
+tmp_frame <- tmp_frame[order(tmp_frame$padj, decreasing = T),]
+
+tmp_frame <- tmp_frame[1:22,]
+
+##
+select <- row.names(tmp_frame)#normalized_counts_top)
+
+# transform the counts to log10
+log10_normCounts <- log10(normalized_counts + 1)
+
+# get the values for the selected genes
+values <- log10_normCounts[ select, ]
+
+#par(family = "Courier")
+
+pheatmap(values,
+         main = "CDR3 Family Enrichment by p-value (lowest p-value on top, adjusted for multiple hypotheses)\n Scale colors and labels refers to normalized counts (Red Hot, Blue Cold).",
+         #font = "Courier",
+         scale = "none", 
+         cluster_rows = FALSE, 
+         cluster_cols = FALSE,
+         fontsize_row = 8,
+         annotation_names_col = FALSE,
+         gaps_col = c(2),
+         display_numbers = TRUE,
+         number_format = "%.2f",         
+         height=12,
+         width=6)
+```
