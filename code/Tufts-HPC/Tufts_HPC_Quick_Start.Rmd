@@ -1,0 +1,232 @@
+---
+title: '[VHH] Tufts HPC Quick Start'
+output: html_document
+date: "2024-05-27"
+---
+
+# User Guides
+
+[HPC Tutorials](https://it.tufts.edu/high-performance-computing/hpc-tutorials)
+
+More tutorials:
+
+[HPC New User](https://tufts.app.box.com/v/HPC-New-User)
+
+Note, for cluster questions: `tts-research@tufts.edu`
+
+## General Information
+
+### Storage
+
+Your Home Directory (10GB, fixed) should be: `/cluster/home/your_utln`
+
+You can check your limit with: `quota -s`
+
+Your research project storage (from 50GB and up) path should be
+`/cluster/tufts/yourlabname/`, and each member of the lab group has a
+dedicated directory `/cluster/tufts/yourlabname/your_utln`
+
+To see your research project storage quota by running the following
+command from login node: `showquota`
+
+Note: research storage is shared within a research group.
+
+#### Uploading Data
+
+* Local_Path is the path to your files or directory on your local
+computer
+
+* Cluster_Path is the path to your files or directory on the cluster
+Home Directory: `/cluster/home/your_utln/your_folder`
+
+Research Project Storage Space Directory: `/cluster/tufts/yourlabname/your_utln/your_folder`
+
+**Examples:**
+
+Download From Cluster:
+
+```
+scp your_utln@xfer.cluster.tufts.edu:Cluster_Path Local_Path
+```
+
+_For Example (Tutorial Scripts from Cluster)_
+
+```
+emoseley@MacBook-Pro-5 ~ % scp -r emosel01@xfer.cluster.tufts.edu:/cluster/tufts/hpc/tools/WorkshopDemo/20210420 /Users/emoseley/Desktop/example_files
+```
+
+Upload to Cluster:
+
+```
+scp Local_Path your_utln@xfer.cluster.tufts.edu:Cluster_Path
+```
+
+_For Example_
+
+```
+scp emosel01@xfer.cluster.tufts.edu:/cluster/tufts/cowenlab/emosel01/data
+```
+
+## Environment Setup (Conda)
+
+We use `conda` to control our environment, to list the conda modules, we check:
+
+```
+module av anaconda
+```
+
+We will load a recent version of Anaconda:
+
+```
+module load anaconda/2021.05
+```
+
+### Configuring Conda
+
+Since you have limited amount of storage in your home directory, we do no suggest you install the packages
+there. As you belong to XXXXlab group on the cluster, please use the group research storage for the purpose.
+
+Create two directories in your group research storage space (one for storing the envs, one for storing the `pkgs`,
+for example: `condaenv`, `condapkg`)
+
+```
+cd /cluster/tufts/cowenlab/$USER
+mkdir condaenv
+mkdir condapkg
+```
+
+If you haven't used conda before on the cluster, create a file named `".condarc"` in your home directory.
+
+
+```
+cd ~
+touch .condarc
+conda config --append envs_dirs /cluster/tufts/cowenlab/$USER/condaenv/
+conda config --append pkgs_dirs /cluster/tufts/cowenlab/$USER/condapkg/
+```
+
+_Optional:_ Add channels to your conda config as well (here are only 2, but you can add more you need):
+
+```
+conda config --add channels bioconda
+conda config --add channels conda-forge
+```
+
+Now we check with `cat ~/.condarc`:
+
+```
+envs_dirs:
+  - /cluster/tufts/cowenlab/emosel01/condaenv/
+pkgs_dirs:
+  - /cluster/tufts/cowenlab/emosel01/condapkg/
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+```
+
+### Create Conda Environment
+
+Now we create a custom conda env
+
+
+```
+cd /cluster/tufts/XXXXlab/$USER/condaenv/
+conda create -p yourenvname
+```
+
+Note: For a specific version of Python (ex. 3.8), we use:
+
+```
+conda create -p yourenvname python=3.8
+```
+
+**Note:** you will need to have python and pip installed inside the env to pip install packages inside the env.
+
+**Note:** If you are using system installed conda, please **DO NOT** use `conda activate` to activate your environment, use `source activate yourenvname`.
+
+
+
+
+
+
+
+
+
+
+
+
+
+### Batch Job File
+
+```
+!#/bin/sh
+#SBATCH -J My_Job_Name #job name
+#SBATCH !"time=00-00:20:00 #requested time (DD-HH:MM:SS)
+#SBATCH -p preempt #running on "preempt" partition/queue
+#SBATCH -N 1 #1 nodes
+#SBATCH -n 2 #2 tasks total
+#SBATCH -c 1 #1 cpu cores per task
+#SBATCH !"mem=2g #requesting 2GB of RAM total
+#SBATCH !"output=MyJob.%j.%N.out #saving standard output to file,
+%j=JOBID, %N=NodeName
+#SBATCH !"error=MyJob.%j.%N.err #saving standard error to file,
+%j=JOBID, %N=NodeName
+#SBATCH !"mail-type=ALL #email optitions
+#SBATCH !"mail-user=Your_Tufts_Email@tufts.edu
+
+!$commands_you_would_like_to_exe_on_the_compute_nodes]
+
+# for example, running a python script
+# load the module so the correct version python is available to you
+module load anaconda/3
+# run python script
+python myscript.py #make sure myscript.py exists in the current directory
+```
+
+### Submit Job
+
+```
+$ sbatch myjob.sh
+```
+
+# Initial Steps
+
+## Administrative
+
+1. Receive access to cluster
+
+## Connecting to Cluster
+
+Connect to Tufts VPN first with Cisco AnyConnect Mobility Client
+
+```
+vpn.tufts.edu/duo
+```
+
+Note that 2-Factor Authentication is required (pick up the phone).
+
+Next, `ssh` in:
+
+```
+ssh emosel01@login.pax.tufts.edu
+```
+
+Password is the same throughout.
+
+## Landing
+
+```
+$ pwd
+/cluster/home/emosel01
+cd
+/cluster/tufts/cowenlab/emosel01
+```
+
+### File Hierarchy
+
+```
+/cluster/tufts/cowenlab/emosel01/code
+/cluster/tufts/cowenlab/emosel01/data
+/cluster/tufts/cowenlab/emosel01/immcantation_suite
+```
