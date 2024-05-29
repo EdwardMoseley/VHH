@@ -5,9 +5,9 @@
 #SBATCH -N 2 #1 nodes
 #SBATCH -n 4 #2 tasks total (default 1 CPU core per task) = # of cores
 #SBATCH --mem=64g #requesting 2GB of RAM total
-#SBATCH --output=19AlignmentJobRerun.%j.%N.out #saving standard output to file, %j=JOBID, %N=NodeName
-#SBATCH --error=19AlignmentJobRerun.%j.%N.err #saving standard error to file, %j=JOBID, %N=NodeName
-#SBATCH --mail-type=ALL #email optitions
+#SBATCH --output=AlignmentJob.%j.%N.out #saving standard output to file, %j=JOBID, %N=NodeName
+#SBATCH --error=AlignmentJob.%j.%N.err #saving standard error to file, %j=JOBID, %N=NodeName
+#SBATCH --mail-type=ALL #email options
 #SBATCH --mail-user=edward.moseley@tufts.edu
 
 PRESTO_BIN=/cluster/tufts/cowenlab/immcantation_suite/presto/bin
