@@ -65,14 +65,6 @@ for sample in $(ls $DATA_BIN | awk -F'_L' '{print $1}' | uniq); do
     # Move to directory to see if that makes it work
     cd /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0
 
-    # IgBLAST
-    #${NCBI_BIN}/igblastn -germline_db_V /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/internal_data/alpaca/alpaca_V -germline_db_D /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/internal_data/alpaca/alpaca_D -germline_db_J /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/internal_data/alpaca/alpaca_J -domain_system imgt -ig_seqtype Ig -organism alpaca -auxiliary_data /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/optional_file/alpaca_gl.aux -outfmt '7 std qseq sseq btop' -query /cluster/tufts/cowenlab/emosel01/data/assembly/5_S3_atleast-1.fasta -out /cluster/tufts/cowenlab/emosel01/data/assembled/5_S3_atleast-1.fmt7
-    
-    # STEP 2: MakeDB
-    #${CHANGEO_BIN}/MakeDb.py igblast -i /cluster/tufts/cowenlab/emosel01/data/assembled/5_S3_atleast-1.fmt7 -s /cluster/tufts/cowenlab/emosel01/data/assembly/5_S3_atleast-1.fasta -r /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/database/alpaca/IG_DNA/imgt_gapped_alpaca_IGHV.fasta /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/database/alpaca/IG_DNA/imgt_gapped_alpaca_IGHD.fasta /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/database/alpaca/IG_DNA/imgt_gapped_alpaca_IGHJ.fasta --outdir /cluster/tufts/cowenlab/emosel01/data/assembled/ --outname 5_S3 --failed --log /cluster/tufts/cowenlab/emosel01/code/MakeDb.log --format airr --extended
-    
-    ## The TOP commands work-- make sure bottom commands result in same commands as above.
-
     # Now we want to use ncbi
     ${NCBI_BIN}/igblastn -germline_db_V  /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/internal_data/alpaca/alpaca_V -germline_db_D /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/internal_data/alpaca/alpaca_D -germline_db_J /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/internal_data/alpaca/alpaca_J -domain_system imgt -ig_seqtype Ig -organism alpaca -auxiliary_data /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/optional_file/alpaca_gl.aux -outfmt '7 std qseq sseq btop' -query $SEQ_FASTA -out $SEQ_FMT7
     # Now we build the database
