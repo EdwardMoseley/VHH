@@ -13,6 +13,6 @@
 #[commands_you_would_like_to_exe_on_the_compute_nodes]
 
 #Run R script
-module purge
+#module purge
 module load R/4.3.0
 Rscript /cluster/tufts/cowenlab/emosel01/code/HierarchicalClustering.R
