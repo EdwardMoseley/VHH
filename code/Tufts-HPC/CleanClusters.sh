@@ -15,6 +15,7 @@
 #Run R script
 #module purge
 module load R/4.3.0
+
 Rscript /cluster/tufts/cowenlab/emosel01/code/CleanClusterPool.R 21_VecF4_R3_S21_min_threshold_clone-pass.csv
 Rscript /cluster/tufts/cowenlab/emosel01/code/CleanClustertoAA.R 21_VecF4_R3_S21-rule-pooled-families.csv
 Rscript /cluster/tufts/cowenlab/emosel01/code/CleanClusterMMseqs2.R 21_VecF4_R3_S21-rule-pooled-families_VHH_database.csv
