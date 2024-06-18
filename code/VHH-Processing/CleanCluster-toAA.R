@@ -1,7 +1,5 @@
 ## ###
 ## CleanCluster-toAA
-## First, and final, step in generating 
-## clonal clusters for expert analysis.
 ## ###
 
 ## Load Utilities

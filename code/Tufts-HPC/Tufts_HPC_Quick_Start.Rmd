@@ -4,7 +4,7 @@ output: html_document
 date: "2024-05-27"
 ---
 
-# User Guides
+## Tufts High Performance Cluster User Guides
 
 [HPC Tutorials](https://it.tufts.edu/high-performance-computing/hpc-tutorials)
 
@@ -12,13 +12,13 @@ More tutorials:
 
 [HPC New User](https://tufts.app.box.com/v/HPC-New-User)
 
-Note, for cluster questions: `tts-research@tufts.edu`
+Note, for cluster questions, email: `tts-research@tufts.edu`
 
 ## General Information
 
 ### Storage
 
-Your Home Directory (10GB, fixed) should be: `/cluster/home/your_utln`
+Your Home Directory (10GB, fixed) should be: `/cluster/home/your_utln`, where can be accessed by: `/cluster/home/$USER`
 
 You can check your limit with: `quota -s`
 
@@ -730,9 +730,6 @@ PROGRESS> 14:02:24 |########            |  40% (106,176) 1.0 minOUTPUT> 09_db-pa
 ```
 tar -xzvf Impulse_Lulu_240502.tar.gz
 ```
-
-
-
 
 ```
 scp HierarchicalClustering.R emosel01@xfer.cluster.tufts.edu:/cluster/tufts/cowenlab/emosel01/code
