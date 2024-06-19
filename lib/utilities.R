@@ -4,14 +4,6 @@ suppressMessages(library(msa))
 suppressMessages(library(ggseqlogo))
 suppressMessages(library(gridExtra))
 
-## Translate DNA
-translate_DNA <- function(dna_data){
-  clean_dna <- gsub("[^ACTG]", "", dna_data)
-  DNA_strings <- Biostrings::DNAStringSet(clean_dna)
-  translations <- as.character(Biostrings::translate(DNA_strings))
-  return(translations)
-}
-
 ## Trim CDR3s
 trim_CDR3 <- function(seq_vec){
   return(substr(seq_vec, 2, nchar(seq_vec)-1))
@@ -60,20 +52,6 @@ string_entropy <- function(x) {
   # Return
   return(entropy)
 }
-
-## "Unrolling" duplicate values
-unroll_dupes <- function(dat, unroll_column){
-  # Create to store results
-  result_vec <- vector()
-  # Iterate over the duplicate count column
-  for (i in 1:length(dat$duplicate_count)){
-    result_vec <- c(result_vec, 
-                    rep(dat[[unroll_column]],
-                        each = dat$duplicate_count[i]))
-  }
-  return(result_vec)
-}
-
 
 ## This is more effective
 unroll_dupes_fast <- function(dat, unroll_column) {
@@ -191,35 +169,6 @@ subfamily_statistics <- function(dat){
   results$order_index <- 1:nrow(results)
   
   return(results)
-}
-
-# Function to find nearest neighbor and calculate edit distance
-find_nearest_neighbor <- function(x, df) {
-  # Calculate distance from median_CDR3
-  distances <- adist(x, df$median_CDR3)
-  # Assign Inf to diagnal to ignore self-matches
-  diag(distances) <- Inf
-  # Nearest is the minimum
-  nearest_index <- which.min(distances)
-  # Subset the minimum
-  nearest_neighbor <- df$median_CDR3[nearest_index]
-  
-  # If nearest neighbor is same as original value, 
-  if (nearest_neighbor == x) {
-    # Assign Inf
-    distances[nearest_index] <- Inf
-    # Find next minimum
-    nearest_index <- which.min(distances)
-    # pull it
-    nearest_neighbor <- df$median_CDR3[nearest_index]
-  }
-  
-  # Calculate edit distance
-  distance <- distances[nearest_index]
-  
-  # Return in list format
-  return(list(nearest_neighbor = nearest_neighbor, 
-              distance = distance))
 }
 
 # Calculate CDR3 statistics (after "unrolling" duplicates)

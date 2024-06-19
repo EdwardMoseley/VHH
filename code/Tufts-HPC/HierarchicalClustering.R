@@ -17,10 +17,6 @@ dat <- data.frame()
 for (f in files){
   cat("Loading:", f,'\n')
   tmp <- read.csv(paste0(root_dir, f), header = T, stringsAsFactors = F, sep = '\t')
-  # tmp$junction_aa <- trim_CDR3(tmp$junction_aa)
-  # tmp$VHH <- fixed_translate_DNA(tmp$sequence_alignment)
-  # tmp$VHH <- substr(tmp$VHH, 17, nchar(tmp$VHH))
-  # tmp <- tmp[,c("sequence_id", "junction_aa", "VHH", "duplicate_count", "file")]
   tmp <- tmp[,c("sequence", "locus", "sequence_alignment", "junction", "junction_aa", "v_call", "d_call", "j_call", "duplicate_count")]
   #tmp$file <- rep(f, times = nrow(tmp))
   dat <- rbind(dat, tmp)
@@ -59,8 +55,9 @@ threshold <- output@threshold
 
 # Decrease threshold
 new_thr <- threshold - (threshold*0.25)
-print("25% Lower Threshold:")
-print(round(new_thr, 2))
+cat("25% Lower Threshold:\n")
+cat(round(new_thr, 2), '\n')
+cat('\n')
 
 cat("Inferring Clones:\n")
 

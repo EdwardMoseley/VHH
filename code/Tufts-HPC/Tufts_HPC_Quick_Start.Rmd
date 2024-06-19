@@ -784,3 +784,68 @@ LIB='/cluster/tufts/hpc/tools/R/4.3.0'
 .libPaths(c("",LIB))
 library(seqinr)
 ```
+
+
+
+### Note on accessing arguments when calling a script
+
+```
+$ cat myscript
+#!/bin/bash
+echo "First arg: $1"
+echo "Second arg: $2"
+$ ./myscript hello world
+First arg: hello
+Second arg: world
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```
+-rw-rw---- 1 emosel01 cowenlab  2652 Jun 18 19:36 CleanClusterMMseqs2
+-rw-rw---- 1 emosel01 cowenlab  7166 Jun 15 08:20 CleanClusterPool.R
+-rw-rw---- 1 emosel01 cowenlab  1498 Jun 17 13:21 CleanCluster.sh
+-rw-rw---- 1 emosel01 cowenlab  2449 Jun 17 13:01 CleanClustertoAA.R
+-rw-rw---- 1 emosel01 cowenlab  8314 Jun 18 11:04 d2hclust.4833282.d1cmp010.err
+-rw-rw---- 1 emosel01 cowenlab 77899 Jun 18 11:04 d2hclust.4833282.d1cmp010.out
+-rw-rw---- 1 emosel01 cowenlab  4318 Jun 12 17:50 hclust.4788870.d1cmp014.err
+-rw-rw---- 1 emosel01 cowenlab 28500 Jun 12 16:13 hclust.4788870.d1cmp014.out
+-rw-rw---- 1 emosel01 cowenlab  4318 Jun 13 23:00 hclust.4796646.d1cmp010.err
+-rw-rw---- 1 emosel01 cowenlab 35740 Jun 13 18:35 hclust.4796646.d1cmp010.out
+-rw-rw---- 1 emosel01 cowenlab  4200 Jun 14 18:00 hclust.4803880.d1cmp009.err
+-rw-rw---- 1 emosel01 cowenlab 69197 Jun 14 18:00 hclust.4803880.d1cmp009.out
+-rw-rw---- 1 emosel01 cowenlab  5115 Jun 15 15:53 hclust.4811228.d1cmp020.err
+-rw-rw---- 1 emosel01 cowenlab 70099 Jun 15 14:00 hclust.4811228.d1cmp020.out
+-rw-rw---- 1 emosel01 cowenlab  2716 Jun 18 10:29 HierarchicalClustering.R
+-rw-rw---- 1 emosel01 cowenlab   731 Jun 18 10:05 HierarchicalClustering.sh
+```

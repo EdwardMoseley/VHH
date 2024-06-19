@@ -3,7 +3,7 @@
 # AA-DB-mmseqs2-Clustering
 
 ## Load Utilities
-source("~/VHH/lib/utilities.R")
+source("/cluster/tufts/cowenlab/emosel01/code/lib/utilities.R")
 
 ## Draw file info from commandArgs
 args <- commandArgs(trailingOnly=TRUE)
@@ -14,8 +14,8 @@ file_name <- args[1]
 # Output: "20_VecF2_R3_S20-rule-pooled-families_subclustered_database.csv"
 
 # store directory info
-root_dir <- "/Users/emoseley/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/"
-output_dir <- "/Users/emoseley/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/tmp/"
+root_dir <- "/cluster/tufts/cowenlab/emosel01/data/forClustering/tmp/"
+output_dir <- "/cluster/tufts/cowenlab/emosel01/data/forClustering/tmp/"
 
 # Load the file
 tmp <- read.csv(paste(root_dir, file_name, sep = ''), header = T, stringsAsFactors = F)
@@ -25,10 +25,18 @@ results <- data.frame()
 for (nm in unique(tmp$clone_id)){
   # Subset observations
   tmp_frame <- tmp[tmp$clone_id == nm,]
+  
+  ## ###
+  ## In this for-loop, it would be a good idea to check if there is more than one clone in the family first!
+  ## ###
+  
+  
+  
+  
   # write fasta for mmseqs2
   write_fasta(tmp_frame, "VHH", "sequence_id", paste(output_dir, "tmp.fasta", sep = ''))
   # Prepare mmseqs command
-  command <- paste("/usr/local/Cellar/mmseqs2/15-6f452/bin/mmseqs ", 
+  command <- paste("mmseqs ", 
                    "easy-cluster -v 2 --min-seq-id 0.90 ", 
                    paste(output_dir, "tmp.fasta", sep = ''), 
                    paste(output_dir, "tmp-H95", sep = ''),
@@ -56,6 +64,7 @@ for (nm in unique(tmp$clone_id)){
   dat$centroid <- clean_seq_ids(dat$centroid)
   dat$sequence_id <- clean_seq_ids(dat$sequence_id)
   # merge results
+  
   dat <- merge_db_to_centroids(dat, tmp)
   # Combine results and move on
   results <- rbind(results, dat)
@@ -65,15 +74,5 @@ file_name <- gsub("VHH_database.csv", "subclustered_database.csv", file_name)
 
 cat("Writing: ", paste(root_dir, file_name, sep = ''), '\n', sep = '')
 
+#Save Results
 write.csv(results, file = paste(root_dir, file_name, sep = ''), row.names = F)
-
-## Route the traffic out
-if (grepl("_subclustered_database.csv", file_name)){
-  # Pass the file to the next script in the pipeline
-  cat(paste("Rscript CleanCluster-Refining.R", file_name), '\n')
-  system(paste("Rscript CleanCluster-Refining.R", file_name))
-} else if (grepl("later file name for final pooling...", file_name)){
-  cat("ERROR in [CleanCluster-toAA.R]: Wrong file name?")
-  # change file name
-  # write
-}
