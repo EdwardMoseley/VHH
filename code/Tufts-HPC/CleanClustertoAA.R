@@ -44,21 +44,15 @@ filtered_seqs <- nrow(tmp)
 cat(file_name, '\n')
 cat(round(100 - (filtered_seqs/all_seqs*100), 2), "% of sequences unproductive.\n", sep = '')
 # Keep only necessary information
+tmp <- tmp[,c("sequence_id", "sequence", "sequence_alignment", "VHH", "junction_aa", "duplicate_count", "clone_id", "source_file")]
 
-# The error here is the our file doesn't have `sequence_id`, so we just add one
-
-tmp$sequence_id <- paste("GS-", 1:nrow(tmp), sep = '')
-
-cat("Column names:\n\n")
-cat(colnames(tmp), '\n')
-cat("VHH in there: ", ("VHH" %in% colnames(tmp)), '\n\n')
-cat("Possible Problem column below:\n")
-cat(colnames(tmp)[!which(colnames(tmp) %in% c("sequence_id", "VHH", "junction_aa", "duplicate_count", "clone_id", "source_file"))], '\n')
-
-tmp <- tmp[,c("sequence_id", "VHH", "junction_aa", "duplicate_count", "clone_id", "source_file")]
+## ###
+## Keep an eye out for bugs here
+## ###
 
 # Hold another frame for collapsing VHHs
 tmp_frame <- tmp[ ,c("VHH", "duplicate_count")]
+
 # Drop duplicate count, as we will add it back later
 tmp$duplicate_count <- NULL
 # Aggregate

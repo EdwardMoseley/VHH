@@ -7,6 +7,8 @@
 ## First pass call:
 # Rscript CleanCluster-Pool.R 21_VecF4_R3_S21_min_threshold_clone-pass.csv
 # Rscript CleanCluster-Pool.R Assembled_9_S18_min_threshold_clone-pass.csv
+# Percent VHH outliers:  3.42 
+# Rscript CleanCluster-Pool.R Assembled_D4_S6_min_threshold_clone-pass.csv
 ## Last pass call:
 # Rscript CleanCluster-Pool.R 19_VecF1_R3_S19-rule-Pooled-Cleaning-Reclustering-Initial-Results-H90.csv 
 
@@ -14,12 +16,13 @@
 source("/cluster/tufts/cowenlab/emosel01/code/lib/utilities.R")
 
 ## Draw file info from commandArgs
-#args <- commandArgs(trailingOnly=TRUE)
-args <- c("GS_sample_min_threshold_clone-pass.csv")
+args <- commandArgs(trailingOnly=TRUE)
 
 # Rscript CleanCluster-Pool.R Global_Clone_Experiment_master_set-D1-09-10-11_min_threshold_clone-pass.csv
 
 # Rscript CleanCluster-Pool.R Global_Clone_Experiment_D1_S3_demand_two_min_threshold_clone-pass.csv
+
+# Rscript CleanCluster-Pool.R Clones_Inferred_Assembled_37_S11_min_threshold_clone-pass.csv
 
 # Rscript CleanCluster-Pool.R Clones_Inferred_Assembled_41_S16_min_threshold_clone-pass.csv
 
@@ -28,14 +31,14 @@ if (grepl("-Pooled-Cleaning-Reclustering-Initial-Results.csv", args[1])) {
   file_name <- args[1]
   cat("Final Processing of: ", file_name, '\n', sep = '')
   # Define root_path
-  root_path <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/"
+  root_path <- "/cluster/tufts/cowenlab/emosel01/data/forClustering/tmp"
   # Load Data
   dat <- read.csv(paste(root_path, file_name, sep = ''), header = T, stringsAsFactors = F)
 } else if (grepl("_min_threshold_clone-pass.csv", args[1])){
   file_name <- args[1]
   cat("Initial Processing of: ", file_name, '\n', sep = '')
   # Define root_path
-  root_path <- "/cluster/tufts/cowenlab/emosel01/data/forClustering/"
+  root_path <- "/cluster/tufts/cowenlab/emosel01/data/forClustering"
   # Load data
   dat <- read.csv(paste(root_path, file_name, sep = ''), header = T, stringsAsFactors = F)
   # Trim CDR3s
@@ -216,21 +219,11 @@ if (nrow(tmp) == 0){
 
 cat(file_name, " has ", length(unique(dat$clone_id)), " clonal families after pooling 80% homologous families with 6AA<x<10AA CDR3s.\n", sep = '')
 
-## Route the traffic out
-if (grepl("_min_threshold_clone-pass.csv", file_name)){
-  # change file name
-  file_name <- gsub("_min_threshold_clone-pass.csv", "-rule-pooled-families.csv", file_name)
-  cat("Writing: ")
-  write.csv(dat, file = paste(root_path, file_name, sep = ''), row.names = F)
-  cat(paste("Rscript CleanCluster-toAA.R", file_name), '\n')
-  # Pass the file to the next script in the pipeline
-  system(paste("Rscript CleanCluster-toAA.R", file_name))
-} else if (grepl("rule-Pooled-Cleaning-Reclustering-Initial-Results.csv", file_name)){
-  # change file name
-  file_name <- gsub("-rule-Pooled-Cleaning-Reclustering-Initial-Results.csv", "-Cleaned19Apr24.csv", file_name)
-  cat("Writing: ", paste(root_path, file_name, sep = ''), '\n')
-  # write
-  write.csv(dat, file = paste(root_path, file_name, sep = ''), row.names = F)
-}
+file_name <- gsub("_min_threshold_clone-pass.csv", "_pooled.csv", file_name)
 
+# Define path
+root_path <- "/cluster/tufts/cowenlab/emosel01/data/forClustering/tmp/"
+
+# Write data
+write.csv(dat, paste(root_path, file_name, sep = ''), row.names = F)
 

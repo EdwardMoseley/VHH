@@ -1,4 +1,4 @@
-## CleanCluster-MMseqs2
+## CleanClusterMMseqs2.R
 
 # AA-DB-mmseqs2-Clustering
 
@@ -22,16 +22,13 @@ tmp <- read.csv(paste(root_dir, file_name, sep = ''), header = T, stringsAsFacto
 # Create a data frame for holding results
 results <- data.frame()
 # Iterate over Hierarchically Clustered clone_ids, re-clustering
-for (nm in unique(tmp$clone_id)){
+for (nm in unique(tmp$clone_id)[1:10]){
   # Subset observations
   tmp_frame <- tmp[tmp$clone_id == nm,]
   
   ## ###
   ## In this for-loop, it would be a good idea to check if there is more than one clone in the family first!
   ## ###
-  
-  
-  
   
   # write fasta for mmseqs2
   write_fasta(tmp_frame, "VHH", "sequence_id", paste(output_dir, "tmp.fasta", sep = ''))
