@@ -22,7 +22,7 @@ tmp <- read.csv(paste(root_dir, file_name, sep = ''), header = T, stringsAsFacto
 # Create a data frame for holding results
 results <- data.frame()
 # Iterate over Hierarchically Clustered clone_ids, re-clustering
-for (nm in unique(tmp$clone_id)[1:10]){
+for (nm in unique(tmp$clone_id)){
   # Subset observations
   tmp_frame <- tmp[tmp$clone_id == nm,]
   

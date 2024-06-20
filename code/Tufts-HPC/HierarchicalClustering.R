@@ -1,24 +1,24 @@
-# Change Library path to ensure we have access
+## Change Library path to ensure we have access
 .libPaths("/cluster/tufts/hpc/tools/R/4.3.0")
 
-if (!require("airr")) install.packages("airr")
+#if (!require("airr")) install.packages("airr")
 
 library("alakazam")
-#library("tigger")
 library("scoper")
 library("shazam")
 
 
-root_dir <- "/cluster/tufts/cowenlab/emosel01/data/hclust"
-output_file <- "/cluster/tufts/cowenlab/emosel01/data/GS_full_12Jun24_min_threshold_clone-pass.csv"
+root_dir <- "/cluster/tufts/cowenlab/emosel01/data/hclust/"
+output_file <- "/cluster/tufts/cowenlab/emosel01/data/GS_TEST_20Jun24_min_threshold_clone-pass.csv"
 files <- list.files(root_dir)
+# We only want files with underscores
+files <- files[grepl("_", files)]
 
 dat <- data.frame()
-for (f in files){
+for (f in files[1]){ 
   cat("Loading:", f,'\n')
   tmp <- read.csv(paste0(root_dir, f), header = T, stringsAsFactors = F, sep = '\t')
   tmp <- tmp[,c("sequence", "locus", "sequence_alignment", "junction", "junction_aa", "v_call", "d_call", "j_call", "duplicate_count")]
-  #tmp$file <- rep(f, times = nrow(tmp))
   dat <- rbind(dat, tmp)
 }
 
@@ -28,9 +28,32 @@ tmp <- aggregate(duplicate_count ~ ., FUN = sum, data = dat)
 
 cat("Writing Global Set (Clones Not Yet Inferred)\n")
 
-write.csv(tmp, file = "/cluster/tufts/cowenlab/emosel01/data/hclust/ImpulseLuluGlobalSet12Jun24.csv", row.names = F)
+# write.csv(tmp, file = "/cluster/tufts/cowenlab/emosel01/data/hclust/ImpulseLuluGlobalSet12Jun24.csv", row.names = F)
 
-dat <- tmp
+
+
+
+dat <- head(tmp, 1000)
+
+
+
+
+
+
+
+
+
+rm(tmp)
+
+
+
+tmp <- aggregate(duplicate_count ~ ., FUN = sum, data = dat)
+
+cat("Writing Global Set (Clones Not Yet Inferred)\n")
+
+# write.csv(tmp, file = "/cluster/tufts/cowenlab/emosel01/data/hclust/ImpulseLuluGlobalSet12Jun24.csv", row.names = F)
+
+dat <- head(tmp, 1000)
 
 rm(tmp)
 
@@ -40,9 +63,9 @@ rm(tmp)
 
 cat("Calculating distToNearest...\n")
 
-db <- shazam::distToNearest(dat, model = "ham", 
-                            normalize = "len", 
-                            vCallColumn = "v_call", 
+db <- shazam::distToNearest(dat, model = "ham",
+                            normalize = "len",
+                            vCallColumn = "v_call",
                             jCallColumn = "j_call",
                             locusColumn = "locus",
                             nproc = 1)
@@ -61,13 +84,16 @@ cat('\n')
 
 cat("Inferring Clones:\n")
 
-  # Clonal assignment using hierarchical clustering
-db <- scoper::hierarchicalClones(db,
-                                   threshold=new_thr,
-                                   v_call="v_call",
-                                   j_call = "j_call",
-                                   verbose = TRUE)
 
+system.time(
+# Clonal assignment using hierarchical clustering
+db <- scoper::hierarchicalClones(db,
+                                 threshold=new_thr,
+                                 v_call="v_call",
+                                 j_call = "j_call",
+                                 verbose = TRUE,
+                                 summarize_clones = FALSE)
+)
 
 
 cat("Writing: ", output_file, '\n')

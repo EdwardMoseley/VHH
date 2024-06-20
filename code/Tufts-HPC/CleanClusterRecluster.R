@@ -3,41 +3,45 @@
 ## ###
 
 ## Load Utilities
-source("~/VHH/lib/utilities.R")
+source("/cluster/tufts/cowenlab/emosel01/code/lib/utilities.R")
 
 ## Draw file info from commandArgs
 args <- commandArgs(trailingOnly=TRUE)
 
 file_name <- args[1]
 
-#Inputs: 
+#Inputs: GS_sample_pooled_outlier_database.csv, 
+#(Old) -> 19_VecF1_R3_S19-rule-pooled-outlier-database.csv
 #(1) -> GS_sample_pooled_clean_database.csv
 #(2) -> GS_sample_pooled_outlier_database.csv
 #Output:
 #(1) -> S20-pooled-outlier-reclustered-database.csv
 
-results_file <- gsub("-pooled-families_subclustered_database.csv", "-pooled-clean-database.csv", file_name)
-outliers_file <- gsub("-pooled-families_subclustered_database.csv", "-pooled-outlier-database.csv", file_name)
+results_file <- gsub("_pooled_outlier_database.csv", "-pooled-reclustered-database.csv", file_name)
+outliers_file <- gsub("_pooled_outlier_database.csv", "-pooled-outlier-database.csv", file_name)
 
 ## Load Outliers
+root_root_dir <- "/cluster/tufts/cowenlab/emosel01/data/forClustering/"
 root_dir <- "/cluster/tufts/cowenlab/emosel01/data/forClustering/tmp/"
 
-cat("Loading: ", paste(root_dir, outliers_file, sep = ''), '\n', sep = '')
+## 
+cat("Loading: ", paste(root_root_dir, outliers_file, sep = ''), '\n', sep = '')
 
 # Load outliers
-dat <- read.csv(paste(root_dir, outliers_file, sep = ''), header = T, stringsAsFactors = F)
+dat <- read.csv(paste(root_root_dir, outliers_file, sep = ''), header = T, stringsAsFactors = F)
 
-cat("Loading: ", paste("/cluster/tufts/cowenlab/emosel01/data/forClustering/tmp/", 
-                       gsub("-rule-pooled-families_subclustered_database.csv", 
+cat("Loading: ", paste(root_root_dir, 
+                       gsub("_pooled_outlier_database.csv", 
                             "_min_threshold_clone-pass.csv", 
                             file_name), sep = ''), '\n', sep = '')
 
 ## Load Source Database
-tmp <- read.csv(paste("/cluster/tufts/cowenlab/emosel01/data/forClustering/tmp/", 
-                      gsub("-rule-pooled-families_subclustered_database.csv", 
+tmp <- read.csv(paste(root_root_dir, 
+                      gsub("_pooled_outlier_database.csv", 
                            "_min_threshold_clone-pass.csv", 
                            file_name), sep = ''),
                 header = T, stringsAsFactors = F)
+
 
 # Ensure that, if no sequence_id exists, we create it
 if (!("sequence_id" %in% colnames(tmp))){
@@ -56,6 +60,7 @@ tmp$VHH <- substr(tmp$VHH, 11, nchar(tmp$VHH))
 dat <- tmp[tmp$VHH %in% dat$VHH,]
 ## Prepare for clonal inference
 
+## Remove old Clone IDs/Distances to nearest neighbor
 dat$clone_id <- NULL
 dat$dist_nearest <- NULL
 
@@ -67,14 +72,15 @@ db <- shazam::distToNearest(dat, model = "ham",
                     normalize = "len", 
                     vCallColumn = "v_call", 
                     jCallColumn = "j_call",
+                    locusColumn = "locus",
                     nproc = 1)
 
 # Determine threshold (based on median)
 thr <- summary(db$dist_nearest)[["Median"]]
 
-new_thr <- thr + (thr*0.25)
-print("25% Higher Threshold:")
-print(round(new_thr, 2))
+new_thr <- thr - (thr*0.25)
+cat("25% Higher Threshold:")
+cat(round(new_thr, 2))
 
 cat("Inferring Clones:\n")
 system.time(
@@ -82,19 +88,18 @@ system.time(
   db <- scoper::hierarchicalClones(db, 
                                    threshold=new_thr, 
                                    v_call="v_call", 
-                                   j_call = "j_call")
+                                   j_call = "j_call",
+                                   verbose = TRUE,
+                                   summarize_clones = FALSE)
 )
 
-db <- db@db
-
 ## Sub-cluster with MMseqs2
-output_dir <- "/Users/emoseley/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/tmp/"
+output_dir <- "/cluster/tufts/cowenlab/emosel01/data/forClustering/tmp/"
 
 results <- data.frame()
 
 # Iterate over Hierarchically Clustered clone_ids, re-clustering
 for (nm in unique(db$clone_id)){
-  # nm <- 8 (51 obs)
   # Subset observations
   tmp_frame <- db[db$clone_id == nm,]
   # If the family has more than one member, we will re-cluster
@@ -145,23 +150,7 @@ for (nm in unique(db$clone_id)){
 
 ### Temporary Write
 
-# Note:
-# input_file <- "19_VecF1_R3_S19-pooled-outlier-database-H90.csv"
-file_name <- gsub("_database.csv", "-reclustered-database.csv", file_name)
-
-cat("Writing: ", paste(root_dir, file_name, sep = ''), '\n', sep = '')
+cat("Writing: ", paste(root_dir, results_file, sep = ''), '\n', sep = '')
 
 write.csv(results, 
-          file = paste(root_dir, file_name, sep = ''), row.names = F)
-
-
-## Route the traffic out
-if (grepl("-reclustered-database.csv", file_name)){
-  # Pass the file to the next script in the pipeline
-  cat(paste("Rscript CleanCluster-Union.R", file_name), '\n')
-  system(paste("Rscript CleanCluster-Union.R", file_name))
-} else if (grepl("later file name for final pooling...", file_name)){
-  cat("ERROR in [CleanCluster-toAA.R]: Wrong file name?")
-  # change file name
-  # write
-}
+          file = paste(root_dir, results_file, sep = ''), row.names = F)
