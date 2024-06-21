@@ -52,8 +52,6 @@ outlier_test_db <- subfamily_statistics(outlier_db)
 # Clean column names
 outlier_test_db <- outlier_test_db[colnames(outlier_test_db) %in% colnames(clean_test_db)]
 
-
-
 ### Add a large number to outlier clone IDs so they are distinguishable
 outlier_test_db$clone_id <- paste("O-", outlier_test_db$clone_id, sep = '')#outlier_test_db$clone_id + 100000
 outlier_test_db$centroid_id <- paste("O-", outlier_test_db$centroid_id, sep = '')#outlier_test_db$centroid_id + 100000

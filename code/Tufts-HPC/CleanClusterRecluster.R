@@ -1,3 +1,4 @@
+
 ## ###
 ## BEGIN "[VHH]-Outlier-Re-Clustering"
 ## ###
@@ -8,7 +9,7 @@ source("/cluster/tufts/cowenlab/emosel01/code/lib/utilities.R")
 ## Draw file info from commandArgs
 args <- commandArgs(trailingOnly=TRUE)
 
-file_name <- args[1]
+file_name <- args[1] 
 
 #Inputs: GS_sample_pooled_outlier_database.csv, 
 #(Old) -> 19_VecF1_R3_S19-rule-pooled-outlier-database.csv
@@ -17,28 +18,27 @@ file_name <- args[1]
 #Output:
 #(1) -> S20-pooled-outlier-reclustered-database.csv
 
-results_file <- gsub("_pooled_outlier_database.csv", "-pooled-reclustered-database.csv", file_name)
-outliers_file <- gsub("_pooled_outlier_database.csv", "-pooled-outlier-database.csv", file_name)
+results_file <- gsub("_pooled_outlier_database.csv", "_pooled_reclustered_database.csv", file_name)
+outliers_file <- gsub("_pooled_outlier_database.csv", "_pooled_outlier_database.csv", file_name)
 
 ## Load Outliers
 root_root_dir <- "/cluster/tufts/cowenlab/emosel01/data/forClustering/"
 root_dir <- "/cluster/tufts/cowenlab/emosel01/data/forClustering/tmp/"
 
-## 
-cat("Loading: ", paste(root_root_dir, outliers_file, sep = ''), '\n', sep = '')
+cat("Loading: ", paste(root_dir, outliers_file, sep = ''), '\n', sep = '')
 
 # Load outliers
-dat <- read.csv(paste(root_root_dir, outliers_file, sep = ''), header = T, stringsAsFactors = F)
+dat <- read.csv(paste(root_dir, outliers_file, sep = ''), header = T, stringsAsFactors = F)
 
-cat("Loading: ", paste(root_root_dir, 
-                       gsub("_pooled_outlier_database.csv", 
-                            "_min_threshold_clone-pass.csv", 
+cat("Loading: ", paste(root_root_dir,
+                       gsub("_pooled_outlier_database.csv",
+                            "_min_threshold_clone-pass.csv",
                             file_name), sep = ''), '\n', sep = '')
 
 ## Load Source Database
-tmp <- read.csv(paste(root_root_dir, 
-                      gsub("_pooled_outlier_database.csv", 
-                           "_min_threshold_clone-pass.csv", 
+tmp <- read.csv(paste(root_root_dir,
+                      gsub("_pooled_outlier_database.csv",
+                           "_min_threshold_clone-pass.csv",
                            file_name), sep = ''),
                 header = T, stringsAsFactors = F)
 
@@ -68,26 +68,31 @@ dat$dist_nearest <- NULL
 
 cat("Calculating distToNearest...\n")
 
-db <- shazam::distToNearest(dat, model = "ham", 
-                    normalize = "len", 
-                    vCallColumn = "v_call", 
-                    jCallColumn = "j_call",
-                    locusColumn = "locus",
-                    nproc = 1)
+db <- shazam::distToNearest(dat, model = "ham",
+                            normalize = "len",
+                            vCallColumn = "v_call",
+                            jCallColumn = "j_call",
+                            locusColumn = "locus",
+                            nproc = 1)
+
+print(head(db$dist_nearest))
+
+### Find Threshold
 
 # Determine threshold (based on median)
 thr <- summary(db$dist_nearest)[["Median"]]
 
-new_thr <- thr - (thr*0.25)
-cat("25% Higher Threshold:")
-cat(round(new_thr, 2))
+# Make a larger threshold for more inclusive groups
+new_thr <- thr + (thr*0.25)
+cat("25% Higher Threshold:\n")
+cat(round(new_thr, 2), '\n')
 
 cat("Inferring Clones:\n")
 system.time(
   # Clonal assignment using hierarchical clustering
-  db <- scoper::hierarchicalClones(db, 
-                                   threshold=new_thr, 
-                                   v_call="v_call", 
+  db <- scoper::hierarchicalClones(db,
+                                   threshold=new_thr,
+                                   v_call="v_call",
                                    j_call = "j_call",
                                    verbose = TRUE,
                                    summarize_clones = FALSE)
@@ -107,9 +112,9 @@ for (nm in unique(db$clone_id)){
     # write fasta for mmseqs2
     write_fasta(tmp_frame, "VHH", "sequence_id", paste(output_dir, "tmp.fasta", sep = ''))
     # Prepare mmseqs command
-    command <- paste("mmseqs ", 
-                     "easy-cluster -v 2 --min-seq-id 0.90 ", 
-                     paste(output_dir, "tmp.fasta", sep = ''), 
+    command <- paste("mmseqs ",
+                     "easy-cluster -v 2 --min-seq-id 0.90 ",
+                     paste(output_dir, "tmp.fasta", sep = ''),
                      paste(output_dir, "tmp-H95", sep = ''),
                      paste(output_dir, "tmp", sep = ''))
     
@@ -152,5 +157,6 @@ for (nm in unique(db$clone_id)){
 
 cat("Writing: ", paste(root_dir, results_file, sep = ''), '\n', sep = '')
 
-write.csv(results, 
+write.csv(results,
           file = paste(root_dir, results_file, sep = ''), row.names = F)
+
