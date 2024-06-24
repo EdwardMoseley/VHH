@@ -8,13 +8,13 @@ source("~/VHH/lib/utilities.R")
 ## Draw file info from commandArgs
 args <- commandArgs(trailingOnly=TRUE)
 
-#args <- c("19_VecF1_R3_S19-rule-pooled-families.csv")
+#args <- c("GS_d2_18Jun24-rule-pooled-families.csv")
 file_name <- args[1]
 
 ## Amino Acid-only database
 
 # Input data: "20_VecF2_R3_S20-pooled-families.csv"
-# Output Data: "translated_dbs/20_VecF2_R3_S20-pooled-families_VHH_database.csv"
+# Output Data: "translated_dbs/20_VecF2_R3_S20-pooled-families_VHH_database.csv" 
 
 # store directory info
 root_path <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/"
@@ -38,15 +38,25 @@ filtered_seqs <- nrow(tmp)
 # Elevator music
 cat(file_name, '\n')
 cat(round(100 - (filtered_seqs/all_seqs*100), 2), "% of sequences unproductive.\n", sep = '')
+# If there is no sequence_id (as in the global set), add it
+if (!("sequence_id" %in% colnames(tmp))){
+  cat("No sequence id, so adding it.\n")
+  tmp$sequence_id <- paste("GS-", 1:nrow(tmp), sep = '')
+}
 # Keep only necessary information
 tmp <- tmp[,c("sequence_id","VHH","junction_aa","duplicate_count", "clone_id", "source_file")]
+
+## ###
+## May be a good idea to pull "junction_aa" here, as well(?)
+## ###
+
 # Hold another frame for collapsing VHHs
 tmp_frame <- tmp[ ,c("VHH", "duplicate_count")]
 # Drop duplicate count, as we will add it back later
 tmp$duplicate_count <- NULL
-# Aggregate
+# Aggregate the VHH's by their duplicate count, so we can get exact numbers on them
 tmp_frame <- aggregate(duplicate_count ~ VHH, data = tmp_frame, FUN = sum)
-# Merge back to other data
+# Merge back to other data on VHH, so that each VHH's whole duplciate count is known
 tmp <- merge(tmp_frame, tmp, by = "VHH")
 # Drop duplicates
 tmp <- tmp[!duplicated(tmp$VHH),]

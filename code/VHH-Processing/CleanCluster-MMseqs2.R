@@ -42,6 +42,7 @@ for (nm in unique(tmp$clone_id)){
   
   ## ###
   ## Here, we need to fix it to make sure that identical centroid_ids dont exist
+  ## Actually, is that important given that centroid IDs are nested in Clonal Families?
   ## ###
   
   # Create a centroid id
