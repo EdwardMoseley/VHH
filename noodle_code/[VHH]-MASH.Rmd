@@ -1,0 +1,56 @@
+---
+title: "[VHH]-MASH"
+output: html_document
+date: "2024-06-24"
+---
+
+```{r}
+library(ggplot2)
+library(reshape2)
+library(pheatmap)
+```
+
+```{r}
+# Read the data
+distances <- read.table("~/Downloads/distances.tsv", header = FALSE, sep = "\t")
+
+# Assign column names for clarity
+colnames(distances) <- c("Genome1", "Genome2", "Mash_Distance", "P_value", "Shared_Kmers")
+
+# Create a matrix of distances
+distance_matrix <- reshape2::acast(distances, Genome1 ~ Genome2, value.var = "Mash_Distance")
+distance_matrix[is.na(distance_matrix)] <- 0  # Replace NAs with 0 for self-comparisons
+
+```
+
+## Heatmap
+
+```{r}
+# Plot the heatmap
+pheatmap(distance_matrix, 
+         cluster_rows = TRUE, 
+         cluster_cols = TRUE, 
+         display_numbers = TRUE,
+         color = colorRampPalette(c("white", "blue"))(50),
+         main = "MASH Distance Heatmap")
+```
+
+## Multi-dimensional Scaling
+
+```{r}
+# Perform MDS
+mds <- cmdscale(as.dist(distance_matrix), k = ncol(distance_matrix) - 1)
+
+# Convert to a data frame for plotting
+mds_df <- as.data.frame(mds)
+mds_df$Genome <- rownames(mds_df)
+
+# Plot MDS
+ggplot(mds_df, aes(x = V1, y = V1, label = Genome)) +
+  geom_point(size = 3) +
+  geom_text(vjust = -1) +
+  ggtitle("MDS Plot of Genome Distances") +
+  xlab("Coordinate 1") +
+  ylab("Coordinate 2") +
+  theme_minimal()
+```

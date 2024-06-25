@@ -6,54 +6,44 @@
 library("alakazam")
 library("scoper")
 library("shazam")
+library("hash")
 
 
 root_dir <- "/cluster/tufts/cowenlab/emosel01/data/hclust/"
-output_file <- "/cluster/tufts/cowenlab/emosel01/data/GS_TEST_20Jun24_min_threshold_clone-pass.csv"
+output_file <- "/cluster/tufts/cowenlab/emosel01/data/GS_ImpulseLulu_20Jun24_min_threshold_clone-pass.csv"
 files <- list.files(root_dir)
 # We only want files with underscores
 files <- files[grepl("_", files)]
 
 dat <- data.frame()
-for (f in files[1]){ 
+for (f in files){
   cat("Loading:", f,'\n')
   tmp <- read.csv(paste0(root_dir, f), header = T, stringsAsFactors = F, sep = '\t')
-  tmp <- tmp[,c("sequence", "locus", "sequence_alignment", "junction", "junction_aa", "v_call", "d_call", "j_call", "duplicate_count")]
+  tmp$VHH <- fixed_translate_DNA(tmp$sequence_alignment)
+  tmp <- tmp[,c("sequence", "locus", "sequence_alignment", "junction", "junction_aa", "v_call", "d_call", "j_call", "VHH", "duplicate_count")]
   dat <- rbind(dat, tmp)
 }
 
-rm(tmp)
 
-tmp <- aggregate(duplicate_count ~ ., FUN = sum, data = dat)
+## Aggregate duplicate count by VHH
+tmp <- aggregate(duplicate_count ~ VHH, FUN = sum, data = dat)
 
-cat("Writing Global Set (Clones Not Yet Inferred)\n")
+## Demand duplicate VHHs
+tmp <- tmp[tmp$duplicate_count >= 2,]
 
-# write.csv(tmp, file = "/cluster/tufts/cowenlab/emosel01/data/hclust/ImpulseLuluGlobalSet12Jun24.csv", row.names = F)
+## Use hash table for quick lookups
 
+# Create a hash table from tmp
+hash_table <- hash(tmp$VHH, TRUE)
 
+# Filter dat using the hash table
+dat <- dat[sapply(dat$VHH, function(x) has.key(x, hash_table)), ]
 
+# Now that we've saved some time, we can merge back for VHH dupe counts
+dat <- merge(dat, tmp, by = "VHH")
 
-dat <- head(tmp, 1000)
-
-
-
-
-
-
-
-
-
-rm(tmp)
-
-
-
-tmp <- aggregate(duplicate_count ~ ., FUN = sum, data = dat)
-
-cat("Writing Global Set (Clones Not Yet Inferred)\n")
-
-# write.csv(tmp, file = "/cluster/tufts/cowenlab/emosel01/data/hclust/ImpulseLuluGlobalSet12Jun24.csv", row.names = F)
-
-dat <- head(tmp, 1000)
+# count rows
+cat("Row count:", nrow(dat), "\n")
 
 rm(tmp)
 
@@ -63,9 +53,9 @@ rm(tmp)
 
 cat("Calculating distToNearest...\n")
 
-db <- shazam::distToNearest(dat, model = "ham",
-                            normalize = "len",
-                            vCallColumn = "v_call",
+db <- shazam::distToNearest(dat, model = "ham", 
+                            normalize = "len", 
+                            vCallColumn = "v_call", 
                             jCallColumn = "j_call",
                             locusColumn = "locus",
                             nproc = 1)
@@ -84,8 +74,6 @@ cat('\n')
 
 cat("Inferring Clones:\n")
 
-
-system.time(
 # Clonal assignment using hierarchical clustering
 db <- scoper::hierarchicalClones(db,
                                  threshold=new_thr,
@@ -93,8 +81,8 @@ db <- scoper::hierarchicalClones(db,
                                  j_call = "j_call",
                                  verbose = TRUE,
                                  summarize_clones = FALSE)
-)
+
 
 
 cat("Writing: ", output_file, '\n')
-write.csv(db@db, file = output_file, row.names = F)
+write.csv(db, file = output_file, row.names = F)
