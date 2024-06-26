@@ -12,26 +12,50 @@ library(pheatmap)
 
 ```{r}
 # Read the data
-distances <- read.table("~/Downloads/distances.tsv", header = FALSE, sep = "\t")
+#distances <- read.table("~/Downloads/distances.tsv", header = FALSE, sep = "\t")
+distances <- read.table("~/Downloads/new_distances.tsv", header = FALSE, sep = "\t")
+
 
 # Assign column names for clarity
 colnames(distances) <- c("Genome1", "Genome2", "Mash_Distance", "P_value", "Shared_Kmers")
 
+
+# file_path <- "/cluster/tufts/cowenlab/emosel01/data/assembly/"
+
+file_path <- "/cluster/tufts/cowenlab/emosel01/data/hclust/"
+
+
+distances$Genome1 <- gsub(file_path, "", distances$Genome1)
+distances$Genome2 <- gsub(file_path, "", distances$Genome2)
+
+# _atleast-1.fasta
+# _db-pass.fasta
+
+distances$Genome1 <- gsub("_db-pass.fasta", "", distances$Genome1)
+distances$Genome2 <- gsub("_db-pass.fasta", "", distances$Genome2)
+
 # Create a matrix of distances
 distance_matrix <- reshape2::acast(distances, Genome1 ~ Genome2, value.var = "Mash_Distance")
 distance_matrix[is.na(distance_matrix)] <- 0  # Replace NAs with 0 for self-comparisons
-
 ```
+
+
+```{r}
+distance_matrix <- distance_matrix[,c("9_S18", colnames(distance_matrix)[1:(ncol(distance_matrix)-1)])]
+distance_matrix <- distance_matrix[c(nrow(distance_matrix), 1:(nrow(distance_matrix)-1)),]
+```
+
 
 ## Heatmap
 
 ```{r}
 # Plot the heatmap
 pheatmap(distance_matrix, 
-         cluster_rows = TRUE, 
-         cluster_cols = TRUE, 
-         display_numbers = TRUE,
-         color = colorRampPalette(c("white", "blue"))(50),
+         cluster_rows = T,#TRUE, 
+         cluster_cols = T,#TRUE, 
+         display_numbers = T,#,TRUE,
+         number_color = "white",
+         color = colorRampPalette(c("red", "blue"))(50),
          main = "MASH Distance Heatmap")
 ```
 
