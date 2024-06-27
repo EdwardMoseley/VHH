@@ -24,7 +24,6 @@ for (f in files){
   dat <- rbind(dat, tmp)
 }
 
-
 ## Aggregate duplicate count by VHH
 tmp <- aggregate(duplicate_count ~ VHH, FUN = sum, data = dat)
 

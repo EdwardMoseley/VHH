@@ -8,10 +8,11 @@ library("alakazam")
 library("scoper")
 library("shazam")
 library("hash")
+source("~/VHH/lib/utilities.R")
 
 
 #root_dir <- "/cluster/tufts/cowenlab/emosel01/data/hclust/"
-root_dir <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs"
+root_dir <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/"
 
 #output_file <- "/cluster/tufts/cowenlab/emosel01/data/GS_ImpulseLulu_20Jun24_min_threshold_clone-pass.csv"
 files <- list.files(root_dir)
@@ -30,32 +31,46 @@ for (f in files){
   dat <- rbind(dat, tmp)
 }
 
+# count rows
+cat("[Dat] Row count after loading:", nrow(dat), "\n")
+
+# Remove unproductive VHHs
+dat <- unproductive(dat)
+
+# count rows
+cat("[Dat] Row count after removing unproductive sequences:", nrow(dat), "\n")
 
 ## Aggregate duplicate count by VHH
 tmp <- aggregate(duplicate_count ~ VHH, FUN = sum, data = dat)
 
+cat("[tmp] Row count after aggregating:", nrow(tmp), "\n")
+
 ## Demand duplicate VHHs
 tmp <- tmp[tmp$duplicate_count >= 2,]
 
+cat("[tmp] Row count after demanding duplicates:", nrow(tmp), "\n")
 ## Use hash table for quick lookups
 
 # Create a hash table from tmp
 hash_table <- hash(tmp$VHH, TRUE)
 
+system.time(
 # Filter dat using the hash table
 dat <- dat[sapply(dat$VHH, function(x) has.key(x, hash_table)), ]
+)
 
+cat("[Dat] Row count after hash lookups in tmp:", nrow(dat), "\n")
+
+system.time(
 # Now that we've saved some time, we can merge back for VHH dupe counts
 dat <- merge(dat, tmp, by = "VHH")
+)
 
 # count rows
-cat("Row count:", nrow(dat), "\n")
+cat("[Dat] Row count after Merge:", nrow(dat), "\n")
 
-rm(tmp)
-
-## Clonal Inference
-
-### Dist_to_nearest calculation
+colnames(dat)[which(colnames(dat) == "duplicate_count.x")] <- "duplicate_count"
+colnames(dat)[which(colnames(dat) == "duplicate_count.y")] <- "VHH_duplicate_count"
 
 cat("Calculating distToNearest...\n")
 

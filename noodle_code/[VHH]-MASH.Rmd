@@ -13,7 +13,8 @@ library(pheatmap)
 ```{r}
 # Read the data
 #distances <- read.table("~/Downloads/distances.tsv", header = FALSE, sep = "\t")
-distances <- read.table("~/Downloads/new_distances.tsv", header = FALSE, sep = "\t")
+#distances <- read.table("~/Downloads/new_distances.tsv", header = FALSE, sep = "\t")
+distances <- read.table("~/Downloads/Impulse_Lulu_CoV_distances.tsv", header = F, sep = '\t')
 
 
 # Assign column names for clarity
@@ -41,8 +42,9 @@ distance_matrix[is.na(distance_matrix)] <- 0  # Replace NAs with 0 for self-comp
 
 
 ```{r}
-distance_matrix <- distance_matrix[,c("9_S18", colnames(distance_matrix)[1:(ncol(distance_matrix)-1)])]
-distance_matrix <- distance_matrix[c(nrow(distance_matrix), 1:(nrow(distance_matrix)-1)),]
+distance_matrix <- distance_matrix[,c("9_S18", colnames(distance_matrix)[!(colnames(distance_matrix) %in% "9_S18")])]
+
+distance_matrix <- distance_matrix[c("9_S18", row.names(distance_matrix)[!(row.names(distance_matrix) %in% "9_S18")]),]
 ```
 
 
@@ -57,6 +59,81 @@ pheatmap(distance_matrix,
          number_color = "white",
          color = colorRampPalette(c("red", "blue"))(50),
          main = "MASH Distance Heatmap")
+```
+
+## PCA
+
+```{r}
+# Perform PCA
+pca <- prcomp(distance_matrix, scale. = TRUE)
+
+# Create a data frame for plotting
+pca_df <- data.frame(PC1 = pca$x[,1], PC2 = pca$x[,2], Genome = rownames(pca$x))
+
+# Plot PCA
+ggplot(pca_df, aes(x = PC1, y = PC2, label = Genome, colour = Genome)) +
+  geom_point(size = 2) +
+  geom_text(size = 3, vjust = -1.5)+#, position=position_jitter(width = 0.50)) + #, height = 0.5)) +#, height = 0.1)) +
+  ggtitle("PCA Plot of VHH Genome Distances") +
+  xlab("Principal Component 1") +
+  ylab("Principal Component 2") +
+  theme_minimal()
+```
+
+
+## t-SNE
+
+```{r}
+#install.packages("Rtsne")
+#library(Rtsne)
+
+# Perform t-SNE
+#tsne <- Rtsne(distance_matrix, is_distance = TRUE)
+
+# Create a data frame for plotting
+#tsne_df <- data.frame(Dim1 = tsne$Y[,1], Dim2 = tsne$Y[,2], Genome = #rownames(distance_matrix))
+
+# Plot t-SNE
+#ggplot(tsne_df, aes(x = Dim1, y = Dim2, label = Genome)) +
+#  geom_point(size = 3) +
+#  geom_text(vjust = -1) +
+#  ggtitle("t-SNE Plot of Genome Distances") +
+#  xlab("Dimension 1") +
+#  ylab("Dimension 2") +
+#  theme_minimal()
+
+```
+
+## UMAP
+
+```{r}
+#install.packages("umap")
+library("umap")
+
+# Perform UMAP
+umap_result <- umap(distance_matrix)
+
+# Create a data frame for plotting
+umap_df <- data.frame(Dim1 = umap_result$layout[,1], Dim2 = umap_result$layout[,2], Genome = rownames(distance_matrix))
+
+# Plot UMAP
+ggplot(umap_df, aes(x = Dim1, y = Dim2, label = Genome)) +
+  geom_point(size = 3) +
+  geom_text(vjust = -1) +
+  ggtitle("UMAP Plot of Genome Distances") +
+  xlab("Dimension 1") +
+  ylab("Dimension 2") +
+  theme_minimal()
+```
+
+## Hclust
+
+```{r}
+# Perform hierarchical clustering
+hc <- hclust(as.dist(distance_matrix), method = "complete")
+
+# Plot dendrogram
+plot(hc, labels = rownames(distance_matrix), main = "Hierarchical Clustering Dendrogram", sub = "", xlab = "", ylab = "Distance")
 ```
 
 ## Multi-dimensional Scaling
@@ -78,3 +155,4 @@ ggplot(mds_df, aes(x = V1, y = V1, label = Genome)) +
   ylab("Coordinate 2") +
   theme_minimal()
 ```
+
