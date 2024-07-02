@@ -19,16 +19,16 @@
 # Define environmental variables
 
 PRESTO_BIN=/cluster/tufts/cowenlab/immcantation_suite/presto/bin
-# DATA_BIN=/cluster/tufts/cowenlab/emosel01/data/assembly
-DATA_BIN=/cluster/tufts/cowenlab/emosel01/data/240124_0629_Charles_Shoemaker_7981/fastq_Lane1
+DATA_BIN=/cluster/tufts/cowenlab/emosel01/data/assembly
+#DATA_BIN=/cluster/tufts/cowenlab/emosel01/data/240124_0629_Charles_Shoemaker_7981/fastq_Lane1
 CHANGEO_BIN=/cluster/tufts/cowenlab/immcantation_suite/changeo/bin
 NCBI_BIN=/cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/bin
-OUT_BIN=/cluster/tufts/cowenlab/emosel01/data/240124_0629_Charles_Shoemaker_7981/fastq_Lane1
-#OUT_BIN=/cluster/tufts/cowenlab/emosel01/data/assembled2
+#OUT_BIN=/cluster/tufts/cowenlab/emosel01/data/240124_0629_Charles_Shoemaker_7981/fastq_Lane1
+OUT_BIN=/cluster/tufts/cowenlab/emosel01/data/assembled2
 
 # Iterate over each file in the assembly folder
 # Pipe through each unique file name after trimming everyhing after the "_L"
-for sample in $(ls $DATA_BIN | awk -F'_L' '{print $1}' | uniq); do
+for sample in $(ls $DATA_BIN | awk -F'_L0' '{print $1}' | uniq); do
     echo $sample
     # Create all necessary file names
     SEQ_RONE=${DATA_BIN}/${sample}_L001_R1_001.fastq
