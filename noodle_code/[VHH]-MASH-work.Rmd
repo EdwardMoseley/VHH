@@ -1,0 +1,293 @@
+---
+title: "[VHH]-MASH"
+output: html_document
+date: "2024-06-24"
+---
+
+
+Lane1_fastq – Folder containing all R1 and R2 Illumina Files
+Move .fastq files to ../data/assembly and prepare for assembly
+Call VHHAssembly.sh
+Assembles and annotates VHHs
+Keep counts throughout, and visualize databases with MASH
+Create Global Set
+Aggregate data from as many experiments as are relevant
+Call HierarchicalClustering.sh
+Infers clones on “Global” VHH database
+Run Cleancluster algorithm on Global Set (Call CleanCluster.sh)
+For each independent experiment, look up clonal assignments
+
+
+
+```{r}
+library(ggplot2)
+library(reshape2)
+library(pheatmap)
+```
+
+```{r}
+# Read the data
+#distances <- read.table("~/Downloads/distances.tsv", header = FALSE, sep = "\t")
+#distances <- read.table("~/Downloads/new_distances.tsv", header = FALSE, sep = "\t")
+# distances <- read.table("~/Downloads/Impulse_Lulu_CoV_distances.tsv", header = F, sep = '\t')
+distances <- read.table("~/Downloads/MASH_Schisto_7981_distances.tsv", header = F, sep = '\t')
+
+
+# Assign column names for clarity
+colnames(distances) <- c("Genome1", "Genome2", "Mash_Distance", "P_value", "Shared_Kmers")
+
+
+# file_path <- "/cluster/tufts/cowenlab/emosel01/data/assembly/"
+#file_path <- "/cluster/tufts/cowenlab/emosel01/data/hclust/"
+file_path <- "/cluster/tufts/cowenlab/emosel01/data/2024_TUCF_7981/"
+
+distances$Genome1 <- gsub(file_path, "", distances$Genome1)
+distances$Genome2 <- gsub(file_path, "", distances$Genome2)
+
+# _atleast-1.fasta
+# _db-pass.fasta
+suffix <- "_min_threshold_clone-pass.fasta"
+
+distances$Genome1 <- gsub(suffix, "", distances$Genome1)
+distances$Genome2 <- gsub(suffix, "", distances$Genome2)
+
+# Create a matrix of distances
+distance_matrix <- reshape2::acast(distances, Genome1 ~ Genome2, value.var = "Mash_Distance")
+distance_matrix[is.na(distance_matrix)] <- 0  # Replace NAs with 0 for self-comparisons
+```
+
+
+```{r}
+var_names <- c("1_L1_sh2_S1",
+               "2_L1_lh2_S2",
+               "3_L1_sh3_S3",
+               
+               "5_L2_sh2_S5",
+               "6_L2_lh2_S6",
+               "7_L2_sh3_S7",
+               "8_L2_lh3_S8",
+               "9_L3_sh2_S9",
+               "10_L3_lh2_S10",
+               "11_L3_sh3_S11",
+               "12_L3_lh3_S12",
+               "13_VecF1_R2_S13",
+               "14_VecF1_R2_S14",
+               "15_VecF3_R2_S15",
+               "16_VecF4_R2_S16",
+               "17_VecF3_R3_S17",
+               "18_VecF3_R4_S18",
+               "19_VecF1_R3_S19",          
+               "20_VecF2_R3_S20",
+               "21_VecF4_R3_S21",
+               "22_VecF4_R4_S22")
+```
+
+```{r}
+distance_matrix <- distance_matrix[,var_names]
+distance_matrix <- distance_matrix[var_names,]
+```
+
+```{r}
+# distance_matrix <- distance_matrix[,c("9_S18", colnames(distance_matrix)[!(colnames(distance_matrix) %in% "9_S18")])]
+
+# distance_matrix <- distance_matrix[c("9_S18", row.names(distance_matrix)[!(row.names(distance_matrix) %in% "9_S18")]),]
+```
+
+
+## Heatmap
+
+```{r}
+# Plot the heatmap
+pheatmap(distance_matrix, 
+         cluster_rows = T,#TRUE, 
+         cluster_cols = T,#TRUE, 
+         display_numbers = T,#,TRUE,
+         number_color = "white",
+         color = colorRampPalette(c("red", "blue"))(50),
+         main = "MASH Distance Heatmap - Schistosome Databases")
+```
+
+
+
+# PCAs
+
+```{r}
+tmp <- distance_matrix[row.names(distance_matrix) %in% c("5_L2_sh2_S5", 
+                                  "6_L2_lh2_S6", 
+                                  "7_L2_sh3_S7",
+                                  "8_L2_lh3_S8",
+                                  "9_L3_sh2_S9",
+                                  "10_L3_lh2_S10",
+                                  "11_L3_sh3_S11",
+                                  "12_L3_lh3_S12"),
+                       c("5_L2_sh2_S5", 
+                          "6_L2_lh2_S6", 
+                          "7_L2_sh3_S7",
+                          "8_L2_lh3_S8",
+                          "9_L3_sh2_S9",
+                          "10_L3_lh2_S10",
+                          "11_L3_sh3_S11",
+                          "12_L3_lh3_S12")]
+
+```
+
+
+## PCA
+
+```{r}
+# Perform PCA
+pca <- prcomp(tmp, scale. = TRUE)
+
+# Create a data frame for plotting
+pca_df <- data.frame(PC1 = pca$x[,1], PC2 = pca$x[,2], Genome = rownames(pca$x))
+
+# Plot PCA
+ggplot(pca_df, aes(x = PC1, y = PC2, label = Genome, colour = Genome)) +
+  geom_point(size = 3) +
+  geom_text(size = 4, vjust = -1.5)+#, position=position_jitter(width = 0.50)) + #, height = 0.5)) +#, height = 0.1)) +
+  ggtitle("PCA Plot of VHH Genome Distances") +
+  xlab("Principal Component 1") +
+  ylab("Principal Component 2") +
+  theme_minimal()
+```
+
+
+## PCA
+
+```{r}
+# Perform PCA
+pca <- prcomp(distance_matrix, scale. = TRUE)
+
+# Create a data frame for plotting
+pca_df <- data.frame(PC1 = pca$x[,1], PC2 = pca$x[,2], Genome = factor(rownames(pca$x), levels = var_names))
+
+# Plot PCA
+ggplot(pca_df, aes(x = PC1, y = PC2, label = Genome, colour = Genome)) +
+  geom_point(size = 3) +
+  geom_text(size = 4, vjust = -1.5)+#, position=position_jitter(width = 0.50)) + #, height = 0.5)) +#, height = 0.1)) +
+  ggtitle("PCA Plot of VHH Genome Distances") +
+  xlab("Principal Component 1") +
+  ylab("Principal Component 2") +
+  theme_minimal()
+```
+
+
+```{r}
+var_names <- c("13_VecF1_R2_S13",
+               "14_VecF1_R2_S14",
+               "15_VecF3_R2_S15",
+               "16_VecF4_R2_S16",
+               "17_VecF3_R3_S17",
+               "18_VecF3_R4_S18",
+               "19_VecF1_R3_S19",          
+               "20_VecF2_R3_S20",
+               "21_VecF4_R3_S21",
+               "22_VecF4_R4_S22")
+tmp <- distance_matrix[row.names(distance_matrix) %in% var_names,
+                       var_names]
+
+
+
+
+```
+
+
+
+```{r}
+# Perform PCA
+pca <- prcomp(tmp, scale. = TRUE)
+
+# Create a data frame for plotting
+pca_df <- data.frame(PC1 = pca$x[,1], PC2 = pca$x[,2], Genome = rownames(pca$x))
+
+# Plot PCA
+ggplot(pca_df, aes(x = PC1, y = PC2, label = Genome, colour = Genome)) +
+  geom_point(size = 3) +
+  geom_text(size = 4, vjust = -1.5)+#, position=position_jitter(width = 0.50)) + #, height = 0.5)) +#, height = 0.1)) +
+  ggtitle("PCA Plot of VHH Genome Distances") +
+  xlab("Principal Component 1") +
+  ylab("Principal Component 2") +
+  theme_minimal()
+```
+
+
+## t-SNE
+
+```{r}
+#install.packages("Rtsne")
+#library(Rtsne)
+
+# Perform t-SNE
+#tsne <- Rtsne(distance_matrix, is_distance = TRUE)
+
+# Create a data frame for plotting
+#tsne_df <- data.frame(Dim1 = tsne$Y[,1], Dim2 = tsne$Y[,2], Genome = #rownames(distance_matrix))
+
+# Plot t-SNE
+#ggplot(tsne_df, aes(x = Dim1, y = Dim2, label = Genome)) +
+#  geom_point(size = 3) +
+#  geom_text(vjust = -1) +
+#  ggtitle("t-SNE Plot of Genome Distances") +
+#  xlab("Dimension 1") +
+#  ylab("Dimension 2") +
+#  theme_minimal()
+
+```
+
+## UMAP
+
+```{r}
+#install.packages("umap")
+library("umap")
+
+# Perform UMAP
+umap_result <- umap(distance_matrix)
+
+# Create a data frame for plotting
+umap_df <- data.frame(Dim1 = umap_result$layout[,1], Dim2 = umap_result$layout[,2], Genome = rownames(distance_matrix))
+
+# Plot UMAP
+ggplot(umap_df, aes(x = Dim1, y = Dim2, label = Genome)) +
+  geom_point(size = 3) +
+  geom_text(vjust = -1) +
+  ggtitle("UMAP Plot of Genome Distances") +
+  xlab("Dimension 1") +
+  ylab("Dimension 2") +
+  theme_minimal()
+```
+
+## Hclust
+
+```{r}
+# Perform hierarchical clustering
+hc <- hclust(as.dist(distance_matrix), method = "complete")
+
+# Plot dendrogram
+plot(hc, labels = rownames(distance_matrix), main = "Hierarchical Clustering Dendrogram", sub = "", xlab = "", ylab = "Distance")
+```
+
+## Multi-dimensional Scaling
+
+```{r}
+# Perform MDS
+mds <- cmdscale(as.dist(distance_matrix), k = ncol(distance_matrix) - 1)
+
+# Convert to a data frame for plotting
+mds_df <- as.data.frame(mds)
+mds_df$Genome <- rownames(mds_df)
+
+# Plot MDS
+ggplot(mds_df, aes(x = V1, y = V1, label = Genome)) +
+  geom_point(size = 3) +
+  geom_text(vjust = -1) +
+  ggtitle("MDS Plot of Genome Distances") +
+  xlab("Coordinate 1") +
+  ylab("Coordinate 2") +
+  theme_minimal()
+```
+
+
+
+
+
+
