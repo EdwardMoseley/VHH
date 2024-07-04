@@ -30,7 +30,7 @@ library(pheatmap)
 #distances <- read.table("~/Downloads/distances.tsv", header = FALSE, sep = "\t")
 #distances <- read.table("~/Downloads/new_distances.tsv", header = FALSE, sep = "\t")
 # distances <- read.table("~/Downloads/Impulse_Lulu_CoV_distances.tsv", header = F, sep = '\t')
-distances <- read.table("~/Downloads/MASH_Schisto_7981_distances.tsv", header = F, sep = '\t')
+distances <- read.table("~/Downloads/MASH_Schisto_PassFail_distances.tsv", header = F, sep = '\t')
 
 
 # Assign column names for clarity
@@ -39,7 +39,8 @@ colnames(distances) <- c("Genome1", "Genome2", "Mash_Distance", "P_value", "Shar
 
 # file_path <- "/cluster/tufts/cowenlab/emosel01/data/assembly/"
 #file_path <- "/cluster/tufts/cowenlab/emosel01/data/hclust/"
-file_path <- "/cluster/tufts/cowenlab/emosel01/data/2024_TUCF_7981/"
+#file_path <- "/cluster/tufts/cowenlab/emosel01/data/2024_TUCF_7981/"
+file_path <- "/cluster/tufts/cowenlab/emosel01/data/tmp_holder/"
 
 distances$Genome1 <- gsub(file_path, "", distances$Genome1)
 distances$Genome2 <- gsub(file_path, "", distances$Genome2)
@@ -135,6 +136,8 @@ tmp <- distance_matrix[row.names(distance_matrix) %in% c("5_L2_sh2_S5",
 ## PCA
 
 ```{r}
+tmp <- distance_matrix
+
 # Perform PCA
 pca <- prcomp(tmp, scale. = TRUE)
 
@@ -198,10 +201,18 @@ tmp <- distance_matrix[row.names(distance_matrix) %in% var_names,
 pca <- prcomp(tmp, scale. = TRUE)
 
 # Create a data frame for plotting
-pca_df <- data.frame(PC1 = pca$x[,1], PC2 = pca$x[,2], Genome = rownames(pca$x))
+pca_df <- data.frame(PC1 = pca$x[,1], 
+                     PC2 = pca$x[,2], 
+                     Genome = rownames(pca$x))
+pca_df$pass_fail <- ifelse(grepl("pass", pca_df$Genome), "PASS", "FAIL")
+```
 
+
+```{r}
 # Plot PCA
-ggplot(pca_df, aes(x = PC1, y = PC2, label = Genome, colour = Genome)) +
+ggplot(pca_df, aes(x = PC1, y = PC2, 
+                   label = Genome, 
+                   colour = pass_fail)) +
   geom_point(size = 3) +
   geom_text(size = 4, vjust = -1.5)+#, position=position_jitter(width = 0.50)) + #, height = 0.5)) +#, height = 0.1)) +
   ggtitle("PCA Plot of VHH Genome Distances") +
