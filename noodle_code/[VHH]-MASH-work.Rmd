@@ -62,7 +62,7 @@ distance_matrix[is.na(distance_matrix)] <- 0  # Replace NAs with 0 for self-comp
 var_names <- c("1_L1_sh2_S1",
                "2_L1_lh2_S2",
                "3_L1_sh3_S3",
-               
+               #"4_L1_lh3_S4",
                "5_L2_sh2_S5",
                "6_L2_lh2_S6",
                "7_L2_sh3_S7",
@@ -108,6 +108,32 @@ pheatmap(distance_matrix,
          main = "MASH Distance Heatmap - Schistosome Databases")
 ```
 
+## PCA
+
+```{r}
+# Perform PCA
+pca <- prcomp(tmp, scale. = TRUE)
+
+# Create a data frame for plotting
+pca_df <- data.frame(PC1 = pca$x[,1], 
+                     PC2 = pca$x[,2], 
+                     Genome = rownames(pca$x))
+pca_df$pass_fail <- ifelse(grepl("pass", pca_df$Genome), "PASS", "FAIL")
+```
+
+
+```{r}
+# Plot PCA
+ggplot(pca_df, aes(x = PC1, y = PC2, 
+                   label = Genome, 
+                   colour = pass_fail)) +
+  geom_point(size = 3) +
+  geom_text(size = 4, vjust = -1.5)+#, position=position_jitter(width = 0.50)) + #, height = 0.5)) +#, height = 0.1)) +
+  ggtitle("PCA Plot of VHH Genome Distances") +
+  xlab("Principal Component 1") +
+  ylab("Principal Component 2") +
+  theme_minimal()
+```
 
 
 # PCAs
@@ -195,31 +221,6 @@ tmp <- distance_matrix[row.names(distance_matrix) %in% var_names,
 ```
 
 
-
-```{r}
-# Perform PCA
-pca <- prcomp(tmp, scale. = TRUE)
-
-# Create a data frame for plotting
-pca_df <- data.frame(PC1 = pca$x[,1], 
-                     PC2 = pca$x[,2], 
-                     Genome = rownames(pca$x))
-pca_df$pass_fail <- ifelse(grepl("pass", pca_df$Genome), "PASS", "FAIL")
-```
-
-
-```{r}
-# Plot PCA
-ggplot(pca_df, aes(x = PC1, y = PC2, 
-                   label = Genome, 
-                   colour = pass_fail)) +
-  geom_point(size = 3) +
-  geom_text(size = 4, vjust = -1.5)+#, position=position_jitter(width = 0.50)) + #, height = 0.5)) +#, height = 0.1)) +
-  ggtitle("PCA Plot of VHH Genome Distances") +
-  xlab("Principal Component 1") +
-  ylab("Principal Component 2") +
-  theme_minimal()
-```
 
 
 ## t-SNE

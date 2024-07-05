@@ -1,0 +1,27 @@
+---
+title: "Query Results Analysis Scratch"
+output: html_document
+date: "2024-07-05"
+---
+
+```{r}
+source("~/VHH/lib/utilities.R")
+```
+
+
+```{r}
+tmp <- read.csv("~/Downloads/joined_query_results05July24.csv", header = T, stringsAsFactors = F)
+```
+
+```{r}
+## Translate
+tmp$VHH <- fixed_translate_DNA(tmp$sequence_alignment)
+```
+
+```{r}
+tmp <- tmp[order(tmp$fident, decreasing = T), ]
+```
+
+```{r}
+write.csv(tmp, file = "~/Downloads/DNA_Query_Results05July24.csv", row.names = F)
+```
