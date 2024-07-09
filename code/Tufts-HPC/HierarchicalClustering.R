@@ -1,19 +1,28 @@
 ## Change Library path to ensure we have access
-.libPaths("/cluster/tufts/hpc/tools/R/4.3.0")
 
-#if (!require("airr")) install.packages("airr")
+.libPaths("/cluster/tufts/hpc/tools/R/4.3.0")
 
 library("alakazam")
 library("scoper")
 library("shazam")
 library("hash")
+source("/cluster/tufts/cowenlab/emosel01/code/lib/utilities.R")
 
+# Set root dir
+root_dir <- "/cluster/tufts/cowenlab/emosel01/data/NGO0265/"
 
-root_dir <- "/cluster/tufts/cowenlab/emosel01/data/hclust/"
-output_file <- "/cluster/tufts/cowenlab/emosel01/data/GS_ImpulseLulu_20Jun24_min_threshold_clone-pass.csv"
-files <- list.files(root_dir)
-# We only want files with underscores
-files <- files[grepl("_", files)]
+output_file <- "/cluster/tufts/cowenlab/emosel01/data/GS_NGO0265_d2VHH_09Jul24_min_threshold_clone-pass.csv"
+
+files <- list.files(root_dir)[grepl(".tsv", list.files(root_dir))]
+
+# Ignore certain files
+# files <- files[!(files %in% c("C1_S1_db-pass.tsv", "C2_S2_db-pass.tsv", "D1_S3_db-pass.tsv", "D2_S4_db-pass.tsv", "D3_S5_db-pass.tsv", "D4_S6_db-pass.tsv"))]
+
+cat("Processing files:\n")
+
+for (f in files){
+  cat(f, '\n')
+}
 
 dat <- data.frame()
 for (f in files){
@@ -24,31 +33,49 @@ for (f in files){
   dat <- rbind(dat, tmp)
 }
 
+# count rows
+cat("[Dat] Row count after loading:", nrow(dat), "\n")
+
+# Remove unproductive VHHs
+dat <- unproductive(dat)
+
+# count rows
+cat("[Dat] Row count after removing unproductive sequences:", nrow(dat), "\n")
+
 ## Aggregate duplicate count by VHH
 tmp <- aggregate(duplicate_count ~ VHH, FUN = sum, data = dat)
+
+cat("[tmp] Row count after aggregating:", nrow(tmp), "\n")
 
 ## Demand duplicate VHHs
 tmp <- tmp[tmp$duplicate_count >= 2,]
 
+cat("[tmp] Row count after demanding duplicates:", nrow(tmp), "\n")
 ## Use hash table for quick lookups
 
 # Create a hash table from tmp
 hash_table <- hash(tmp$VHH, TRUE)
 
-# Filter dat using the hash table
-dat <- dat[sapply(dat$VHH, function(x) has.key(x, hash_table)), ]
+system.time(
+  # Filter dat using the hash table
+  dat <- dat[sapply(dat$VHH, function(x) has.key(x, hash_table)), ]
+)
 
-# Now that we've saved some time, we can merge back for VHH dupe counts
-dat <- merge(dat, tmp, by = "VHH")
+cat("[Dat] Row count after hash lookups in tmp:", nrow(dat), "\n")
+
+system.time(
+  # Now that we've saved some time, we can merge back for VHH dupe counts
+  dat <- merge(dat, tmp, by = "VHH")
+)
 
 # count rows
-cat("Row count:", nrow(dat), "\n")
+cat("[Dat] Row count after Merge:", nrow(dat), "\n")
 
-rm(tmp)
+colnames(dat)[which(colnames(dat) == "duplicate_count.x")] <- "duplicate_count"
+colnames(dat)[which(colnames(dat) == "duplicate_count.y")] <- "VHH_duplicate_count"
 
-## Clonal Inference
-
-### Dist_to_nearest calculation
+# Assign Global Set IDs
+dat$sequence_id <- paste0("GS-", 1:nrow(dat))
 
 cat("Calculating distToNearest...\n")
 

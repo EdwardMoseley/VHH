@@ -3,8 +3,7 @@
 ## Converts DNA to Amino Acid Sequences
 ## Removes unproductive sequences
 ## Trims vector sequence from VHHs (11 AAs)
-## Writes a database of VHHs
-## 
+## Writes a database of VHHs 
 ## Calls: CleanCluster-MMseqs2.R
 ## ###
 
@@ -43,8 +42,16 @@ filtered_seqs <- nrow(tmp)
 # Elevator music
 cat(file_name, '\n')
 cat(round(100 - (filtered_seqs/all_seqs*100), 2), "% of sequences unproductive.\n", sep = '')
+
+## Check if there are sequence id's, if not, it is the Global Set and they need be added
+if (!("sequence_id" %in% colnames(tmp))){
+  cat("No sequence id, so adding it.\n")
+  tmp$sequence_id <- paste("GS-", 1:nrow(tmp), sep = '')
+}
+
+
 # Keep only necessary information
-tmp <- tmp[,c("sequence_id", "sequence", "sequence_alignment", "VHH", "junction_aa", "duplicate_count", "clone_id", "source_file")]
+tmp <- tmp[,c("sequence_id", "sequence", "sequence_alignment", "VHH", "junction_aa", "junction", "duplicate_count", "clone_id", "source_file")]
 
 ## ###
 ## Keep an eye out for bugs here
@@ -52,7 +59,6 @@ tmp <- tmp[,c("sequence_id", "sequence", "sequence_alignment", "VHH", "junction_
 
 # Hold another frame for collapsing VHHs
 tmp_frame <- tmp[ ,c("VHH", "duplicate_count")]
-
 # Drop duplicate count, as we will add it back later
 tmp$duplicate_count <- NULL
 # Aggregate
@@ -66,4 +72,4 @@ file_name <- gsub("_pooled.csv", "_pooled_VHH_database.csv", file_name)
 # Write
 write.csv(tmp, file = paste(output_dir, file_name, sep = ''), row.names = F)
 # Elevator Music
-cat("Finished writing: ", file_name, '\n', sep = '')
+cat("Finished writing: ", paste(output_dir, file_name, sep = ''), '\n', sep = '')

@@ -8,6 +8,13 @@
 ## Load Utilities
 source("/cluster/tufts/cowenlab/emosel01/code/lib/utilities.R")
 
+## Pull Root Directory
+root_dir <- "/cluster/tufts/cowenlab/emosel01/data/"
+
+output_table <- "NGO1549_abundance_table.csv"
+
+cat("Creating: ", paste0(root_dir, output_table),"\n", sep = '')
+
 ## Draw file info from commandArgs (for use later)
 # args <- commandArgs(trailingOnly=TRUE)
 # file_name <- args[1] 
@@ -25,38 +32,25 @@ source("/cluster/tufts/cowenlab/emosel01/code/lib/utilities.R")
 # -rw-rw---- 1 emosel01 cowenlab 405818247 Jun  9 00:50 33_S7_db-pass.tsv
 # -rw-rw---- 1 emosel01 cowenlab 236127298 Jun  9 03:12 34_S8_db-pass.tsv
 # -rw-rw---- 1 emosel01 cowenlab 358312410 Jun  9 06:55 35_S9_db-pass.tsv
-# -rw-rw---- 1 emosel01 cowenlab 342111140 Jun  9 10:15 36_S10_db-pass.tsv
-# -rw-rw---- 1 emosel01 cowenlab 525057249 Jun  9 14:28 37_S11_db-pass.tsv
-# -rw-rw---- 1 emosel01 cowenlab 409138641 Jun  9 18:16 38_S12_db-pass.tsv
-# -rw-rw---- 1 emosel01 cowenlab 496447954 Jun  9 22:58 39_S14_db-pass.tsv
-# -rw-rw---- 1 emosel01 cowenlab 481616571 Jun 10 02:43 40_S15_db-pass.tsv
-# -rw-rw---- 1 emosel01 cowenlab 295332895 Jun 10 05:33 41_S16_db-pass.tsv
-# -rw-rw---- 1 emosel01 cowenlab 381050437 Jun 10 08:41 42_S17_db-pass.tsv
-# -rw-rw---- 1 emosel01 cowenlab 482368175 Jun 10 13:25 9_S18_db-pass.tsv
 
 ## Global Set
-
-## /cluster/tufts/cowenlab/emosel01/data/globals/GS_d2_18Jun24-Cleaned19Apr24.csv
-
-## Pull Root Directory
-root_dir <- "/cluster/tufts/cowenlab/emosel01/data/"
 
 # Create a list to use as a dictionary
 files <- list()
 
 cat("Locating Files:\n")
 ## Can change this later to be file_name <- "globals/GS_d2_18Jun24-Cleaned19Apr24.csv"
-cat(paste0(root_dir, "globals/GS_d2_18Jun24-Cleaned19Apr24.csv\n"))
+cat(paste0(root_dir, "globals/GS_NGO1549_d2VHH_09Jul24-Cleaned19Apr24.csv\n"))
 
 # Populate key/values with files and their keys
-files[["master"]] <- paste0(root_dir, "globals/GS_d2_18Jun24-Cleaned19Apr24.csv")
+files[["master"]] <- paste0(root_dir, "globals/GS_NGO1549_d2VHH_09Jul24-Cleaned19Apr24.csv")
 
-file_list <- list.files(paste0(root_dir, "hclust"))
+file_list <- list.files(paste0(root_dir, "NGO1549"))
 
 for (nm in gsub("_db-pass.tsv", "", file_list)){
   # Load file
-  cat(paste0("hclust/",nm, "_db-pass.tsv\n"))
-  files[[nm]] <- paste0(root_dir, paste0("hclust/",nm, "_db-pass.tsv"))
+  cat(paste0("NGO1549/",nm, "_db-pass.tsv\n"))
+  files[[nm]] <- paste0(root_dir, paste0("NGO1549/",nm, "_db-pass.tsv"))
 }
 
 max_clone_count <- 0
@@ -74,7 +68,7 @@ for (nm in names(files)){
   }
   
   cat("Pre-Cleaning:\n")
-  print(head(files[[nm]]))
+#  print(head(files[[nm]]))
   clone_count <- length(unique(files[[nm]]$clone_id))
   cat(clone_count, '\n')
   cat(sum(files[[nm]]$duplicate_count), '\n')
@@ -140,6 +134,9 @@ for (f in names(files)[names(files) != "master"]){
   }
 }
 
+cat("Writing: ", paste0(root_dir, output_table), '\n', sep = '')
+write.csv(res, file = paste0(root_dir, output_table), row.names = F)
+
 ## Aggregate to clone level
 
 dfs <- list()
@@ -203,5 +200,5 @@ for (nm in colnames(tmp)[2:ncol(tmp)]){
 tmp[is.na(tmp)] <- 0
 
 cat("Writing: ", "/cluster/tufts/cowenlab/emosel01/data/GS_d2_25Jun24-Cleaned.csv", '\n')
-
 write.csv(tmp, file = "/cluster/tufts/cowenlab/emosel01/data/GS_d2_25Jun24-Cleaned.csv", row.names = F)
+

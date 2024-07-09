@@ -96,3 +96,4 @@ output_file <- gsub("_pooled_clean_database.csv", "_results.csv", clean_file)
 cat("Writing: ", paste(root_dir, output_file, sep = ''), "\n", sep = '')
 
 write.csv(results, file = paste(root_dir, output_file, sep = ''), row.names = F)
+

@@ -27,18 +27,18 @@ args <- commandArgs(trailingOnly=TRUE)
 # Rscript CleanCluster-Pool.R Clones_Inferred_Assembled_41_S16_min_threshold_clone-pass.csv
 
 # test if there is at least one argument: if not, return an error
-if (grepl("-Pooled-Cleaning-Reclustering-Initial-Results.csv", args[1])) {
+if (grepl("_results.csv", args[1])) {
   file_name <- args[1]
   cat("Final Processing of: ", file_name, '\n', sep = '')
   # Define root_path
-  root_path <- "/cluster/tufts/cowenlab/emosel01/data/forClustering/tmp"
+  root_path <- "/cluster/tufts/cowenlab/emosel01/data/forClustering/tmp/"
   # Load Data
   dat <- read.csv(paste(root_path, file_name, sep = ''), header = T, stringsAsFactors = F)
 } else if (grepl("_min_threshold_clone-pass.csv", args[1])){
   file_name <- args[1]
   cat("Initial Processing of: ", file_name, '\n', sep = '')
   # Define root_path
-  root_path <- "/cluster/tufts/cowenlab/emosel01/data/forClustering"
+  root_path <- "/cluster/tufts/cowenlab/emosel01/data/forClustering/"
   # Load data
   dat <- read.csv(paste(root_path, file_name, sep = ''), header = T, stringsAsFactors = F)
   # Trim CDR3s
@@ -219,11 +219,19 @@ if (nrow(tmp) == 0){
 
 cat(file_name, " has ", length(unique(dat$clone_id)), " clonal families after pooling 80% homologous families with 6AA<x<10AA CDR3s.\n", sep = '')
 
-file_name <- gsub("_min_threshold_clone-pass.csv", "_pooled.csv", file_name)
+# Check that this isn't the second pooling run
+# Then change the file name
+if (grepl("_min_threshold_clone-pass.csv", file_name)){
+   file_name <- gsub("_min_threshold_clone-pass.csv", "_pooled.csv", file_name)
+} else {
+   file_name <- gsub("results.csv", "final_results.csv", file_name)
+}
 
-# Define path
+# Regardless, they're going to tmp (for now)
 root_path <- "/cluster/tufts/cowenlab/emosel01/data/forClustering/tmp/"
 
 # Write data
 write.csv(dat, paste(root_path, file_name, sep = ''), row.names = F)
 
+# Elevator Music
+cat("Completed Pooling.\nWrote:", paste(root_path, file_name, sep = ''), '\n')
