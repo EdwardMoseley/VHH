@@ -8,7 +8,7 @@ source("~/VHH/lib/utilities.R")
 ## Draw file info from commandArgs
 args <- commandArgs(trailingOnly=TRUE)
 
-# args <- c("19_VecF1_R3_S19-rule-pooled-families_subclustered_database-H90.csv")
+# args <- c("GS_NGO0265_d2VHH_09Jul24-rule-pooled-families_subclustered_database.csv")
 
 # We only need one file name to pull results and outliers
 file_name <- args[1]
@@ -92,6 +92,14 @@ results$order_index <- 1:nrow(results)
 
 ## Iterate Over families and centroids, culling members for further clustering
 
+
+
+
+
+# holder <- results
+
+
+
 dat <- results
 
 #1. Remove outlier subfamilies
@@ -120,6 +128,12 @@ for (clone_id in unique(dat$clone_id)){
     cat("Subcluster ID:", nm, '\n')
     # Subset centroid id
     tmp_frame <- tmp[tmp$centroid_id == nm,]
+    # Check if junction_aa is defined
+    if (any(is.na(tmp_frame$family_median_CDR3_homology))){
+      cat("No CDR3 Homology for Subcluster: ", nm, '\n')
+      cat("Skipping...\n")
+      next
+    }
     # Calculate quick stats for rule-based cleaning
     CDR3_length <- nchar(tmp_frame$junction_aa[1])
     # 
