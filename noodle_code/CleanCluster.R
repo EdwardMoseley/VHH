@@ -559,19 +559,10 @@ holder <- tmp
 
 
 
-
-
-
-
-
-
-
-
-
 # Create a data frame for holding results
 results <- data.frame()
 # Iterate over Hierarchically Clustered clone_ids, re-clustering
-for (nm in unique(tmp$clone_id)[1:2]){
+for (nm in unique(tmp$clone_id)){
   # Subset observations
   tmp_frame <- tmp[tmp$clone_id == nm,]
   # write fasta for mmseqs2
@@ -622,18 +613,17 @@ for (nm in unique(tmp$clone_id)[1:2]){
 ## --- --- --- --- --- --- --- --- --- --- --- --- --- ##
 
 
-file_name <- gsub("VHH_database.csv", "subclustered_database.csv", file_name)
+# file_name <- gsub("VHH_database.csv", "subclustered_database.csv", file_name)
 
-cat("Writing: ", paste(root_dir, file_name, sep = ''), '\n', sep = '')
+# cat("Writing: ", paste(root_dir, file_name, sep = ''), '\n', sep = '')
 
 ## write.csv(results, file = paste(root_dir, file_name, sep = ''), row.names = F)
 
 ## Route the traffic out
-if (grepl("_subclustered_database.csv", file_name)){
+#if (grepl("_subclustered_database.csv", file_name)){
   # Pass the file to the next script in the pipeline
   cat(paste("Rscript CleanCluster-Refining.R", file_name), '\n')
-##   system(paste("Rscript CleanCluster-Refining.R", file_name))
-}
+#}
 
 
 ## --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ##
@@ -675,16 +665,8 @@ if (grepl("_subclustered_database.csv", file_name)){
 ## BEGIN "[VHH]-Cluster-Refining"
 ## ###
 
-## Load Utilities
-source("~/VHH/lib/utilities.R")
-
-## Draw file info from commandArgs
-args <- commandArgs(trailingOnly=TRUE)
 
 # args <- c("GS_NGO0265_d2VHH_09Jul24-rule-pooled-families_subclustered_database.csv")
-
-# We only need one file name to pull results and outliers
-file_name <- args[1]
 
 #Input: 19_VecF1_R3_S19-rule-pooled-families_subclustered_database-H90.csv
 #Output:
@@ -706,14 +688,14 @@ outliers_file <- gsub("-pooled-families_subclustered_database.csv", "-pooled-out
 #dat <- read.csv("~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/19_VecF1_R3_S19_subclustered_database.csv", 
 #                header = T, stringsAsFactors = F)
 
-root_dir <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/"
+# root_dir <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/"
 
-cat("Loading: ", paste(root_dir, file_name, sep = ''), '\n', sep = '')
+# cat("Loading: ", paste(root_dir, file_name, sep = ''), '\n', sep = '')
 
 # dat <- results
-dat <- read.csv(paste(root_dir, file_name, sep = ''), header = T, stringsAsFactors = F)
+# dat <- read.csv(paste(root_dir, file_name, sep = ''), header = T, stringsAsFactors = F)
 
-cat(file_name, " has ", length(unique(dat$clone_id)), " clonal families.\n", sep = '')
+# cat(file_name, " has ", length(unique(dat$clone_id)), " clonal families.\n", sep = '')
 
 ### Family Statistics:
 # Add duplicate info here, also?
@@ -725,15 +707,26 @@ cat(file_name, " has ", length(unique(dat$clone_id)), " clonal families.\n", sep
 ### Note: Cleaning can probably be added here, too?
 #dat <- results
 
+
+
+## ###
+## GENERATE STATISTICS
+## ###
+
+cat(file_name, " has ", length(unique(dat$clone_id)), " clonal families.\n", sep = '')
+
+dat <- results
+
 results <- data.frame()
 
 for (clone_id in unique(dat$clone_id)){
   # Subset clone id
   tmp <- dat[dat$clone_id == clone_id,]
-  
+  # Unroll duplicate CDR3s
   unrolled_CDR3s <- unroll_dupes_fast(tmp, "junction_aa")
+  # Pull the most frequent CDR3 for the family
   median_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
-  
+  # Calculate CDR3 Homology
   tmp$family_median_CDR3_homology <- 100 - (as.vector(adist(median_CDR3, tmp$junction_aa))/nchar(median_CDR3))*100
   
   # For each centroid id
@@ -763,15 +756,19 @@ results <- results[order(results$subfamily_median_VHH_homology,
 # Order statistic
 results$order_index <- 1:nrow(results)
 
-## Iterate Over families and centroids, culling members for further clustering
 
 
 
 
+## ###
+## REMOVE OUTLIERS
+## ###
 
-# holder <- results
+## Iterate Over families and centroids, culling members for reclustering
 
 
+
+holder <- results
 
 dat <- results
 
@@ -794,8 +791,6 @@ for (clone_id in unique(dat$clone_id)){
   # Subset clone id
   tmp <- dat[dat$clone_id == clone_id,]
   
-  ## family_median_CDR3_homology 
-  
   # For each centroid id
   for (nm in unique(tmp$centroid_id)){
     cat("Subcluster ID:", nm, '\n')
@@ -809,16 +804,22 @@ for (clone_id in unique(dat$clone_id)){
     }
     # Calculate quick stats for rule-based cleaning
     CDR3_length <- nchar(tmp_frame$junction_aa[1])
-    # 
+    # Calculate mean homology
     avg_CDR3_percent_homology <- mean(tmp_frame$family_median_CDR3_homology)
     
+    
     # Rule-based Cleanup here
+    
+    ## OUTLIERS
+    
     if (CDR3_length < 5 & avg_CDR3_percent_homology < 100){
       outliers <- rbind(outliers, tmp_frame)
     } else if (CDR3_length < 10 & avg_CDR3_percent_homology < 80){
       outliers <- rbind(outliers, tmp_frame)
     } else if (CDR3_length >= 10 & avg_CDR3_percent_homology < 60){
       outliers <- rbind(outliers, tmp_frame)
+    
+    ## ELSE PUT THEM IN RESULTS
     } else {
       results <- rbind(results, tmp_frame)
     }
@@ -826,21 +827,31 @@ for (clone_id in unique(dat$clone_id)){
   
 }
 
+
+
 ## Check Results
-cat("Percent VHH outliers: ", round(nrow(outliers)/nrow(dat)*100, 2), '\n')
-cat("Subfamily outliers:\n")
-print(table(outliers$clone_id)[order(table(outliers$clone_id), decreasing = T)])
+cat("Percent VHH outliers: ", round(nrow(outliers)/nrow(dat)*100, 2), '\n', sep = '')
 
-root_dir <- "/Users/emoseley/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/"
+cleaned <- results
 
-results_file <- gsub("-pooled-families_subclustered_database.csv", "-pooled-clean-database.csv", file_name)
-outliers_file <- gsub("-pooled-families_subclustered_database.csv", "-pooled-outlier-database.csv", file_name)
+cat("Outliers plus clean sequences equal input data: ", nrow(cleaned) + nrow(outliers) == nrow(dat), '\n', sep = '')
 
-cat("Writing: ", paste(root_dir, results_file, sep = ''), '\n', sep = '')
+
+
+
+
+
+
+#root_dir <- "/Users/emoseley/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/"
+
+#results_file <- gsub("-pooled-families_subclustered_database.csv", "-pooled-clean-database.csv", file_name)
+#outliers_file <- gsub("-pooled-families_subclustered_database.csv", "-pooled-outlier-database.csv", file_name)
+
+#cat("Writing: ", paste(root_dir, results_file, sep = ''), '\n', sep = '')
 #write.csv(results, 
 #          file = paste(root_dir, results_file, sep = ''), 
 #          row.names = F)
-cat("Writing: ", paste(root_dir, outliers_file, sep = ''), '\n', sep = '')
+#cat("Writing: ", paste(root_dir, outliers_file, sep = ''), '\n', sep = '')
 #write.csv(outliers, 
 #          file = paste(root_dir, outliers_file, sep = ''), 
 #          row.names = F)
@@ -911,30 +922,9 @@ if (grepl("-pooled-families_subclustered_database.csv", file_name)){
 ## BEGIN "[VHH]-Outlier-Re-Clustering"
 ## ###
 
-#Writing: /Users/emoseley/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/19_VecF1_R3_S19-rule-pooled-clean-database-H90.csv
-#Writing: /Users/emoseley/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/19_VecF1_R3_S19-rule-pooled-outlier-database-H90.csv
-#Rscript CleanCluster-Recluster.R 19_VecF1_R3_S19-rule-pooled-families_subclustered_database-H90.csv 
-#Error in file(file, "rt") : cannot open the connection
-#Calls: read.csv -> read.table -> file
-#In addition: Warning message:
-#  In file(file, "rt") :
-#  cannot open file '/Users/emoseley/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/19_VecF1_R3_S19-rule-pooled-families_subclustered_database-H90.csv': No such file or directory
-#Execution halted
-
-## Load Utilities
-source("~/VHH/lib/utilities.R")
-# library(shazam)
-
-## Draw file info from commandArgs
-args <- commandArgs(trailingOnly=TRUE)
 # args <- c("19_VecF1_R3_S19-pooled-families_subclustered_database.csv")
 # args <- c("19_VecF1_R3_S19-rule-pooled-families_subclustered_database-H90.csv")
 # file_name <- "20_VecF2_R3_S20-rule-pooled-families_subclustered_database.csv"# 
-
-#args <- c()
-#args[1] <- "Global_Clone_Experiment_master_set-D1-09-10-11-rule-pooled-families_subclustered_database.csv"
-
-file_name <- args[1]
 
 #Inputs: 
 #(1) -> 20_VecF2_R3_S20-pooled-families_subclustered_database.csv
@@ -942,16 +932,16 @@ file_name <- args[1]
 #Output:
 #(1) -> S20-pooled-outlier-reclustered-database.csv
 
-results_file <- gsub("-pooled-families_subclustered_database.csv", "-pooled-clean-database.csv", file_name)
-outliers_file <- gsub("-pooled-families_subclustered_database.csv", "-pooled-outlier-database.csv", file_name)
+#results_file <- gsub("-pooled-families_subclustered_database.csv", "-pooled-clean-database.csv", file_name)
+#outliers_file <- gsub("-pooled-families_subclustered_database.csv", "-pooled-outlier-database.csv", file_name)
 
 ## Load Outliers
-root_dir <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/"
+#root_dir <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/"
 
-cat("Loading: ", paste(root_dir, outliers_file, sep = ''), '\n', sep = '')
+#cat("Loading: ", paste(root_dir, outliers_file, sep = ''), '\n', sep = '')
 
 # Load outliers
-dat <- read.csv(paste(root_dir, outliers_file, sep = ''), header = T, stringsAsFactors = F)
+dat <- outliers # read.csv(paste(root_dir, outliers_file, sep = ''), header = T, stringsAsFactors = F)
 
 cat("Loading: ", paste("~/VHH/data/Cluster-DBs/phylogenetic_dbs/", 
                        gsub("-rule-pooled-families_subclustered_database.csv", 
@@ -959,27 +949,30 @@ cat("Loading: ", paste("~/VHH/data/Cluster-DBs/phylogenetic_dbs/",
                             file_name), sep = ''), '\n', sep = '')
 
 ## Load Source Database
-tmp <- read.csv(paste("~/VHH/data/Cluster-DBs/phylogenetic_dbs/", 
-                      gsub("-rule-pooled-families_subclustered_database.csv", 
-                           "_min_threshold_clone-pass.csv", 
-                           file_name), sep = ''),
-                header = T, stringsAsFactors = F)
+# tmp <- read.csv(paste("~/VHH/data/Cluster-DBs/phylogenetic_dbs/", 
+#                      gsub("-rule-pooled-families_subclustered_database.csv", 
+#                           "_min_threshold_clone-pass.csv", 
+#                           file_name), sep = ''),
+#                header = T, stringsAsFactors = F)
+
 
 # Ensure that, if no sequence_id exists, we create it
-if (!("sequence_id" %in% colnames(tmp))){
+if (!("sequence_id" %in% colnames(dat))){
+  cat("Adding sequence IDs:\n")
   # Create the sequence_id
-  tmp$sequence_id <- paste0(1:nrow(tmp), '-',tmp$junction_aa)
-  tmp <- tmp[,c("sequence_id", colnames(tmp)[1:(ncol(tmp)-1)])]
+  dat$sequence_id <- paste0(1:nrow(dat), '-',dat$junction_aa)
+  # Reorder column names to place sequence_id first
+  dat <- dat[,c("sequence_id", colnames(dat)[1:(ncol(dat)-1)])]
 }
 
 # Trim CDR3s
-tmp$junction_aa <- trim_CDR3(tmp$junction_aa)
+#tmp$junction_aa <- trim_CDR3(tmp$junction_aa)
 # Translate VHHs
-tmp$VHH <- fixed_translate_DNA(tmp$sequence_alignment)
+#tmp$VHH <- fixed_translate_DNA(tmp$sequence_alignment)
 # Trim sequences
-tmp$VHH <- substr(tmp$VHH, 11, nchar(tmp$VHH))
+#tmp$VHH <- substr(tmp$VHH, 11, nchar(tmp$VHH))
 # We need those VHHs from tmp which are represented in outlier file
-dat <- tmp[tmp$VHH %in% dat$VHH,]
+#dat <- tmp[tmp$VHH %in% dat$VHH,]
 ## Prepare for clonal inference
 
 dat$clone_id <- NULL
@@ -998,6 +991,7 @@ db <- shazam::distToNearest(dat, model = "ham",
 # Determine threshold (based on median)
 thr <- summary(db$dist_nearest)[["Median"]]
 
+## Make the thres
 new_thr <- thr + (thr*0.25)
 print("25% Higher Threshold:")
 print(round(new_thr, 2))
@@ -1011,15 +1005,28 @@ system.time(
                                    j_call = "j_call")
 )
 
-db <- db@db
+db <- as.data.frame(db@db)
 
 ## Sub-cluster with MMseqs2
 output_dir <- "/Users/emoseley/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/tmp/"
+
+
+
+
+
+
+
+
+## Since DB is outliers, we need to clean it
+
+
+
 
 results <- data.frame()
 
 # Iterate over Hierarchically Clustered clone_ids, re-clustering
 for (nm in unique(db$clone_id)){
+  cat('Clone_ID: ', nm, '\n', sep = '')
   # nm <- 8 (51 obs)
   # Subset observations
   tmp_frame <- db[db$clone_id == nm,]
@@ -1065,6 +1072,27 @@ for (nm in unique(db$clone_id)){
   # Combine results and move on
   results <- rbind(results, dat)
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 #results$centroid_id <- as.numeric(factor(results$centroid_id))
@@ -1148,18 +1176,11 @@ if (grepl("-reclustered-database.csv", file_name)){
 ## Re-Clustered outlier file:
 # Writing: /Users/emoseley/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/19_VecF1_R3_S19-pooled-families_subclustered-reclustered-database.csv
 
-## Load Utilities
-source("~/VHH/lib/utilities.R")
-
-# Draw file info from commandArgs
-args <- commandArgs(trailingOnly=TRUE)
-
 
 #args <- c("19_VecF1_R3_S19-rule-pooled-families_subclustered-reclustered-database.csv")
 
 #args <- c("20_VecF2_R3_S20-rule-pooled-families_subclustered-reclustered-database.csv")
 
-file_name <- args[1]
 
 ## Load Data
 root_dir <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/"
