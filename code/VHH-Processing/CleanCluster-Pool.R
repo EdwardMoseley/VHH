@@ -6,12 +6,9 @@
 
 ## First pass call:
 # Rscript CleanCluster-Pool.R 21_VecF4_R3_S21_min_threshold_clone-pass.csv
-# Rscript CleanCluster-Pool.R 20_VecF2_R3_S20_min_threshold_clone-pass.csv
-# Rscript CleanCluster-Pool.R 19_VecF1_R3_S19_min_threshold_clone-pass.csv
-# Rscript CleanCluster-Pool.R 13_VecF1_R2_S13_min_threshold_clone-pass.csv
-# Rscript CleanCluster-Pool.R 14_VecF1_R2_S14_min_threshold_clone-pass.csv
-# Rscript CleanCluster-Pool.R 17_VecF3_R3_S17_min_threshold_clone-pass.csv
-# Rscript CleanCluster-Pool.R 18_VecF3_R4_S18_min_threshold_clone-pass.csv
+# Rscript CleanCluster-Pool.R Assembled_9_S18_min_threshold_clone-pass.csv
+# Percent VHH outliers:  3.42 
+# Rscript CleanCluster-Pool.R Assembled_D4_S6_min_threshold_clone-pass.csv
 ## Last pass call:
 # Rscript CleanCluster-Pool.R 19_VecF1_R3_S19-rule-Pooled-Cleaning-Reclustering-Initial-Results-H90.csv 
 
@@ -21,16 +18,23 @@ source("~/VHH/lib/utilities.R")
 ## Draw file info from commandArgs
 args <- commandArgs(trailingOnly=TRUE)
 
-# args <- c("20_VecF2_R3_S20-rule-Pooled-Cleaning-Reclustering-Initial-Results.csv")
+# args <- c("Assembled_D4_S6_min_threshold_clone-pass.csv")
 
-#args <- "19_VecF1_R3_S19_min_threshold_clone-pass.csv"
-#args <- "19_VecF1_R3_S19-rule-Pooled-Cleaning-Reclustering-Initial-Results-H90.csv"
-#args <- "13_VecF1_R2_S13_min_threshold_clone-pass.csv"
-#args <- "13_VecF1_R2_S13-rule-Pooled-Cleaning-Reclustering-Initial-Results-H90.csv"
+# Rscript CleanCluster-Pool.R Global_Clone_Experiment_master_set-D1-09-10-11_min_threshold_clone-pass.csv
 
-# "20_VecF2_R3_S20_min_threshold_clone-pass.csv"
-# "21_VecF4_R3_S21_min_threshold_clone-pass.csv"
+# Rscript CleanCluster-Pool.R Global_Clone_Experiment_D1_S3_demand_two_min_threshold_clone-pass.csv
 
+# Rscript CleanCluster-Pool.R Clones_Inferred_Assembled_9_S18_min_threshold_clone-pass.csv
+# Rscript CleanCluster-Pool.R Clones_Inferred_Assembled_10_S19_min_threshold_clone-pass.csv
+# Rscript CleanCluster-Pool.R Clones_Inferred_Assembled_11_S20_min_threshold_clone-pass.csv
+# Rscript CleanCluster-Pool.R Clones_Inferred_Assembled_12_S21_min_threshold_clone-pass.csv
+# Rscript CleanCluster-Pool.R Clones_Inferred_Assembled_13_S22_min_threshold_clone-pass.csv
+# Rscript CleanCluster-Pool.R Clones_Inferred_Assembled_33_S7_min_threshold_clone-pass.csv
+# Rscript CleanCluster-Pool.R Clones_Inferred_Assembled_34_S8_min_threshold_clone-pass.csv
+# Rscript CleanCluster-Pool.R Clones_Inferred_Assembled_35_S9_min_threshold_clone-pass.csv
+# Rscript CleanCluster-Pool.R Clones_Inferred_Assembled_37_S11_min_threshold_clone-pass.csv
+
+# Rscript CleanCluster-Pool.R Clones_Inferred_Assembled_41_S16_min_threshold_clone-pass.csv
 
 # test if there is at least one argument: if not, return an error
 if (grepl("-Pooled-Cleaning-Reclustering-Initial-Results.csv", args[1])) {
@@ -234,7 +238,7 @@ if (grepl("_min_threshold_clone-pass.csv", file_name)){
   cat(paste("Rscript CleanCluster-toAA.R", file_name), '\n')
   # Pass the file to the next script in the pipeline
   system(paste("Rscript CleanCluster-toAA.R", file_name))
-} else if (grepl("rule-Pooled-Cleaning-Reclustering-Initial-Results.csv", file_name)){
+} else if (grepl("-Pooled-Cleaning-Reclustering-Initial-Results.csv", file_name)){
   # change file name
   file_name <- gsub("-rule-Pooled-Cleaning-Reclustering-Initial-Results.csv", "-Cleaned19Apr24.csv", file_name)
   cat("Writing: ", paste(root_path, file_name, sep = ''), '\n')

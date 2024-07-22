@@ -9,6 +9,7 @@ source("~/VHH/lib/utilities.R")
 args <- commandArgs(trailingOnly=TRUE)
 
 # args <- c("GS_NGO0265_d2VHH_09Jul24-rule-pooled-families_subclustered_database.csv")
+#args <- c("GS_Blp4_d2VHH_16Jul24-rule-pooled-families_subclustered_database.csv")
 
 # We only need one file name to pull results and outliers
 file_name <- args[1]
@@ -162,6 +163,28 @@ root_dir <- "/Users/emoseley/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_db
 
 results_file <- gsub("-pooled-families_subclustered_database.csv", "-pooled-clean-database.csv", file_name)
 outliers_file <- gsub("-pooled-families_subclustered_database.csv", "-pooled-outlier-database.csv", file_name)
+
+## Check to see if the outliers exist-- if not, we can skip right ahead to re-pooling
+if (nrow(outliers) == 0){
+  cat("There are no outliers associated with these data. Skipping ahead to pooling.\n")
+  
+  root_dir <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/"
+  output_file <- gsub("-rule-pooled-families_subclustered_database.csv", "-Pooled-Cleaning-Reclustering-Initial-Results.csv", file_name)
+  
+  cat("Writing: ", paste(root_dir, output_file, sep = ''), "\n", sep = '')
+  write.csv(results, file = paste(root_dir, output_file, sep = ''), row.names = F)
+
+  ## ###
+  ## Here, we want to return the data to the pooling script for a final pooling run
+  ## ###
+  
+  ## Route the traffic out
+  if (grepl("-Pooled-Cleaning-Reclustering-Initial-Results.csv", output_file)){
+    # Pass the file to the next script in the pipeline
+    cat(paste("Rscript CleanCluster-Pool.R", output_file), '\n')
+    system(paste("Rscript CleanCluster-Pool.R", output_file))
+  }
+}
 
 cat("Writing: ", paste(root_dir, results_file, sep = ''), '\n', sep = '')
 write.csv(results, 

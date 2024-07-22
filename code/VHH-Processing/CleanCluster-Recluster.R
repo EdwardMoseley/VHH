@@ -22,6 +22,9 @@ args <- commandArgs(trailingOnly=TRUE)
 # args <- c("19_VecF1_R3_S19-rule-pooled-families_subclustered_database-H90.csv")
 # file_name <- "20_VecF2_R3_S20-rule-pooled-families_subclustered_database.csv"# 
 
+#args <- c()
+#args[1] <- "Global_Clone_Experiment_master_set-D1-09-10-11-rule-pooled-families_subclustered_database.csv"
+
 file_name <- args[1]
 
 #Inputs: 
@@ -52,6 +55,14 @@ tmp <- read.csv(paste("~/VHH/data/Cluster-DBs/phylogenetic_dbs/",
                            "_min_threshold_clone-pass.csv", 
                            file_name), sep = ''),
                 header = T, stringsAsFactors = F)
+
+# Ensure that, if no sequence_id exists, we create it
+if (!("sequence_id" %in% colnames(tmp))){
+  # Create the sequence_id
+  tmp$sequence_id <- paste0(1:nrow(tmp), '-',tmp$junction_aa)
+  tmp <- tmp[,c("sequence_id", colnames(tmp)[1:(ncol(tmp)-1)])]
+}
+
 # Trim CDR3s
 tmp$junction_aa <- trim_CDR3(tmp$junction_aa)
 # Translate VHHs
