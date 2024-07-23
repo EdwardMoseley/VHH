@@ -284,7 +284,8 @@ rm(df, tmp, tmp_frame, results)
 
 
 
-
+# > file_name
+# [1] "20_VecF2_R3_S20-rule-pooled-families.csv"
 
 
 
@@ -336,24 +337,6 @@ print_statistics(dat)
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ## --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ##
 
 
@@ -364,10 +347,16 @@ print_statistics(dat)
 ## ###
 
 
-# holder <- dat
+
+# Here, the focus is to translate the data to amino acids
+# and remove unproductive sequence information before
+# calling mmseqs2 for subclustering by homology
 
 
-# tmp <- holder
+## We'll assign dat to tmp for this first...
+
+tmp <- dat
+
 
 ## Amino Acid-only database
 
@@ -451,24 +440,13 @@ rm(tmp_frame)
 
 
 
-
-
-
-
-
-
-
-
-
-
-
 ## *** *** *** *** *** *** *** *** *** *** *** *** *** ##
 ## *** *** *** *** toAA  CHECK *** *** *** *** *** *** ##
 ## *** *** *** *** *** *** *** *** *** *** *** *** *** ##
 
 # output_dir <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/"
 
-# tmp <- read.csv(paste0(output_dir, file_name), header = T, stringsAsFactors = F)
+# test <- read.csv(paste0(output_dir, file_name), header = T, stringsAsFactors = F)
 
 # check_statistics(dat, tmp)
 
@@ -524,13 +502,9 @@ output_dir <- "/Users/emoseley/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_
 # Loading the file means assigning dat to tmp
 tmp <- dat
 
-# rm(dat)
-
-
 ## ### 
 ## To AA moved here
 ## ###
-
 
 tmp$VHH <- fixed_translate_DNA(tmp$sequence_alignment)
 
@@ -547,6 +521,8 @@ filtered_seqs <- nrow(tmp)
 cat(file_name, '\n')
 cat(round(100 - (filtered_seqs/all_seqs*100), 2), "% of sequences unproductive.\n", sep = '')
 
+
+
 ## ###
 ## END to-AA
 ## ###
@@ -554,10 +530,19 @@ cat(round(100 - (filtered_seqs/all_seqs*100), 2), "% of sequences unproductive.\
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
 holder <- tmp
-
-
-
 
 # Create a data frame for holding results
 results <- data.frame()

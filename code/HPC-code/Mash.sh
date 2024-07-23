@@ -10,6 +10,6 @@
 #SBATCH --mail-type=ALL #email options
 #SBATCH --mail-user=edward.moseley@tufts.edu
 
-/cluster/home/emosel01/mash/mash-Linux64-v2.3/mash sketch -o ../data/sketches/genomes /cluster/tufts/cowenlab/emosel01/data/2024_TUCF_7981/*.fasta
+/cluster/home/emosel01/mash/mash-Linux64-v2.3/mash sketch -o ../data/sketches/genomes /cluster/tufts/cowenlab/emosel01/data/assembled/*.fasta
 
-/cluster/home/emosel01/mash/mash-Linux64-v2.3/mash dist ../data/sketches/genomes.msh ../data/sketches/genomes.msh > MASH_Schisto_7981_distances.tsv
+/cluster/home/emosel01/mash/mash-Linux64-v2.3/mash dist ../data/sketches/genomes.msh ../data/sketches/genomes.msh > MASH_gonorrhea_distances15Jul24.tsv

@@ -8,7 +8,12 @@
 ## Load Utilities
 source("/cluster/tufts/cowenlab/emosel01/code/lib/utilities.R")
 
-cat("Creating: /cluster/tufts/cowenlab/emosel01/data/abundance_table.csv\n")
+## Pull Root Directory
+root_dir <- "/cluster/tufts/cowenlab/emosel01/data/"
+
+output_table <- "background_abundance_table.csv"
+
+cat("Creating: ", paste0(root_dir, output_table),"\n", sep = '')
 
 ## Draw file info from commandArgs (for use later)
 # args <- commandArgs(trailingOnly=TRUE)
@@ -16,49 +21,23 @@ cat("Creating: /cluster/tufts/cowenlab/emosel01/data/abundance_table.csv\n")
 
 ## /cluster/tufts/cowenlab/emosel01/data/hclust
 
-# -rw-rw---- 1 emosel01 cowenlab 333226569 Jun  7 14:58 10_S19_db-pass.tsv
-# -rw-rw---- 1 emosel01 cowenlab 522284077 Jun  7 19:50 11_S20_db-pass.tsv
-# -rw-rw---- 1 emosel01 cowenlab 432849706 Jun  8 00:02 12_S21_db-pass.tsv
-# -rw-rw---- 1 emosel01 cowenlab 438853570 Jun  8 04:05 13_S22_db-pass.tsv
-# -rw-rw---- 1 emosel01 cowenlab 448174237 Jun  8 08:16 14_S23_db-pass.tsv
-# -rw-rw---- 1 emosel01 cowenlab 464610149 Jun  8 12:34 15_S24_db-pass.tsv
-# -rw-rw---- 1 emosel01 cowenlab 405067483 Jun  8 16:29 16_S25_db-pass.tsv
-# -rw-rw---- 1 emosel01 cowenlab 429289921 Jun  8 20:35 27_S13_db-pass.tsv
-# -rw-rw---- 1 emosel01 cowenlab 405818247 Jun  9 00:50 33_S7_db-pass.tsv
-# -rw-rw---- 1 emosel01 cowenlab 236127298 Jun  9 03:12 34_S8_db-pass.tsv
-# -rw-rw---- 1 emosel01 cowenlab 358312410 Jun  9 06:55 35_S9_db-pass.tsv
-# -rw-rw---- 1 emosel01 cowenlab 342111140 Jun  9 10:15 36_S10_db-pass.tsv
-# -rw-rw---- 1 emosel01 cowenlab 525057249 Jun  9 14:28 37_S11_db-pass.tsv
-# -rw-rw---- 1 emosel01 cowenlab 409138641 Jun  9 18:16 38_S12_db-pass.tsv
-# -rw-rw---- 1 emosel01 cowenlab 496447954 Jun  9 22:58 39_S14_db-pass.tsv
-# -rw-rw---- 1 emosel01 cowenlab 481616571 Jun 10 02:43 40_S15_db-pass.tsv
-# -rw-rw---- 1 emosel01 cowenlab 295332895 Jun 10 05:33 41_S16_db-pass.tsv
-# -rw-rw---- 1 emosel01 cowenlab 381050437 Jun 10 08:41 42_S17_db-pass.tsv
-# -rw-rw---- 1 emosel01 cowenlab 482368175 Jun 10 13:25 9_S18_db-pass.tsv
-
-## Global Set
-
-## /cluster/tufts/cowenlab/emosel01/data/globals/GS_d2_18Jun24-Cleaned19Apr24.csv
-
-## Pull Root Directory
-root_dir <- "/cluster/tufts/cowenlab/emosel01/data/"
 
 # Create a list to use as a dictionary
 files <- list()
 
 cat("Locating Files:\n")
 ## Can change this later to be file_name <- "globals/GS_d2_18Jun24-Cleaned19Apr24.csv"
-cat(paste0(root_dir, "globals/GS_d2_18Jun24-Cleaned19Apr24.csv\n"))
+cat(paste0(root_dir, "globals/GS_background_d2VHH_16Jul24-Cleaned19Apr24.csv\n"))
 
 # Populate key/values with files and their keys
-files[["master"]] <- paste0(root_dir, "globals/GS_d2_18Jun24-Cleaned19Apr24.csv")
+files[["master"]] <- paste0(root_dir, "globals/GS_background_d2VHH_16Jul24-Cleaned19Apr24.csv")
 
-file_list <- list.files(paste0(root_dir, "hclust"))
+file_list <- list.files(paste0(root_dir, "background/"))
 
 for (nm in gsub("_db-pass.tsv", "", file_list)){
   # Load file
-  cat(paste0("hclust/",nm, "_db-pass.tsv\n"))
-  files[[nm]] <- paste0(root_dir, paste0("hclust/",nm, "_db-pass.tsv"))
+  cat(paste0("background/",nm, "_db-pass.tsv\n"))
+  files[[nm]] <- paste0(root_dir, paste0("background/",nm, "_db-pass.tsv"))
 }
 
 max_clone_count <- 0
@@ -142,8 +121,8 @@ for (f in names(files)[names(files) != "master"]){
   }
 }
 
-cat("Writing: /cluster/tufts/cowenlab/emosel01/data/abundance_table.csv\n")
-write.csv(res, file = "/cluster/tufts/cowenlab/emosel01/data/abundance_table.csv", row.names = F)
+cat("Writing: ", paste0(root_dir, output_table), '\n', sep = '')
+write.csv(res, file = paste0(root_dir, output_table), row.names = F)
 
 ## Aggregate to clone level
 
@@ -207,6 +186,6 @@ for (nm in colnames(tmp)[2:ncol(tmp)]){
 # Replace NA's with zero
 tmp[is.na(tmp)] <- 0
 
-cat("Writing: ", "/cluster/tufts/cowenlab/emosel01/data/GS_d2_25Jun24-Cleaned.csv", '\n')
+cat("Writing: ", "/cluster/tufts/cowenlab/emosel01/data/GS_background_18Jul24-Cleaned.csv", '\n')
+write.csv(tmp, file = "/cluster/tufts/cowenlab/emosel01/data/GS_background_18Jul24-Cleaned.csv", row.names = F)
 
-write.csv(tmp, file = "/cluster/tufts/cowenlab/emosel01/data/GS_d2_25Jun24-Cleaned.csv", row.names = F)

@@ -9,13 +9,14 @@ library("hash")
 source("/cluster/tufts/cowenlab/emosel01/code/lib/utilities.R")
 
 # Set root dir
-root_dir <- "/cluster/tufts/cowenlab/emosel01/data/hclust/"
+root_dir <- "/cluster/tufts/cowenlab/emosel01/data/background/"
 
-output_file <- "/cluster/tufts/cowenlab/emosel01/data/GS_ImpulseLulu_d2VHH_27Jun24_min_threshold_clone-pass.csv"
+output_file <- "/cluster/tufts/cowenlab/emosel01/data/GS_background_d2VHH_16Jul24_min_threshold_clone-pass.csv"
 
-files <- list.files(root_dir)
+files <- list.files(root_dir)[grepl(".tsv", list.files(root_dir))]
 
-files <- files[!(files %in% c("C1_S1_db-pass.tsv", "C2_S2_db-pass.tsv", "D1_S3_db-pass.tsv", "D2_S4_db-pass.tsv", "D3_S5_db-pass.tsv", "D4_S6_db-pass.tsv"))]
+# Ignore certain files
+# files <- files[!(files %in% c("C1_S1_db-pass.tsv", "C2_S2_db-pass.tsv", "D1_S3_db-pass.tsv", "D2_S4_db-pass.tsv", "D3_S5_db-pass.tsv", "D4_S6_db-pass.tsv"))]
 
 cat("Processing files:\n")
 
@@ -72,6 +73,9 @@ cat("[Dat] Row count after Merge:", nrow(dat), "\n")
 
 colnames(dat)[which(colnames(dat) == "duplicate_count.x")] <- "duplicate_count"
 colnames(dat)[which(colnames(dat) == "duplicate_count.y")] <- "VHH_duplicate_count"
+
+# Assign Global Set IDs
+dat$sequence_id <- paste0("GS-", 1:nrow(dat))
 
 cat("Calculating distToNearest...\n")
 
