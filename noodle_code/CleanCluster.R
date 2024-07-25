@@ -367,7 +367,7 @@ tmp <- dat
 output_dir <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/"
 
 # Assign source file information
-tmp$source_file <- rep(gsub("-rule-pooled-families.csv", "",file_name), times = nrow(tmp))
+tmp$source_file <- rep(gsub("-rule-pooled-families.csv", "", file_name), times = nrow(tmp))
 # Translate - VHH
 tmp$VHH <- fixed_translate_DNA(tmp$sequence_alignment)
 
@@ -413,13 +413,14 @@ file_name <- gsub("-rule-pooled-families.csv", "-pooled-families_VHH_database.cs
 # Elevator Music
 cat("Finished writing: ", file_name, '\n', sep = '')
 
-## Instead of writing, assign tmp to dat and we will reload the data to check
-## dat <- tmp
+## Instead of writing, assign tmp to AAdb and we can reload the data to check
+AAdb <- tmp
 
 ## --- --- --- --- --- --- --- --- --- --- --- --- --- ##
 
 ## Important Variables at the end of Pooling:
 # dat <- all the important data we want
+# AAdb <- Amino Acid Database
 # file_name <- the input file
 # root_path <- folder the input file is in
 # output_dir
@@ -433,8 +434,8 @@ if (grepl("-pooled-families_VHH_database.csv", file_name)){
   # system(paste("Rscript CleanCluster-MMseqs2.R", file_name))
 }
 
-## Cleanup dfs (results are just summary stats)
-rm(tmp_frame)
+## Cleanup dfs
+rm(tmp_frame, tmp)
 
 ## --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ##
 
@@ -483,7 +484,6 @@ rm(tmp_frame)
 
 ## --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ##
 
-
 ## CleanCluster-MMseqs2
 
 
@@ -500,11 +500,13 @@ output_dir <- "/Users/emoseley/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_
 ## tmp <- read.csv(paste(root_dir, file_name, sep = ''), header = T, stringsAsFactors = F)
 
 # Loading the file means assigning dat to tmp
-tmp <- dat
+# tmp <- dat
 
 ## ### 
 ## To AA moved here
 ## ###
+
+
 
 tmp$VHH <- fixed_translate_DNA(tmp$sequence_alignment)
 
@@ -541,8 +543,8 @@ cat(round(100 - (filtered_seqs/all_seqs*100), 2), "% of sequences unproductive.\
 
 
 
-
-holder <- tmp
+## Here, we want to cluster based on the Amino Acids
+tmp <- AAdb
 
 # Create a data frame for holding results
 results <- data.frame()
@@ -587,6 +589,23 @@ for (nm in unique(tmp$clone_id)){
   results <- rbind(results, dat)
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ## --- --- --- --- --- --- --- --- --- --- --- --- --- ##
 
 ## Important Variables at the end of Pooling:
@@ -598,9 +617,9 @@ for (nm in unique(tmp$clone_id)){
 ## --- --- --- --- --- --- --- --- --- --- --- --- --- ##
 
 
-# file_name <- gsub("VHH_database.csv", "subclustered_database.csv", file_name)
-
-# cat("Writing: ", paste(root_dir, file_name, sep = ''), '\n', sep = '')
+file_name <- gsub("VHH_database.csv", "subclustered_database.csv", file_name)
+root_dir <- "~/Downloads/"
+cat("Writing: ", paste(root_dir, file_name, sep = ''), '\n', sep = '')
 
 ## write.csv(results, file = paste(root_dir, file_name, sep = ''), row.names = F)
 
@@ -610,12 +629,16 @@ for (nm in unique(tmp$clone_id)){
   cat(paste("Rscript CleanCluster-Refining.R", file_name), '\n')
 #}
 
+  
+  
+
 
 ## --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ##
 
 
-
-
+## Reload from MMseqs2
+test <- read.csv("~/Downloads/20_VecF2_R3_S20-pooled-families_subclustered_database.csv", 
+                    header = T, stringsAsFactors = F)
 
 
 

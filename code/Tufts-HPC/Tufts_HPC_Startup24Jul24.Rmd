@@ -1,0 +1,1100 @@
+---
+title: '[VHH] Tufts HPC Quick Start'
+output: html_document
+date: "2024-05-27"
+---
+
+## Tufts High Performance Cluster User Guides
+
+[Request a cluster account](https://it.tufts.edu/it-computing/accounts-passwords/research-cluster-account)
+
+[HPC Tutorials](https://it.tufts.edu/high-performance-computing/hpc-tutorials)
+
+More tutorials:
+
+[HPC New User](https://tufts.app.box.com/v/HPC-New-User)
+
+Note, for cluster questions, email: `tts-research@tufts.edu`
+
+## General Information
+
+### Storage
+
+Your Home Directory (10GB, fixed) should be: `/cluster/home/your_utln`, where can be accessed by: `/cluster/home/$USER`
+
+You can check your limit with: `quota -s`
+
+Your research project storage (from 50GB and up) path should be
+`/cluster/tufts/yourlabname/`, and each member of the lab group has a
+dedicated directory `/cluster/tufts/yourlabname/your_utln`
+
+To see your research project storage quota by running the following
+command from login node: `showquota`
+
+Note: research storage is shared within a research group.
+
+#### Uploading Data
+
+* Local_Path is the path to your files or directory on your local
+computer
+
+* Cluster_Path is the path to your files or directory on the cluster
+Home Directory: `/cluster/home/your_utln/your_folder`
+
+Research Project Storage Space Directory: `/cluster/tufts/yourlabname/your_utln/your_folder`
+
+**Examples:**
+
+Download From Cluster:
+
+```
+scp your_utln@xfer.cluster.tufts.edu:Cluster_Path Local_Path
+```
+
+_For Example (Tutorial Scripts from Cluster)_
+
+```
+emoseley@MacBook-Pro-5 ~ % scp -r emosel01@xfer.cluster.tufts.edu:/cluster/tufts/hpc/tools/WorkshopDemo/20210420 /Users/emoseley/Desktop/example_files
+```
+
+Upload to Cluster:
+
+```
+scp Local_Path your_utln@xfer.cluster.tufts.edu:Cluster_Path
+```
+
+_For Example_
+
+```
+scp /Users/emoseley/Downloads/tmp/data.tar.gz emosel01@xfer.cluster.tufts.edu:/cluster/tufts/cowenlab/emosel01/data
+```
+
+## Environment Setup (Conda)
+
+We use `conda` to control our environment, to list the conda modules, we check:
+
+```
+module av anaconda
+```
+
+We will load a recent version of Anaconda:
+
+```
+module load anaconda/2021.05
+```
+
+### Configuring Conda
+
+Since you have limited amount of storage in your home directory, we do no suggest you install the packages
+there. As you belong to XXXXlab group on the cluster, please use the group research storage for the purpose.
+
+Create two directories in your group research storage space (one for storing the envs, one for storing the `pkgs`,
+for example: `condaenv`, `condapkg`)
+
+```
+cd /cluster/tufts/cowenlab/$USER
+mkdir condaenv
+mkdir condapkg
+```
+
+If you haven't used conda before on the cluster, create a file named `".condarc"` in your home directory.
+
+```
+cd ~
+touch .condarc
+conda config --append envs_dirs /cluster/tufts/cowenlab/$USER/condaenv/
+conda config --append pkgs_dirs /cluster/tufts/cowenlab/$USER/condapkg/
+```
+
+_Optional:_ Add channels to your conda config as well (here are only 2, but you can add more you need):
+
+```
+conda config --add channels bioconda
+conda config --add channels conda-forge
+```
+
+Now we check with `cat ~/.condarc`:
+
+```
+envs_dirs:
+  - /cluster/tufts/cowenlab/emosel01/condaenv/
+pkgs_dirs:
+  - /cluster/tufts/cowenlab/emosel01/condapkg/
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+```
+
+### Create Conda Environment
+
+Now we create a custom conda env, first moving to the directory:
+
+```
+cd /cluster/tufts/cowenlab/$USER/condaenv/
+```
+
+Note: For a specific version of Python (ex. 3.8), we use:
+
+```
+conda create -p vhh python=3.8
+```
+
+**Note:** you will need to have python and pip installed inside the env to pip install packages inside the env.
+
+**Note:** If you are using system installed conda, please **DO NOT** use `conda activate` to activate your environment, use `source activate yourenvname`.
+
+Now we activate the environment:
+
+```
+source activate /cluster/tufts/cowenlab/emosel01/condaenv/vhh
+```
+
+To stop the session, use: `source deactivate vhh`
+
+### Software Installation
+
+After activating the conda environment with:
+
+```
+source activate /cluster/tufts/cowenlab/emosel01/condaenv/vhh
+```
+
+We need to install pacakges.
+
+#### Presto Changeo
+
+We begin installing necessary packages:
+
+```
+pip install presto changeo
+pip install packaging
+```
+
+#### MMseqs2 (Install with bioconda)
+
+```
+conda install bioconda::mmseqs2
+```
+
+
+```
+conda install bioconda::mmseqs2
+Collecting package metadata (current_repodata.json): done
+Solving environment: done
+
+
+==> WARNING: A newer version of conda exists. <==
+  current version: 4.10.3
+  latest version: 24.5.0
+
+Please update conda by running
+
+    $ conda update -n base conda
+
+
+
+## Package Plan ##
+
+  environment location: /cluster/tufts/cowenlab/emosel01/condaenv/vhh
+
+  added / updated specs:
+    - bioconda::mmseqs2
+
+
+The following packages will be downloaded:
+
+    package                    |            build
+    ---------------------------|-----------------
+    aria2-1.37.0               |       h347180d_1         1.6 MB  conda-forge
+    c-ares-1.28.1              |       hd590300_0         165 KB  conda-forge
+    gawk-5.3.0                 |       ha916aea_0         1.1 MB  conda-forge
+    gettext-0.22.5             |       h59595ed_2         464 KB  conda-forge
+    gettext-tools-0.22.5       |       h59595ed_2         2.6 MB  conda-forge
+    gmp-6.3.0                  |       h59595ed_1         556 KB  conda-forge
+    icu-73.2                   |       h59595ed_0        11.5 MB  conda-forge
+    libasprintf-0.22.5         |       h661eb56_2          42 KB  conda-forge
+    libasprintf-devel-0.22.5   |       h661eb56_2          33 KB  conda-forge
+    libgettextpo-0.22.5        |       h59595ed_2         167 KB  conda-forge
+    libgettextpo-devel-0.22.5  |       h59595ed_2          36 KB  conda-forge
+    libiconv-1.17              |       hd590300_2         689 KB  conda-forge
+    libidn2-2.3.7              |       hd590300_0         124 KB  conda-forge
+    libssh2-1.11.0             |       h0841786_0         265 KB  conda-forge
+    libstdcxx-ng-13.2.0        |       hc0a3c3a_7         3.7 MB  conda-forge
+    libunistring-0.9.10        |       h7f98852_0         1.4 MB  conda-forge
+    libxml2-2.12.7             |       hc051c1a_0         689 KB  conda-forge
+    mmseqs2-15.6f452           | pl5321h6a68c12_2         4.2 MB  bioconda
+    mpfr-4.2.1                 |       h9458935_1         628 KB  conda-forge
+    perl-5.32.1                | 7_hd590300_perl5        12.7 MB  conda-forge
+    wget-1.21.4                |       hda4d442_0         752 KB  conda-forge
+    zlib-1.2.13                |       h4ab18f5_6          91 KB  conda-forge
+    ------------------------------------------------------------
+                                           Total:        43.4 MB
+
+The following NEW packages will be INSTALLED:
+
+  aria2              conda-forge/linux-64::aria2-1.37.0-h347180d_1
+  c-ares             conda-forge/linux-64::c-ares-1.28.1-hd590300_0
+  gawk               conda-forge/linux-64::gawk-5.3.0-ha916aea_0
+  gettext            conda-forge/linux-64::gettext-0.22.5-h59595ed_2
+  gettext-tools      conda-forge/linux-64::gettext-tools-0.22.5-h59595ed_2
+  gmp                conda-forge/linux-64::gmp-6.3.0-h59595ed_1
+  icu                conda-forge/linux-64::icu-73.2-h59595ed_0
+  libasprintf        conda-forge/linux-64::libasprintf-0.22.5-h661eb56_2
+  libasprintf-devel  conda-forge/linux-64::libasprintf-devel-0.22.5-h661eb56_2
+  libgettextpo       conda-forge/linux-64::libgettextpo-0.22.5-h59595ed_2
+  libgettextpo-devel conda-forge/linux-64::libgettextpo-devel-0.22.5-h59595ed_2
+  libiconv           conda-forge/linux-64::libiconv-1.17-hd590300_2
+  libidn2            conda-forge/linux-64::libidn2-2.3.7-hd590300_0
+  libssh2            conda-forge/linux-64::libssh2-1.11.0-h0841786_0
+  libstdcxx-ng       conda-forge/linux-64::libstdcxx-ng-13.2.0-hc0a3c3a_7
+  libunistring       conda-forge/linux-64::libunistring-0.9.10-h7f98852_0
+  libxml2            conda-forge/linux-64::libxml2-2.12.7-hc051c1a_0
+  mmseqs2            bioconda/linux-64::mmseqs2-15.6f452-pl5321h6a68c12_2
+  mpfr               conda-forge/linux-64::mpfr-4.2.1-h9458935_1
+  perl               conda-forge/linux-64::perl-5.32.1-7_hd590300_perl5
+  wget               conda-forge/linux-64::wget-1.21.4-hda4d442_0
+  zlib               conda-forge/linux-64::zlib-1.2.13-h4ab18f5_6
+
+
+Proceed ([y]/n)? y
+
+
+Downloading and Extracting Packages
+libasprintf-0.22.5   | 42 KB     | ################################################################################################### | 100% 
+gmp-6.3.0            | 556 KB    | ################################################################################################### | 100% 
+gettext-0.22.5       | 464 KB    | ################################################################################################### | 100% 
+libstdcxx-ng-13.2.0  | 3.7 MB    | ################################################################################################### | 100% 
+libidn2-2.3.7        | 124 KB    | ################################################################################################### | 100% 
+wget-1.21.4          | 752 KB    | ################################################################################################### | 100% 
+zlib-1.2.13          | 91 KB     | ################################################################################################### | 100% 
+perl-5.32.1          | 12.7 MB   | ################################################################################################### | 100% 
+libxml2-2.12.7       | 689 KB    | ################################################################################################### | 100% 
+c-ares-1.28.1        | 165 KB    | ################################################################################################### | 100% 
+libssh2-1.11.0       | 265 KB    | ################################################################################################### | 100% 
+mpfr-4.2.1           | 628 KB    | ################################################################################################### | 100% 
+mmseqs2-15.6f452     | 4.2 MB    | ################################################################################################### | 100% 
+libiconv-1.17        | 689 KB    | ################################################################################################### | 100% 
+libunistring-0.9.10  | 1.4 MB    | ################################################################################################### | 100% 
+gawk-5.3.0           | 1.1 MB    | ################################################################################################### | 100% 
+libgettextpo-0.22.5  | 167 KB    | ################################################################################################### | 100% 
+libasprintf-devel-0. | 33 KB     | ################################################################################################### | 100% 
+gettext-tools-0.22.5 | 2.6 MB    | ################################################################################################### | 100% 
+aria2-1.37.0         | 1.6 MB    | ################################################################################################### | 100% 
+libgettextpo-devel-0 | 36 KB     | ################################################################################################### | 100% 
+icu-73.2             | 11.5 MB   | ################################################################################################### | 100% 
+Preparing transaction: done
+Verifying transaction: done
+Executing transaction: done
+(/cluster/tufts/cowenlab/emosel01/condaenv/vhh) [emosel01@login-prod-02 condaenv]$ mmseqs2
+-bash: mmseqs2: command not found
+(/cluster/tufts/cowenlab/emosel01/condaenv/vhh) [emosel01@login-prod-02 condaenv]$ which mmseqs2
+/usr/bin/which: no mmseqs2 in (/cluster/tufts/cowenlab/emosel01/condaenv/vhh/bin:/cluster/tufts/hpc/tools/anaconda/202105/condabin:/cluster/tufts/hpc/tools/spack/linux-rhel7-ivybridge/gcc-9.3.0/node-js-14.15.1-6s5wyovdujbcvbacqygt2kk3gm6m27dm/bin:/cluster/tufts/hpc/tools/anaconda/202105/bin:/cluster/home/emosel01/.local/bin:/cluster/home/emosel01/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin)
+(/cluster/tufts/cowenlab/emosel01/condaenv/vhh) [emosel01@login-prod-02 condaenv]$ 
+```
+
+**For calling mmseqs2:**
+
+```
+/cluster/tufts/cowenlab/emosel01/condaenv/vhh/bin/mmseqs
+```
+
+## Installing IgBLAST
+
+#### Required Files to Begin (receive from Tufts Box):
+
+```
+alpaca_gl.aux
+alpaca_new.ndm.imgt
+imgt_alpaca_ig_d.fasta
+imgt_alpaca_ig_j.fasta
+imgt_alpaca_ig_v.fasta
+```
+
+We will download the latest version of [IgBLAST](https://ftp.ncbi.nih.gov/blast/executables/igblast/release/LATEST/) with `wget`, and we will download it to our `XXXXlab/$USER` directory, before unzipping it and moving into it.
+
+
+```
+cd /cluster/tufts/cowenlab/emosel01/
+wget https://ftp.ncbi.nih.gov/blast/executables/igblast/release/LATEST/ncbi-igblast-1.22.0-x64-linux.tar.gz
+```
+
+We unzip the tar file, 
+
+```
+tar -xzvf ncbi-igblast-1.22.0-x64-linux.tar.gz
+```
+
+_Note:_
+
+```
+tar: The command used to work with tar archives.
+-x: Extract the contents of the archive.
+-z: Filter the archive through gzip.
+-v: Verbosely list the files processed (optional, but useful to see what’s being extracted).
+-f: Specifies the file to be extracted.
+```
+
+Then we change directories:
+
+```
+cd ncbi-igblast-1.22.0
+mkdir database
+```
+
+Note that we create a database directory in the igblast folder, so its contents look something like:
+
+```
+total 39
+drwxrws--- 2 emosel01 cowenlab  4096 May 30 11:45 .
+drwxrws--- 2 emosel01 cowenlab  4096 May 30 11:36 ..
+drwxr-s--- 2 emosel01 cowenlab  4096 Oct 11  2023 bin
+-rw-r----- 1 emosel01 cowenlab  5874 Oct 11  2023 ChangeLog
+drwxrws--- 2 emosel01 cowenlab  4096 May 30 11:45 database
+drwxr-s--- 2 emosel01 cowenlab  4096 Oct 11  2023 internal_data
+-rw-r----- 1 emosel01 cowenlab 27664 Oct 11  2023 LICENSE
+-rw-r----- 1 emosel01 cowenlab  4747 Oct 11  2023 ncbi_package_info
+drwxr-s--- 2 emosel01 cowenlab  4096 Oct 11  2023 optional_file
+-rw-r----- 1 emosel01 cowenlab    86 Oct 11  2023 README
+```
+
+We then create `alpaca` and `alpaca_clean` in the `database` directory, 
+
+```
+cd database
+mkdir alpaca
+mkdir alpaca_clean
+```
+
+which gives the final hierarchy:
+
+```
+----igblast
+  --bin
+  --internal_data
+  --optional_file
+  --ChangeLog
+  --LICENSE
+  --ncbi_pakacage_info
+  --README
+  ----database
+    --alpaca
+    --alpaca_clean
+```
+
+Now we will push up our data files to `alpaca` via the command line, first opening a new session (locally), and typing (note: all data are stored in `~/Downloads/tmp`:
+
+```
+scp -r ~/Downloads/tmp emosel01@xfer.cluster.tufts.edu:/cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/database/alpaca
+```
+
+Now some quick file manipulation
+
+```
+cd /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/database/alpaca/tmp
+mv * /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/database/alpaca
+cd ..
+rm tmp
+```
+
+### Processing IMGT V(D)J sequences
+
+_Note:_ Bin path: `/cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/bin`
+
+To parse the IGHV/D/J protein germline sequences, navigate to `ncbi-igblast-1.22.0/database`, which will have the `IG_DNA` folder in it, and then run:
+
+```
+# Process V segment sequences with edit_imgt_file
+bin/edit_imgt_file.pl database/alpaca/IG_DNA/imgt_gapped_alpaca_IGHV > database/alpaca_clean/alpaca_V
+# Process D segment sequences with edit_imgt_file
+bin/edit_imgt_file.pl database/alpaca/IG_DNA/imgt_gapped_alpaca_IGHD > database/alpaca_clean/alpaca_D
+# Process J segment sequences with edit_imgt_file
+bin/edit_imgt_file.pl database/alpaca/IG_DNA/imgt_gapped_alpaca_IGHJ > database/alpaca_clean/alpaca_J
+```
+
+```
+# Process V segment sequences with edit_imgt_file
+/cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/bin/edit_imgt_file.pl /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/database/alpaca/IG_DNA/imgt_gapped_alpaca_IGHV > /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/database/alpaca_clean/alpaca_V
+# Process D segment sequences with edit_imgt_file
+/cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/bin/edit_imgt_file.pl /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/database/alpaca/IG_DNA/imgt_gapped_alpaca_IGHD > /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/database/alpaca_clean/alpaca_D
+# Process J segment sequences with edit_imgt_file
+/cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/bin/edit_imgt_file.pl /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/database/alpaca/IG_DNA/imgt_gapped_alpaca_IGHJ > /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/database/alpaca_clean/alpaca_J
+```
+
+Note that we do not use file extensions on alpaca_V , alpaca_D , and alpaca_J.
+
+#### Make BLAST Database
+
+Here, we need to use `bin/makeblastdb`
+
+/cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/bin/edit_imgt_file.pl
+
+```
+/cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/bin/makeblastdb -parse_seqids -dbtype nucl -in /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/database/alpaca_clean/alpaca_V 
+/cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/bin/makeblastdb -parse_seqids -dbtype nucl -in /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/database/alpaca_clean/alpaca_D 
+/cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/bin/makeblastdb -parse_seqids -dbtype nucl -in /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/database/alpaca_clean/alpaca_J
+```
+
+**Output:**
+
+```
+Building a new DB, current time: 05/31/2024 10:43:20
+New DB name:   /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/database/alpaca_clean/alpaca_V
+New DB title:  /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/database/alpaca_clean/alpaca_V
+Sequence type: Nucleotide
+Keep MBits: T
+Maximum file size: 3000000000B
+Adding sequences from FASTA; added 84 sequences in 0.171035 seconds.
+
+
+(/cluster/tufts/cowenlab/emosel01/condaenv/vhh) [emosel01@login-prod-02 alpaca]$ /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/bin/makeblastdb -parse_seqids -dbtype nucl -in /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/database/alpaca_clean/alpaca_D 
+
+
+Building a new DB, current time: 05/31/2024 10:45:05
+New DB name:   /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/database/alpaca_clean/alpaca_D
+New DB title:  /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/database/alpaca_clean/alpaca_D
+Sequence type: Nucleotide
+Keep MBits: T
+Maximum file size: 3000000000B
+Adding sequences from FASTA; added 8 sequences in 0.0293081 seconds.
+
+
+(/cluster/tufts/cowenlab/emosel01/condaenv/vhh) [emosel01@login-prod-02 alpaca]$ /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/bin/makeblastdb -parse_seqids -dbtype nucl -in /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/database/alpaca_clean/alpaca_J
+
+
+Building a new DB, current time: 05/31/2024 10:45:06
+New DB name:   /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/database/alpaca_clean/alpaca_J
+New DB title:  /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/database/alpaca_clean/alpaca_J
+Sequence type: Nucleotide
+Keep MBits: T
+Maximum file size: 3000000000B
+Adding sequences from FASTA; added 7 sequences in 0.0676479 seconds.
+```
+
+### Moving Database (alpaca_V|D|J)
+
+Now we copy over the cleaned database to `internal_data` from `database/alpaca_vhh_clean`.
+
+```
+cp -R /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/database/alpaca_clean /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/internal_data
+```
+
+After this, we move to `internal_data` and rename `alpaca_clean` to `alpaca`
+
+```
+cd /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/internal_data
+mv alpaca_clean alpaca
+```
+
+### alpaca.ndm.imgt
+
+Ensure that `alpaca.ndm.imgt` (which we received from TH, and is called `alpaca_new.ndm.imgt`) is named `alpaca.ndm.imgt` and also placed in the `internal_data/alpaca` directory.
+
+```
+cd /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/database/alpaca
+mv alpaca_new.ndm.imgt alpaca.ndm.imgt
+mv alpaca.ndm.imgt /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/internal_data/alpaca
+```
+
+### alpaca_gl.aux
+
+Ensure that `alpaca_gl.aux` (which we received from TH), is placed in the `optional_file` directory. 
+
+Note (from IgBLAST documentation)
+
+> If you also want CDR3/FWR4 information, you need to supply a file that has information such as CDR3 stop for germline J genes (see optional_file/human_gl.aux for an example). This file can have any name and can be put anywhere as long as you supply it to the `-auxiliary_data` parameter when running IgBLAST (for example `-auxiliary_data my_folder/my_file`).
+
+So:
+
+```
+cd /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/database/alpaca
+mv alpaca_gl.aux /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/internal_data/alpaca
+```
+
+### Set IGDATA Environmental Variable
+
+This should solve the following error: `Error: [internal_data] cannot be found.`
+
+```
+module load anaconda/2021.05
+source activate /cluster/tufts/cowenlab/emosel01/condaenv/vhh
+export IGDATA=/cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/bin
+```
+
+_Note: we activated our conda env to ensure that this change is reflected there_.
+
+Note that the `IGDATA` variable should:
+
+1. point to the `bin` folder, not the `internal_data` folder.
+
+2. use the full path (e.g. `/cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/bin`) and NOT a relative path 
+
+3. The path should not contain any spaces (change your directory name if it does).
+
+
+
+### Ensure that files have appropriate fasta extension
+
+```
+cd /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/database/alpaca/IG_DNA
+mv imgt_gapped_alpaca_IGHV imgt_gapped_alpaca_IGHV.fasta
+mv imgt_gapped_alpaca_IGHD imgt_gapped_alpaca_IGHD.fasta
+mv imgt_gapped_alpaca_IGHJ imgt_gapped_alpaca_IGHJ.fasta
+```
+
+### Batch Job File
+
+```
+!#/bin/sh
+#SBATCH -J My_Job_Name #job name
+#SBATCH !"time=00-00:20:00 #requested time (DD-HH:MM:SS)
+#SBATCH -p preempt #running on "preempt" partition/queue
+#SBATCH -N 1 #1 nodes
+#SBATCH -n 2 #2 tasks total
+#SBATCH -c 1 #1 cpu cores per task
+#SBATCH !"mem=2g #requesting 2GB of RAM total
+#SBATCH !"output=MyJob.%j.%N.out #saving standard output to file,
+%j=JOBID, %N=NodeName
+#SBATCH !"error=MyJob.%j.%N.err #saving standard error to file,
+%j=JOBID, %N=NodeName
+#SBATCH !"mail-type=ALL #email optitions
+#SBATCH !"mail-user=Your_Tufts_Email@tufts.edu
+
+!$commands_you_would_like_to_exe_on_the_compute_nodes]
+
+# for example, running a python script
+# load the module so the correct version python is available to you
+module load anaconda/3
+# run python script
+python myscript.py #make sure myscript.py exists in the current directory
+```
+
+### Submit Job
+
+```
+$ sbatch myjob.sh
+```
+
+# Initial Steps
+
+## Administrative
+
+1. Receive access to cluster
+
+## Connecting to Cluster
+
+Connect to Tufts VPN first with Cisco AnyConnect Mobility Client
+
+```
+vpn.tufts.edu/duo
+```
+
+Note that 2-Factor Authentication is required (pick up the phone).
+
+Next, `ssh` in:
+
+```
+ssh emosel01@login.pax.tufts.edu
+```
+
+Password is the same throughout.
+
+## Landing
+
+```
+$ pwd
+/cluster/home/emosel01
+cd
+/cluster/tufts/cowenlab/emosel01
+```
+
+### Initial File Hierarchy
+
+```
+/cluster/tufts/cowenlab/emosel01/code
+/cluster/tufts/cowenlab/emosel01/data
+/cluster/tufts/cowenlab/emosel01/immcantation_suite # Contains bin with presto/changeo modules
+```
+
+# Loging Back In
+
+Navigate to your Cowen Lab diredtory:
+
+```
+cd /cluster/tufts/cowenlab/$USER
+```
+
+Load module and activate our conda env, `vhh`
+
+```
+module load anaconda/2021.05
+source activate /cluster/tufts/cowenlab/emosel01/condaenv/vhh
+```
+
+# Submitting a job
+
+```
+sbatch HierarchicalClustering.sh
+```
+
+```
+sbatch VHH-Assembly.sh
+```
+
+```
+sbatch IgBLASTMakeDb.sh
+```
+
+# Check Queued Jobs
+
+```
+squeue -u $USER
+```
+
+
+# R packages (Biocmanager)
+
+```
+module load R/4.3.0
+R
+
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install("ShortRead")
+```
+
+
+
+
+
+/cluster/tufts/cowenlab/emosel01/data/240124_0629_Charles_Shoemaker_7981/fastq_Lane1
+
+
+
+
+
+
+Note: 
+
+```
+#!/bin/bash
+#SBATCH -J makeblastdb #job name
+#SBATCH --time=01-02:00:00 #requested time (DD-HH:MM:SS)
+#SBATCH -p batch #running on "mpi" partition/queue
+#SBATCH -N 2 #1 nodes
+#SBATCH -n 4 #2 tasks total (default 1 CPU core per task) = # of cores
+#SBATCH --mem=64g #requesting 2GB of RAM total
+#SBATCH --output=%j.%N.out #saving standard output to file, %j=JOBID, %N=NodeName
+#SBATCH --error=%j.%N.err #saving standard error to file, %j=JOBID, %N=NodeName
+#SBATCH --mail-type=ALL #email options
+#SBATCH --mail-user=edward.moseley@tufts.edu
+
+#PRESTO_BIN=/cluster/tufts/cowenlab/immcantation_suite/presto/bin
+CHANGEO_BIN=/cluster/tufts/cowenlab/immcantation_suite/changeo/bin
+#NCBI_BIN=/cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/bin
+
+# IgBLAST
+
+#${NCBI_BIN}/igblastn -germline_db_V
+#-germline_db_V /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/internal_data/alpaca/alpaca_V 
+#-germline_db_D /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/internal_data/alpaca/alpaca_D 
+#-germline_db_J /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/internal_data/alpaca/alpaca_J 
+#-domain_system imgt 
+#-ig_seqtype Ig 
+#-organism alpaca 
+#-auxiliary_data /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/optional_file/alpaca_gl.aux 
+#-outfmt '7 std qseq sseq btop' 
+#-query ~/ncbi-igblast-1.17.1/D4_S6_atleast-1.fasta 
+#-out ~/VHH/data/Assembled/D4_S6.fmt7
+
+# STEP 1: Alignment
+
+# STEP 2: Quality Filtering
+              
+${CHANGEO_BIN}/MakeDb.py igblast -i /cluster/tufts/cowenlab/emosel01/data/9_S18.fmt7 -s /cluster/tufts/cowenlab/emosel01/data/9_S18_atleast-1.fasta -r /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/database/alpaca/IG_DNA/imgt_gapped_alpaca_IGHV.fasta  /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/database/alpaca/IG_DNA/imgt_gapped_alpaca_IGHD.fasta /cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/database/alpaca/IG_DNA/imgt_gapped_alpaca_IGHJ.fasta --outdir /cluster/tufts/cowenlab/emosel01/data/ --outname 09 --failed --log /cluster/tufts/cowenlab/emosel01/data/MakeDb.log --format airr --extended
+```
+
+```
+         START> MakeDB
+       COMMAND> igblast
+  ALIGNER_FILE> 9_S18.fmt7
+      SEQ_FILE> 9_S18_atleast-1.fasta
+       ASIS_ID> False
+    ASIS_CALLS> False
+      VALIDATE> strict
+      EXTENDED> True
+INFER_JUNCTION> False
+
+PROGRESS> 14:01:26 |Done                | 0.1 min
+
+PROGRESS> 14:02:24 |########            |  40% (106,176) 1.0 minOUTPUT> 09_db-pass.tsv
+  PASS> 97508
+  FAIL> 12132
+   END> MakeDb
+
+
+```
+
+```
+tar -xzvf Impulse_Lulu_240502.tar.gz
+```
+
+```
+scp HierarchicalClustering.R emosel01@xfer.cluster.tufts.edu:/cluster/tufts/cowenlab/emosel01/code
+```
+
+```
+scp -r 240124_0629_Charles_Shoemaker-7981 emosel01@xfer.cluster.tufts.edu:/cluster/tufts/cowenlab/emosel01/data/forClustering
+```
+
+module load anaconda/2021.05
+source activate /cluster/tufts/cowenlab/emosel01/condaenv/vhh
+cd /cluster/tufts/cowenlab/emosel01/code
+
+tail -n 100 Assembly*.*
+squeue -u $USER
+
+
+To Check Memory Usage
+
+```
+seff [JOBID]
+```
+
+```
+seff 4788870
+```
+
+More detailed:
+
+```
+sacct --format=partition,state,time,start,end,elapsed,MaxRss,ReqMem,MaxVMSize,nnodes,ncpus,nodelist -j [JOBID]
+```
+
+```
+sacct --format=partition,state,time,start,end,elapsed,MaxRss,ReqMem,MaxVMSize,nnodes,ncpus,nodelist -j 4788870
+```
+
+For pulling logs:
+
+```
+scp emosel01@xfer.cluster.tufts.edu:/cluster/tufts/cowenlab/emosel01/code/Assembly.4696047.p1cmp028.out ~/Downloads
+                                                                                                                                               100%  387KB   9.8MB/s   00:00  
+```
+
+```
+LIB='/cluster/tufts/hpc/tools/R/4.3.0'
+.libPaths(c("",LIB))
+library(seqinr)
+```
+
+
+
+### Note on accessing arguments when calling a script
+
+```
+$ cat myscript
+#!/bin/bash
+echo "First arg: $1"
+echo "Second arg: $2"
+$ ./myscript hello world
+First arg: hello
+Second arg: world
+```
+
+
+
+
+### Pulling data
+
+```
+scp emosel01@xfer.cluster.tufts.edu:/cluster/tufts/cowenlab/emosel01/code/MASH_Schisto_PassFail_distances.tsv ~/Downloads
+```
+
+```{r}
+# 
+tmp <- read.csv("/Users/emoseley/VHH/data/VHH-DNA-Seqs/DNA_query_seqs04July24.csv", header = T, stringsAsFactors = F)
+
+# Original character vector
+vec <- tmp$sequence
+
+# Function to reverse a single string
+reverse_string <- function(x) {
+  paste(rev(strsplit(x, NULL)[[1]]), collapse = "")
+}
+
+# Apply the reverse function to each string in the vector
+reversed_vec <- sapply(vec, reverse_string)
+
+# Convert the result back to a character vector (sapply returns a list by default)
+reversed_vec <- as.character(reversed_vec)
+
+tmp_two <- cbind(paste0(tmp$sequence_id,'-rev'), reversed_vec)
+
+colnames(tmp_two) <- c("sequence_id", "sequence")
+
+tmp <- rbind(tmp, tmp_two)
+
+#write.csv(tmp, file = "/Users/emoseley/VHH/data/VHH-DNA-Seqs/DNA_rev_query_seqs04July24.csv", row.names = F)
+```
+
+
+
+
+
+
+
+
+
+
+scp emosel01@xfer.cluster.tufts.edu:/cluster/tufts/cowenlab/emosel01/code/MASH_Schisto_7981_distances.tsv ~/Downloads
+
+
+
+
+# mv ../240124_0629_Charles_Shoemaker_7981/fastq_Lane1/*.fastq ../../assembly
+
+
+
+
+
+```
+-rw-rw---- 1 emosel01 cowenlab  2652 Jun 18 19:36 CleanClusterMMseqs2
+-rw-rw---- 1 emosel01 cowenlab  7166 Jun 15 08:20 CleanClusterPool.R
+-rw-rw---- 1 emosel01 cowenlab  1498 Jun 17 13:21 CleanCluster.sh
+-rw-rw---- 1 emosel01 cowenlab  2449 Jun 17 13:01 CleanClustertoAA.R
+-rw-rw---- 1 emosel01 cowenlab  8314 Jun 18 11:04 d2hclust.4833282.d1cmp010.err
+-rw-rw---- 1 emosel01 cowenlab 77899 Jun 18 11:04 d2hclust.4833282.d1cmp010.out
+-rw-rw---- 1 emosel01 cowenlab  4318 Jun 12 17:50 hclust.4788870.d1cmp014.err
+-rw-rw---- 1 emosel01 cowenlab 28500 Jun 12 16:13 hclust.4788870.d1cmp014.out
+-rw-rw---- 1 emosel01 cowenlab  4318 Jun 13 23:00 hclust.4796646.d1cmp010.err
+-rw-rw---- 1 emosel01 cowenlab 35740 Jun 13 18:35 hclust.4796646.d1cmp010.out
+-rw-rw---- 1 emosel01 cowenlab  4200 Jun 14 18:00 hclust.4803880.d1cmp009.err
+-rw-rw---- 1 emosel01 cowenlab 69197 Jun 14 18:00 hclust.4803880.d1cmp009.out
+-rw-rw---- 1 emosel01 cowenlab  5115 Jun 15 15:53 hclust.4811228.d1cmp020.err
+-rw-rw---- 1 emosel01 cowenlab 70099 Jun 15 14:00 hclust.4811228.d1cmp020.out
+-rw-rw---- 1 emosel01 cowenlab  2716 Jun 18 10:29 HierarchicalClustering.R
+-rw-rw---- 1 emosel01 cowenlab   731 Jun 18 10:05 HierarchicalClustering.sh
+```
+
+
+## Installing MASH
+
+Log in to cluster, and go to User directory...
+
+```
+cd ~
+wget https://github.com/marbl/Mash/releases/download/v2.3/mash-Linux64-v2.3.tar
+mkdir mash
+mv mash-Linux64-v2.3.tar mash/
+cd mash
+tar -xf mash-Linux64-v2.3.tar
+```
+
+### Pulling data from Faith's folder
+
+```
+[emosel01@login-prod-03 phaseI]$ cp -r 240124_0629_Charles_Shoemaker-7981 /cluster/tufts/cowenlab/emosel01/data
+cp: cannot open ‘240124_0629_Charles_Shoemaker-7981/Demultiplex_Summary-240124_0629_Charles_Shoemaker-7981-revised2.html’ for reading: Permission denied
+```
+
+
+## Cleaning Illumina Output before Assembly
+
+```
+rm *.zip
+rm *.html
+gunzip *.gz
+```
+
+
+## For saving to git
+
+```
+scp -r emosel01@xfer.cluster.tufts.edu:/cluster/tufts/cowenlab/emosel01/code/ ~/Downloads/
+```
+
+
+---
+
+
+/cluster/tufts/cowenlab/emosel01/data/240124_0629_Charles_Shoemaker_7981/fastq_Lane1
+
+
+
+
+
+
+```
+# Many files in here that we want to take their DNA sequences and convert to fasta
+
+/cluster/tufts/cowenlab/emosel01/data/2024_TUCF_7981
+
+
+```
+
+
+## Uploading
+
+```
+scp ~/Downloads/2024_TUCF_7981.tar.gz emosel01@xfer.cluster.tufts.edu:/cluster/tufts/cowenlab/emosel01/data
+```
+
+
+```{r}
+library(seqinr)
+
+# Function to read a FASTQ file and write a FASTA file
+convert_fastq_to_fasta_seqinr <- function(input_fastq, output_fasta) {
+  # Read the FASTQ file
+  fastq <- read.fasta(file = input_fastq, seqtype = "DNA", as.string = TRUE, forceDNAtolower = FALSE)
+  
+  # Write to a FASTA file
+  write.fasta(sequences = fastq, names = names(fastq), file.out = output_fasta)
+}
+
+# Specify input and output file names
+input_fastq <- "/cluster/tufts/cowenlab/emosel01/data/240124_0629_Charles_Shoemaker_7981/fastq_Lane1/20_VecF2_R3_S20_L001_R1_001.fastq"
+output_fasta <- "/cluster/tufts/cowenlab/emosel01/data/240124_0629_Charles_Shoemaker_7981/fastq_Lane1/20_VecF2_R3_S20_L001_R1_001.fasta"
+
+# Perform the conversion
+convert_fastq_to_fasta_seqinr(input_fastq, output_fasta)
+```
+
+
+## Zipping and Unzipping folders
+
+```
+tar -xzvf NGO0265.tar.gz
+```
+
+_Note:_
+
+```
+tar: The command used to work with tar archives.
+-x: Extract the contents of the archive.
+-z: Filter the archive through gzip.
+-v: Verbosely list the files processed (optional, but useful to see what’s being extracted).
+-f: Specifies the file to be extracted.
+```
+
+For `.gz` files:
+
+```
+gunzip S01_L001_R1.fastq.gz
+# OR
+gunzip *.fastq.gz
+```
+
+## Upload a folder
+
+```
+scp -r /Users/emoseley/Downloads/NGO0265.tar.gz emosel01@xfer.cluster.tufts.edu:/cluster/tufts/cowenlab/emosel01/data/
+```
+
+## Download a folder
+
+```
+scp -r emosel01@xfer.cluster.tufts.edu:/cluster/tufts/cowenlab/emosel01/data/ /Users/emoseley/Downloads/240702_0053_Charles_Shoemaker-8196.tar.gz
+```
+## Upload a file
+
+```
+scp -r /Users/emoseley/Downloads/GS_NGO1549_d2VHH_09Jul24-Cleaned19Apr24.csv emosel01@xfer.cluster.tufts.edu:/cluster/tufts/cowenlab/emosel01/data/globals
+```
+
+
+## Download Data
+
+```
+scp emosel01@xfer.cluster.tufts.edu:/cluster/tufts/cowenlab/emosel01/data/GS_NGO1549_d2VHH_09Jul24_min_threshold_clone-pass.csv ~/Downloads/GS_NGO1549_d2VHH_09Jul24_min_threshold_clone-pass.csv
+```
+
+
+
+
+
+```
+scp emosel01@xfer.cluster.tufts.edu:/cluster/tufts/cowenlab/emosel01/data/GS_d2_25Jun24-Cleaned.csv  ~/Downloads/GS_NGO1549_Abundance_Table.csv
+```
+
+
+
+(/cluster/tufts/cowenlab/emosel01/condaenv/vhh) [emosel01@login-prod-03 NGO0265]$ ls -al
+total 455025
+drwxr-s--- 2 emosel01 cowenlab      4096 Jul  9 15:52 .
+drwxrws--- 2 emosel01 cowenlab      4096 Jul  9 11:40 ..
+-rw-rw---- 1 emosel01 cowenlab   8316627 Jul  8 21:22 13_S13_db-fail.tsv
+-rw-rw---- 1 emosel01 cowenlab  78572295 Jul  8 21:22 13_S13_db-pass.tsv
+-rw-rw---- 1 emosel01 cowenlab    372000 Jul  8 22:02 14_S14_db-fail.tsv
+-rw-rw---- 1 emosel01 cowenlab  77184814 Jul  8 22:02 14_S14_db-pass.tsv
+-rw-rw---- 1 emosel01 cowenlab   6798476 Jul  8 23:09 15_S15_db-fail.tsv
+-rw-rw---- 1 emosel01 cowenlab 105094984 Jul  8 23:09 15_S15_db-pass.tsv
+-rw-rw---- 1 emosel01 cowenlab   5629523 Jul  9 00:08 16_S16_db-fail.tsv
+-rw-rw---- 1 emosel01 cowenlab  92273440 Jul  9 00:08 16_S16_db-pass.tsv
+-rw-rw---- 1 emosel01 cowenlab   8213242 Jul  9 01:00 17_S17_db-fail.tsv
+-rw-rw---- 1 emosel01 cowenlab  83487246 Jul  9 01:00 17_S17_db-pass.tsv
+(/cluster/tufts/cowenlab/emosel01/condaenv/vhh) [emosel01@login-prod-03 NGO0265]$ pwd
+
+
+
+```
+scp /Users/emoseley/Downloads/  emosel01@xfer.cluster.tufts.edu:/cluster/tufts/cowenlab/emosel01/data/globals/
+```
+
+---
+
+## STARTUP ON LOGIN
+
+```
+ssh emosel01@login.pax.tufts.edu
+F68daad189b2fffd0b8cab5e36ec9d96
+```
+
+
+module load anaconda/2021.05
+source activate /cluster/tufts/cowenlab/emosel01/condaenv/vhh
+cd /cluster/tufts/cowenlab/emosel01/code
+
+
+
+
+
+
+Note:
+
+## Blp4
+
+```
+Clone: 131 
+Subcluster ID: 131-1 
+Percent VHH outliers:  0 
+Subfamily outliers:
+integer(0)
+Writing: /Users/emoseley/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/GS_Blp4_d2VHH_16Jul24-rule-pooled-clean-database.csv
+Writing: /Users/emoseley/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/GS_Blp4_d2VHH_16Jul24-rule-pooled-outlier-database.csv
+Rscript CleanCluster-Recluster.R GS_Blp4_d2VHH_16Jul24-rule-pooled-families_subclustered_database.csv 
+Loading: ~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/GS_Blp4_d2VHH_16Jul24-rule-pooled-outlier-database.csv
+Error in read.table(file = file, header = header, sep = sep, quote = quote,  : 
+  first five rows are empty: giving up
+Calls: read.csv -> read.table
+Execution halted
+```
+
+## TbpA
+
+```
+Clone: 51 
+Subcluster ID: 51-1 
+Percent VHH outliers:  0 
+Subfamily outliers:
+integer(0)
+Writing: /Users/emoseley/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/GS_TbpA_d2VHH_14Jul24-rule-pooled-clean-database.csv
+Writing: /Users/emoseley/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/GS_TbpA_d2VHH_14Jul24-rule-pooled-outlier-database.csv
+Rscript CleanCluster-Recluster.R GS_TbpA_d2VHH_14Jul24-rule-pooled-families_subclustered_database.csv 
+Loading: ~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/GS_TbpA_d2VHH_14Jul24-rule-pooled-outlier-database.csv
+Error in read.table(file = file, header = header, sep = sep, quote = quote,  : 
+  first five rows are empty: giving up
+Calls: read.csv -> read.table
+Execution halted
+```
