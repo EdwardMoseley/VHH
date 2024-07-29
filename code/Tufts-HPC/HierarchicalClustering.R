@@ -9,14 +9,11 @@ library("hash")
 source("/cluster/tufts/cowenlab/emosel01/code/lib/utilities.R")
 
 # Set root dir
-root_dir <- "/cluster/tufts/cowenlab/emosel01/data/NGO0265/"
+root_dir <- "/cluster/tufts/cowenlab/emosel01/data/rp_vs_ch2/"
 
-output_file <- "/cluster/tufts/cowenlab/emosel01/data/GS_NGO0265_d2VHH_09Jul24_min_threshold_clone-pass.csv"
+output_file <- "/cluster/tufts/cowenlab/emosel01/data/GS_rp_vs_ch2_d2VHH_24Jul24_min_threshold_clone-pass.csv"
 
 files <- list.files(root_dir)[grepl(".tsv", list.files(root_dir))]
-
-# Ignore certain files
-# files <- files[!(files %in% c("C1_S1_db-pass.tsv", "C2_S2_db-pass.tsv", "D1_S3_db-pass.tsv", "D2_S4_db-pass.tsv", "D3_S5_db-pass.tsv", "D4_S6_db-pass.tsv"))]
 
 cat("Processing files:\n")
 

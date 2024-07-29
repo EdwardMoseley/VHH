@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -J NGO1549_abundances #job name
+#SBATCH -J abundances #job name
 #SBATCH --time=06-23:00:00 #requested time (DD-HH:MM:SS)
 #SBATCH -p batch #running on "mpi" partition/queue
 #SBATCH -N 1 #1 nodes

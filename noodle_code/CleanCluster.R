@@ -346,17 +346,12 @@ print_statistics(dat)
 ## CleanCluster-toAA
 ## ###
 
-
-
 # Here, the focus is to translate the data to amino acids
 # and remove unproductive sequence information before
 # calling mmseqs2 for subclustering by homology
 
-
 ## We'll assign dat to tmp for this first...
-
 tmp <- dat
-
 
 ## Amino Acid-only database
 
@@ -485,8 +480,6 @@ rm(tmp_frame, tmp)
 ## --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ##
 
 ## CleanCluster-MMseqs2
-
-
 # AA-DB-mmseqs2-Clustering
 
 # Input: "20_VecF2_R3_S20-rule-pooled-families_VHH_database.csv"
@@ -498,50 +491,8 @@ output_dir <- "/Users/emoseley/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_
 
 # Load the file ("20_VecF2_R3_S20-rule-pooled-families_VHH_database.csv")
 ## tmp <- read.csv(paste(root_dir, file_name, sep = ''), header = T, stringsAsFactors = F)
-
 # Loading the file means assigning dat to tmp
 # tmp <- dat
-
-## ### 
-## To AA moved here
-## ###
-
-
-
-tmp$VHH <- fixed_translate_DNA(tmp$sequence_alignment)
-
-# Trim sequences (or not yet?)
-tmp$VHH <- substr(tmp$VHH, 11, nchar(tmp$VHH))
-
-# Drop unproductive sequences
-all_seqs <- nrow(tmp)
-# Keep productive only
-tmp <- unproductive(tmp)
-filtered_seqs <- nrow(tmp)
-
-# Elevator music
-cat(file_name, '\n')
-cat(round(100 - (filtered_seqs/all_seqs*100), 2), "% of sequences unproductive.\n", sep = '')
-
-
-
-## ###
-## END to-AA
-## ###
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 ## Here, we want to cluster based on the Amino Acids
 tmp <- AAdb
@@ -589,23 +540,6 @@ for (nm in unique(tmp$clone_id)){
   results <- rbind(results, dat)
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ## --- --- --- --- --- --- --- --- --- --- --- --- --- ##
 
 ## Important Variables at the end of Pooling:
@@ -620,7 +554,6 @@ for (nm in unique(tmp$clone_id)){
 file_name <- gsub("VHH_database.csv", "subclustered_database.csv", file_name)
 root_dir <- "~/Downloads/"
 cat("Writing: ", paste(root_dir, file_name, sep = ''), '\n', sep = '')
-
 ## write.csv(results, file = paste(root_dir, file_name, sep = ''), row.names = F)
 
 ## Route the traffic out
@@ -629,17 +562,14 @@ cat("Writing: ", paste(root_dir, file_name, sep = ''), '\n', sep = '')
   cat(paste("Rscript CleanCluster-Refining.R", file_name), '\n')
 #}
 
-  
-  
-
 
 ## --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ##
 
-
 ## Reload from MMseqs2
-test <- read.csv("~/Downloads/20_VecF2_R3_S20-pooled-families_subclustered_database.csv", 
-                    header = T, stringsAsFactors = F)
+#results <- read.csv("~/Downloads/20_VecF2_R3_S20-pooled-families_subclustered_database.csv",
+#                    header = T, stringsAsFactors = F)
 
+## --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ##
 
 
 

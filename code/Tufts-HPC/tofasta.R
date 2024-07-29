@@ -2,8 +2,7 @@
 # Pull in utility functions
 source("/cluster/tufts/cowenlab/emosel01/code/lib/utilities.R")
 
-# root_dir <- "/cluster/tufts/cowenlab/emosel01/data/tmp_holder/"
-root_dir <- "/cluster/tufts/cowenlab/emosel01/data/assembled2/"
+root_dir <- "/cluster/tufts/cowenlab/emosel01/data/query_back/"
 
 files <- list.files(root_dir)
 
@@ -12,8 +11,10 @@ files <- list.files(root_dir)
 for (f in files){
   cat("Loading ", paste(root_dir, f, sep = ''), '\n')
   tmp <- read.csv(paste0(root_dir, f), header = T, stringsAsFactors = F, sep = '\t')
+  tmp$VHH <- fixed_translate_DNA(tmp$sequence_alignment)
+  tmp$VHH <- substr(tmp$VHH, 11, nchar(tmp$VHH))
   cat("Writing: ", paste(root_dir, gsub(".tsv", ".fasta", f), sep = ''), '\n')
-  write_fasta(tmp, "sequence", "sequence_id", paste(root_dir, gsub(".tsv", ".fasta", f), sep = ''))
+  write_fasta(tmp, "VHH", "sequence_id", paste(root_dir, gsub(".tsv", ".fasta", f), sep = ''))
 }
 
 

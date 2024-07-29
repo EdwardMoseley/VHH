@@ -47,6 +47,8 @@ db <- shazam::distToNearest(db, model = "ham",
 # Find threshold using density method
 output <- shazam::findThreshold(db$dist_nearest, method="density")
 threshold <- output@threshold
+#cleanup
+rm(output)
 
 # Decrease threshold
 new_thr <- threshold - (threshold*0.25)

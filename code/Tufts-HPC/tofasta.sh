@@ -12,5 +12,5 @@
 
 module load R/4.3.0
 
-Rscript tofasta.R
+Rscript Tofasta.R
 
