@@ -562,12 +562,15 @@ cat("Writing: ", paste(root_dir, file_name, sep = ''), '\n', sep = '')
   cat(paste("Rscript CleanCluster-Refining.R", file_name), '\n')
 #}
 
+## Cleanup  
+rm(AAdb, tmp)
+
 
 ## --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ##
 
 ## Reload from MMseqs2
-#results <- read.csv("~/Downloads/20_VecF2_R3_S20-pooled-families_subclustered_database.csv",
-#                    header = T, stringsAsFactors = F)
+results <- read.csv("~/Downloads/20_VecF2_R3_S20-pooled-families_subclustered_database.csv",
+                    header = T, stringsAsFactors = F)
 
 ## --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ##
 

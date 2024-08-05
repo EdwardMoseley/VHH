@@ -42,8 +42,8 @@ query_seq <- "LVQPGGSLRLSCATSGRDFSTSPMAWYRQAPGKEREWVAGGIETLRIDYADSVKDRFTISRDRAKN
 
 root_dir <- "~/Downloads/"
 input_file <- "XMY-H5_query_results29Jul24.csv"
-database_file <- "query_back/A_S57_db-pass.tsv"
-output_file <-"A_S57_min_threshold_clone-pass.csv"
+database_file <- "query_back/E_S61_db-pass.tsv"
+output_file <-"E_S6_min_threshold_clone-pass.csv"
 
 tmp <- read.csv(paste0(root_dir, input_file), header = T, stringsAsFactors = F)
 
@@ -55,7 +55,9 @@ colnames(tmp)[2] <- "sequence_id"
 ```
 
 ```{r}
-results <- read.csv("~/Downloads/A_S57_min_threshold_clone-pass.csv", header = T, stringsAsFactors = F)
+# results <- read.csv("~/Downloads/A_S57_min_threshold_clone-pass.csv", header = T, stringsAsFactors = F)
+# results <- read.csv("~/Downloads/GS_NGO1549_d2VHH_09Jul24_min_threshold_clone-pass.csv", header = T, stringsAsFactors = F)
+results <- read.csv(paste0(root_dir, database_file), sep = '\t', header = T, stringsAsFactors = F)
 ```
 
 ### Boxplot of Query Results
@@ -67,7 +69,7 @@ boxplot(tmp$fident ~ tmp$file, las = 3, ylim = c(0, 1), main = "Homology of 300 
 ## Merge query data to clonal data
 
 ```{r}
-results <- merge(tmp[tmp$file == "A_S57",], results, by = "sequence_id", all.x = TRUE)
+results <- merge(tmp[tmp$file == "E_S61",], results, by = "sequence_id", all.x = TRUE)
 ```
 
 

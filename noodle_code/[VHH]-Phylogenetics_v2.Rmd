@@ -1,0 +1,709 @@
+---
+title: "[VHH]-Phylogenetics"
+output: html_document
+date: "2024-07-25"
+---
+
+## Import Libraries
+
+```{r}
+source("~/VHH/lib/utilities.R")
+
+library(ggtree)
+library(dowser)
+library(alakazam)
+library(airr)
+library(shazam)
+library(ggtree)
+```
+
+## Load Data
+
+Chuck Provided: 
+
+```
+>NGO1549-1
+LVQPGGSLRLSCTITGNYVNMGWYRQAPGKEREWVAHILTSSGESYATSVKGRFHLSRDDQKNVWYLDMNNLKPEDTAVYYCNADFRYWGQGTHVTVSS
+```
+
+``` NGO1659
+>XMY-H5
+LVQPGGSLRLSCATSGRDFSTSPMAWYRQAPGKEREWVAGGIETLRIDYADSVKDRFTISRDRAKNTMYLQMNSLKPEDPAVDYCRSDSYWGRGTQVTVSS
+```
+
+```TbpB
+>XNB-B12
+LVQPGGSLRLSCAASGISRINAMGWFRQAPGGQRELVGASTNEGGIIYLDSVKGRFTISRGDADNTVYLQMSSLKPEDTAVYYCYADQPRAVGTRNRYWGQGTQVTVSS
+```
+
+
+```{r}
+query_seq <- "LVQPGGSLRLSCATSGRDFSTSPMAWYRQAPGKEREWVAGGIETLRIDYADSVKDRFTISRDRAKNTMYLQMNSLKPEDPAVDYCRSDSYWGRGTQVTVSS"
+
+root_dir <- "~/Downloads/"
+input_file <- "XMY-H5_query_results29Jul24.csv"
+database_file <- "query_back/E_S61_db-pass.tsv"
+# output_file <-"E_S6_min_threshold_clone-pass.csv"
+
+tmp <- read.csv(paste0(root_dir, input_file), header = T, stringsAsFactors = F)
+
+tmp <- tmp[grepl(".fasta", tmp$file),]
+tmp$file <- gsub("_db-pass.fasta", "", tmp$file)
+
+colnames(tmp)[1] <- "query_id"
+colnames(tmp)[2] <- "sequence_id"
+```
+
+## Load in VHH data
+
+```{r}
+results <- read.csv(paste0(root_dir, database_file), sep = '\t', header = T, stringsAsFactors = F)
+
+# Translate VHHs
+results$VHH <- fixed_translate_DNA(results$sequence_alignment)
+results$VHH <- substr(results$VHH, 11, nchar(results$VHH))
+
+results <- unproductive(results)
+```
+
+### Boxplot of Query Results
+
+```{r}
+boxplot(tmp$fident ~ tmp$file, las = 3, ylim = c(0, 1), main = "Homology of 300 Located Target Sequences per Illumina Run\n Query Seq: XMY-H5", xlab = "Experiment ID", ylab = "Identity")
+```
+
+## Merge query data to genetic data
+
+```{r}
+results <- merge(tmp[tmp$file == "E_S61",], 
+                 results, 
+                 by = "sequence_id", 
+                 all.x = TRUE)
+```
+
+## Join to Global Set on VHH
+
+```{r}
+dat <- read.csv("~/Downloads/GS_NGO1549_d2VHH_09Jul24_min_threshold_clone-pass.csv", header = T, stringsAsFactors = F)
+
+# Cleanup
+dat$VHH <- substr(dat$VHH, 11, nchar(dat$VHH))
+dat <- unproductive(dat)
+
+# We only need the observations that are already in our current results
+dat <- dat[which(dat$VHH %in% results$VHH),]
+```
+
+
+```{r}
+dat <- merge(dat[,c("VHH", "junction", "junction_aa", "v_call", "d_call", "j_call","dist_nearest","clone_id")], 
+              results, 
+              by = c("VHH", "junction", "junction_aa", "v_call", "d_call", "j_call"))
+
+dat <- dat[!duplicated(dat),]
+```
+
+```{r}
+table(dat$junction_aa)
+```
+
+## Demand CDR3 length is identical to query CDR3
+
+```{r}
+dat <- dat[nchar(dat$junction_aa) == nchar("CRSDSYW"),] 
+```
+
+## Load Germline Sequences
+
+```{r}
+# Read in IMGT-gapped sequences
+references <- readIMGT(dir = "/Users/emoseley/Desktop/Tufts/Cowen Lab/alpaca/rawseqdata/igblast/vdj")
+
+# Reconstruct germline sequences
+results <- createGermlines(dat, references, nproc=4)
+```
+
+```
+## ERROR WHEN CREATING GERMLINES FOR WHOLE SET (Not Merging)
+
+Warning message:
+In createGermlines(results, references, nproc = 4) :
+  Removing 22 failed clonal germlines. Clones: 161,173,245,319,413,490,518,604,615,823,896,964,1371,1486,1517,1555,2293,2468,3857,8435,8508,8548
+```
+## Format Clones
+
+Before trees can be built, data must be formatted into a data table of AIRR clone objects. This is accomplished using the formatClones function. This function will:
+
+1. Change non-nucleotide characters to N characters.
+
+2. By default, collapse sequences that are either identical or differ only by ambiguous characters.
+
+3. Sequences will not be collapsed if they differ by columns specified in the traits option, or if the `collapse` option is set to `FALSE`.
+
+4. Include data columns specified by `num_fields` or `text_fields`.
+
+5. Remove uninformative sequence sites in which all sequences have N characters.
+
+```{r}
+# Process example data keeping samples from different times
+# distinct, adding duplicate_count among collapsed sequences,
+# and show the sample_id within each clone in the tibble.
+clones <- formatClones(results, traits=c("junction_aa", "VHH"),
+                       num_fields=c("duplicate_count"))#,
+    # num_fields=c("duplicate_count"), 
+    #columns=c("f"))
+
+print(clones)
+```
+
+
+```{r}
+# Add tree info
+clones <- getTrees(clones, nproc=4)
+```
+
+
+## Plot Trees
+
+```{r}
+#plots = plotTrees(clones, tips = "junction_aa", 
+#                  tipsize = "seqs")#, scale = 0.01)
+```
+
+```{r}
+plots = plotTrees(clones, tips = "duplicate_count", tipsize="duplicate_count")#, tipsize="duplicate_count")
+```
+
+```{r}
+
+#par(family = "Courier", cex = 0.40)
+
+#Plot the largest tree
+treeplot = plots[[1]] + geom_tiplab(aes(label=VHH), 
+                                    offset = 0.02, 
+                                    size = 3.5, 
+                                    family = "Courier") +#+ 
+  #  geom_vline(xintercept=c(0.05, 0.1, 0.15, 0.2, 0.25),
+  #      linetype="dashed",color="grey") + 
+  xlim(0,2.5)#0.3) #+
+    #ggtitle("Example B cell tree")
+
+treeplot
+```
+
+## Simpler Approach
+
+```{r}
+query_seq <- "LVQPGGSLRLSCATSGRDFSTSPMAWYRQAPGKEREWVAGGIETLRIDYADSVKDRFTISRDRAKNTMYLQMNSLKPEDPAVDYCRSDSYWGRGTQVTVSS"
+
+root_dir <- "~/Downloads/"
+input_file <- "XMY-H5_query_results29Jul24.csv"
+database_file <- "query_back/E_S61_db-pass.tsv"
+# output_file <-"E_S6_min_threshold_clone-pass.csv"
+
+tmp <- read.csv(paste0(root_dir, input_file), header = T, stringsAsFactors = F)
+
+tmp <- tmp[grepl(".fasta", tmp$file),]
+tmp$file <- gsub("_db-pass.fasta", "", tmp$file)
+
+colnames(tmp)[1] <- "query_id"
+colnames(tmp)[2] <- "sequence_id"
+```
+
+## Load in VHH data
+
+```{r}
+results <- read.csv(paste0(root_dir, database_file), sep = '\t', header = T, stringsAsFactors = F)
+
+# Translate VHHs
+results$VHH <- fixed_translate_DNA(results$sequence_alignment)
+results$VHH <- substr(results$VHH, 11, nchar(results$VHH))
+
+results <- unproductive(results)
+```
+
+## Merge query data to genetic data
+
+```{r}
+results <- merge(tmp[tmp$file == "E_S61",], 
+                 results, 
+                 by = "sequence_id", 
+                 all.x = TRUE)
+```
+
+## Join to Global Set on VHH
+
+```{r}
+dat <- read.csv("~/Downloads/GS_NGO1549_d2VHH_09Jul24_min_threshold_clone-pass.csv", header = T, stringsAsFactors = F)
+
+# Cleanup
+dat$VHH <- substr(dat$VHH, 11, nchar(dat$VHH))
+dat <- unproductive(dat)
+
+# We only need the observations that are already in our current results
+dat <- dat[which(dat$VHH %in% results$VHH),]
+```
+
+
+```{r}
+dat <- merge(dat[,c("VHH", "junction", "junction_aa", "v_call", "d_call", "j_call","dist_nearest","clone_id")], 
+              results, 
+              by = c("VHH", "junction", "junction_aa", "v_call", "d_call", "j_call"))
+
+dat <- dat[!duplicated(dat),]
+```
+
+```{r}
+table(dat$junction_aa)
+```
+
+
+
+
+
+
+
+
+
+
+```{r}
+# Pull from query results only those CDR3's of the same length
+tmp <- results[nchar(results$junction_aa) == nchar("CNADFRYW"),]
+tmp <- tmp[!grepl("\\*", tmp$junction_aa),]
+```
+
+```{r}
+# Dendrogram VHHs
+strings <- tmp$VHH
+
+CDR3s <- trim_CDR3(tmp$junction_aa)
+
+# Compute the distance matrix
+dist_matrix <- stringdistmatrix(strings, method = "lv")
+
+# Perform hierarchical clustering
+cluster_tree <- hclust(as.dist(dist_matrix), method = "complete")
+
+# test <- tmp[cluster_tree$order,]
+
+main_title <- paste("Cluster Dendrogram of NADFRY CDR3 Family Data\nDemand >= ", 2," VHHs, Distance Metric: Levenshtein", sep = '')
+
+par(family = "Courier", cex = 1)#0.75)#0.55)
+
+# Plot the dendrogram with labels
+plot(cluster_tree, 
+     main = main_title, 
+     xlab = "Overall VHH Count-Mode CDR3", sub = NULL, 
+          labels = CDR3s,#[cluster_tree$order]), 
+     ylab = "Distance (Levenshtein)", 
+     cex = 1)#0.75)#0.55)
+
+```
+
+
+```{r}
+test <- tmp[,c("junction_aa","VHH", "clone_id", "duplicate_count")]
+test <- test[order(test$duplicate_count, decreasing = T),]
+test$junction_aa <- trim_CDR3(test$junction_aa)
+test <- test[test$duplicate_count >= 2,]
+test$dist_from_query <- as.numeric(100 - (adist(query_seq, test$VHH)/nchar(query_seq)*100))
+test <- test[order(test$dist_from_query, decreasing = T),]
+
+```
+
+
+```
+write.csv(test, file = "~/Downloads/Query_data.csv", row.names = F)
+```
+
+
+---
+
+```{r}
+dat <- read.csv("~/Downloads/rp_vs_ch2_abundance_table.csv", header = T, stringsAsFactors = F)
+```
+
+```{r}
+#query_seq <- "LVQAGGSLRLSCTPSGVIHKIENVDWYRQAPGKQRELVASIPFDGVATYADSVKGRFTMAKDNTENTVYLQMNSLKLEDTGVYYCNADLTLDYDDYLETKDYWGQGTRVTVSS"
+query_CDR3 <- "NVDGYDDSGRVYDL"
+  
+#query_seq <- substr(query_seq, 1, nchar(query_seq)-1)
+
+## Subset clonal family
+test <- dat[dat$clone_id == dat[dat$junction_aa == query_CDR3,]$clone_id[1],] 
+nrow(na.omit(test))
+```
+
+## Load Germline Sequences
+
+```{r}
+# Read in IMGT-gapped sequences
+references <- readIMGT(dir = "/Users/emoseley/Desktop/Tufts/Cowen Lab/alpaca/rawseqdata/igblast/vdj")
+
+# Reconstruct germline sequences
+dat <- createGermlines(dat, references, nproc=4)
+```
+
+
+
+## Format Clones
+
+Before trees can be built, data must be formatted into a data table of AIRR clone objects. This is accomplished using the formatClones function. This function will:
+
+1. Change non-nucleotide characters to N characters.
+
+2. By default, collapse sequences that are either identical or differ only by ambiguous characters.
+
+3. Sequences will not be collapsed if they differ by columns specified in the traits option, or if the `collapse` option is set to `FALSE`.
+
+4. Include data columns specified by `num_fields` or `text_fields`.
+
+5. Remove uninformative sequence sites in which all sequences have N characters.
+
+```{r}
+# Process example data keeping samples from different times
+# distinct, adding duplicate_count among collapsed sequences,
+# and show the sample_id within each clone in the tibble.
+clones <- formatClones(dat, traits=c("junction_aa", "VHH", "f"),
+                       num_fields=c("duplicate_count"))#,
+    # num_fields=c("duplicate_count"), 
+    #columns=c("f"))
+
+print(clones)
+```
+
+
+```{r}
+# Add tree info
+clones <- getTrees(clones, nproc=4)
+```
+
+## Plot Trees
+
+```{r}
+plots = plotTrees(clones, 
+                  tips = "f", 
+                  tipsize="duplicate_count")#, tipsize="duplicate_count")
+```
+
+```{r}
+
+#par(family = "Courier", cex = 0.40)
+
+#Plot the largest tree
+treeplot = plots[[1]] + geom_tiplab(aes(label = VHH),#aes(label=VHH), 
+                                    offset = 0.02, 
+                                    size = 3.25, 
+                                    family = "Courier") +#+ 
+  #  geom_vline(xintercept=c(0.05, 0.1, 0.15, 0.2, 0.25),
+  #      linetype="dashed",color="grey") + 
+  xlim(0,1.5)#0.3) #+
+    #ggtitle("Example B cell tree")
+
+treeplot
+```
+
+
+
+```
+write.csv(dat[,c("VHH", "junction_aa", "duplicate_count", "f")], file = "~/Downloads/5351_clone_data.csv", row.names = F)
+```
+
+---
+
+
+```{r}
+dat <- read.csv("~/Downloads/rp_vs_ch2_abundance_table.csv", header = T, stringsAsFactors = F)
+
+query_seq <- "LVQPGGSLRLSCTITGNYVNMGWYRQAPGKEREWVAHILTSSGESYATSVKGRFHLSRDDQKNVWYLDMNNLKPEDTAVYYCNADFRYWGQGTHVTVSS"
+query_seq <- substr(query_seq, 1, nchar(query_seq)-1)
+
+## Subset clonal family
+dat <- dat[dat$clone_id == dat[dat$VHH == query_seq,]$clone_id[1],] 
+```
+
+## Load Germline Sequences
+
+```{r}
+# Read in IMGT-gapped sequences
+references <- readIMGT(dir = "/Users/emoseley/Desktop/Tufts/Cowen Lab/alpaca/rawseqdata/igblast/vdj")
+
+# Reconstruct germline sequences
+dat <- createGermlines(dat, references, nproc=4)
+```
+
+
+
+## Format Clones
+
+Before trees can be built, data must be formatted into a data table of AIRR clone objects. This is accomplished using the formatClones function. This function will:
+
+1. Change non-nucleotide characters to N characters.
+
+2. By default, collapse sequences that are either identical or differ only by ambiguous characters.
+
+3. Sequences will not be collapsed if they differ by columns specified in the traits option, or if the `collapse` option is set to `FALSE`.
+
+4. Include data columns specified by `num_fields` or `text_fields`.
+
+5. Remove uninformative sequence sites in which all sequences have N characters.
+
+```{r}
+# Process example data keeping samples from different times
+# distinct, adding duplicate_count among collapsed sequences,
+# and show the sample_id within each clone in the tibble.
+clones <- formatClones(dat, traits=c("junction_aa", "VHH", "f"),
+                       num_fields=c("duplicate_count"))#,
+    # num_fields=c("duplicate_count"), 
+    #columns=c("f"))
+
+print(clones)
+```
+
+
+```{r}
+# Add tree info
+clones <- getTrees(clones, nproc=4)
+```
+
+## Plot Trees
+
+```{r}
+plots = plotTrees(clones, 
+                  tips = "f", 
+                  tipsize="duplicate_count")#, tipsize="duplicate_count")
+```
+
+```{r}
+
+#par(family = "Courier", cex = 0.40)
+
+#Plot the largest tree
+treeplot = plots[[1]] + geom_tiplab(aes(label = VHH),#aes(label=VHH), 
+                                    offset = 0.02, 
+                                    size = 3.25, 
+                                    family = "Courier") +#+ 
+  #  geom_vline(xintercept=c(0.05, 0.1, 0.15, 0.2, 0.25),
+  #      linetype="dashed",color="grey") + 
+  xlim(0,1.5)#0.3) #+
+    #ggtitle("Example B cell tree")
+
+treeplot
+```
+
+
+
+```
+write.csv(dat[,c("VHH", "junction_aa", "duplicate_count", "f")], file = "~/Downloads/5351_clone_data.csv", row.names = F)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+---
+
+Change plot names
+
+```{r}
+for (i in 1:length(plots)){
+  plots[[i]]$labels$title <- paste("Run: S", 
+                                   gsub("_.*", '',
+                                        clones$f[i]), 
+                                   ", Clone ID: ", 
+                                   clones$clone_id[i], 
+                                   ' --- ',
+                                   "Consensus: ", df[df$cluster_id == clones$clone_id[i] & df$f == clones$f[i],]$consensus_sequence,
+                                   sep = '')
+}
+```
+
+
+```{r}
+#Plot the largest tree
+#To plot second largest tree, use plots[[2]], and so on
+#plots[[1]]#Plot the largest tree
+treeplot  <- plots[[9]] + ggtree::geom_tiplab(aes(label=junction_aa)) + 
+    #geom_vline(xintercept=c(0.05,0.1,0.15,0.2,0.25),
+    #    linetype="dashed",color="grey") + xlim(0,0.3) +
+  #  ggtitle("Example B cell tree") + 
+  xlim(0, 2)
+
+print(treeplot)
+```
+
+```{r}
+treesToPDF(plots, file="trees06Mar24.pdf", nrow=1, ncol=1)
+```
+
+## Do again, but drop duplicate CDR3s
+
+
+```{r}
+results <- results[!duplicated(results$junction_aa),]
+# Process example data keeping samples from different times
+# distinct, adding duplicate_count among collapsed sequences,
+# and show the sample_id within each clone in the tibble.
+clones <- formatClones(results, traits=c("junction_aa"),
+    # num_fields=c("duplicate_count"), 
+    columns=c("f"))
+
+print(clones)
+```
+
+
+```{r}
+# Add tree info
+clones <- getTrees(clones, nproc=4)
+```
+
+
+## Plot Trees
+
+```{r}
+plots = plotTrees(clones, 
+                  #tips = "junction_aa", 
+                  #tips = "v_call",
+                  #tips = "locus",
+                  tipsize = "seqs", 
+                  scale = 0.01)
+```
+
+Change plot names
+
+```{r}
+for (i in 1:length(plots)){
+  plots[[i]]$labels$title <- paste("Run: S", 
+                                   gsub("_.*", '',
+                                        clones$f[i]), 
+                                   ", Clone ID: ", 
+                                   clones$clone_id[i], 
+                                   ' --- ',
+                                   "Consensus: ", df[df$cluster_id == clones$clone_id[i] & df$f == clones$f[i],]$consensus_sequence,
+                                   sep = '')
+}
+```
+
+
+```{r}
+#Plot the largest tree
+#To plot second largest tree, use plots[[2]], and so on
+#plots[[1]]#Plot the largest tree
+treeplot  <- plots[[3]] + ggtree::geom_tiplab(aes(label=junction_aa)) + 
+    #geom_vline(xintercept=c(0.05,0.1,0.15,0.2,0.25),
+    #    linetype="dashed",color="grey") + xlim(0,0.3) +
+  #  ggtitle("Example B cell tree") + 
+  xlim(0, 2)
+
+print(treeplot)
+```
+
+```{r}
+treesToPDF(plots, file="trees-no-repeats-06Mar24.pdf", nrow=1, ncol=1)
+```
+
+
+
+
+
+
+
+
+
+
+# Clonal Consensus Cluster Dendrograms (Non-Hierarchical)
+
+35in seems to work for width with portrait orientation
+
+Note: Complete Linkage: Merges clusters based on the maximum pairwise dissimilarity.
+
+```{r}
+# Install and load necessary packages
+#install.packages("stringdist")
+library(stringdist)
+
+strings <- df[df$f == "19_VecF1_R3_S19_min_threshold_clone-pass.tsv",]$consensus_sequence
+
+strings <- strings[!duplicated(strings)]
+
+# strings <- strings[nchar(strings) < 20]
+
+# Compute the distance matrix using Jaccard distance
+dist_matrix <- stringdistmatrix(strings, method = "jaccard")
+
+# Perform hierarchical clustering
+cluster_tree <- hclust(as.dist(dist_matrix), method = "complete")
+
+# Plot the dendrogram with labels
+plot(cluster_tree, main = "Cluster Dendrogram of 19_VecF1_R3_S19\nDistance Metric: Jaccard Similarity", xlab = "Clonal Family Consensus CDR3s", sub = NULL, labels = strings, ylab = "Distance (Jaccard Similarity)")
+```
+
+
+
+```{r}
+# Install and load necessary packages
+#install.packages("stringdist")
+library(stringdist)
+
+# Sample character strings
+# strings <- c("apple", "appla", "orange", "banana", "appld", "orqnge", "banxna")
+strings <- df[df$f == "19_VecF1_R3_S19_min_threshold_clone-pass.tsv",]$consensus_sequence
+
+strings <- strings[!duplicated(strings)]
+
+# strings <- strings[nchar(strings) < 20]
+
+# Compute the distance matrix using Jaccard distance
+dist_matrix <- stringdistmatrix(strings, method = "lv")
+
+# Perform hierarchical clustering
+cluster_tree <- hclust(as.dist(dist_matrix), method = "complete")
+
+# Plot the dendrogram with labels
+plot(cluster_tree, main = "Cluster Dendrogram of 19_VecF1_R3_S19\nDistance Metric: Levenshtein", xlab = "Clonal Family Consensus CDR3s", sub = NULL, labels = strings, ylab = "Distance (Levenshtein)")
+```
+
+
+
+
+
+
+
+
+---
+```
+New 29Jul24
+```
+
+
+```
+test <- read.csv("~/Downloads/XMY-H5_query_results29Jul24.csv", header = T, stringsAsFactors = F)
+```
