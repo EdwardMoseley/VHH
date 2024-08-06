@@ -503,11 +503,11 @@ rm(AAdb, tmp)
 ## --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ##
 
 ## Reload from MMseqs2
-test <- read.csv("~/Downloads/20_VecF2_R3_S20-pooled-families_subclustered_database.csv",
+results <- read.csv("~/Downloads/Example Materials/20_VecF2_R3_S20-pooled-families_subclustered_database05Aug24.csv",
                     header = T, stringsAsFactors = F)
 
-length(unique(test$centroid_id))
-length(unique(results$centroid_id))
+#length(unique(test$centroid_id))
+#length(unique(results$centroid_id))
 
 #> length(unique(test$centroid_id))
 #[1] 1733
@@ -633,7 +633,6 @@ results$order_index <- 1:nrow(results)
 ## Iterate Over families and centroids, culling members for reclustering
 
 holder <- results
-
 dat <- results
 
 #1. Remove outlier subfamilies
@@ -799,26 +798,10 @@ if (grepl("-pooled-families_subclustered_database.csv", file_name)){
 #results_file <- gsub("-pooled-families_subclustered_database.csv", "-pooled-clean-database.csv", file_name)
 #outliers_file <- gsub("-pooled-families_subclustered_database.csv", "-pooled-outlier-database.csv", file_name)
 
-## Load Outliers
-#root_dir <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/"
-
-#cat("Loading: ", paste(root_dir, outliers_file, sep = ''), '\n', sep = '')
-
+# Save Results to "cleaned"
+cleaned <- results
 # Load outliers
 dat <- outliers # read.csv(paste(root_dir, outliers_file, sep = ''), header = T, stringsAsFactors = F)
-
-cat("Loading: ", paste("~/VHH/data/Cluster-DBs/phylogenetic_dbs/", 
-                       gsub("-rule-pooled-families_subclustered_database.csv", 
-                            "_min_threshold_clone-pass.csv", 
-                            file_name), sep = ''), '\n', sep = '')
-
-## Load Source Database
-# tmp <- read.csv(paste("~/VHH/data/Cluster-DBs/phylogenetic_dbs/", 
-#                      gsub("-rule-pooled-families_subclustered_database.csv", 
-#                           "_min_threshold_clone-pass.csv", 
-#                           file_name), sep = ''),
-#                header = T, stringsAsFactors = F)
-
 
 # Ensure that, if no sequence_id exists, we create it
 if (!("sequence_id" %in% colnames(dat))){
@@ -829,15 +812,6 @@ if (!("sequence_id" %in% colnames(dat))){
   dat <- dat[,c("sequence_id", colnames(dat)[1:(ncol(dat)-1)])]
 }
 
-# Trim CDR3s
-#tmp$junction_aa <- trim_CDR3(tmp$junction_aa)
-# Translate VHHs
-#tmp$VHH <- fixed_translate_DNA(tmp$sequence_alignment)
-# Trim sequences
-#tmp$VHH <- substr(tmp$VHH, 11, nchar(tmp$VHH))
-# We need those VHHs from tmp which are represented in outlier file
-#dat <- tmp[tmp$VHH %in% dat$VHH,]
-## Prepare for clonal inference
 
 dat$clone_id <- NULL
 dat$dist_nearest <- NULL
@@ -857,8 +831,8 @@ thr <- summary(db$dist_nearest)[["Median"]]
 
 ## Make the thres
 new_thr <- thr + (thr*0.25)
-print("25% Higher Threshold:")
-print(round(new_thr, 2))
+cat("25% Higher Threshold:\n")
+cat(round(new_thr, 2), '\n')
 
 cat("Inferring Clones:\n")
 system.time(
@@ -866,10 +840,15 @@ system.time(
   db <- scoper::hierarchicalClones(db, 
                                    threshold=new_thr, 
                                    v_call="v_call", 
-                                   j_call = "j_call")
+                                   j_call = "j_call",
+                                   verbose = T)
 )
 
 db <- as.data.frame(db@db)
+
+# We no longer need centroid info from the outliers data either
+db$centroid_id <- NULL
+db$centroid_sequence_id <- NULL
 
 ## Sub-cluster with MMseqs2
 output_dir <- "/Users/emoseley/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/tmp/"
@@ -878,20 +857,12 @@ output_dir <- "/Users/emoseley/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_
 
 
 
-
-
-
 ## Since DB is outliers, we need to clean it
-
-
-
-
 results <- data.frame()
 
 # Iterate over Hierarchically Clustered clone_ids, re-clustering
 for (nm in unique(db$clone_id)){
   cat('Clone_ID: ', nm, '\n', sep = '')
-  # nm <- 8 (51 obs)
   # Subset observations
   tmp_frame <- db[db$clone_id == nm,]
   # If the family has more than one member, we will re-cluster
@@ -912,17 +883,20 @@ for (nm in unique(db$clone_id)){
     # Assign Variable Names
     colnames(dat) <- c("centroid", "sequence_id")
     # Create a centroid id
-    
-    # dat$centroid_id <- as.numeric(factor(dat$centroid))
     dat$centroid_id <- paste(nm, '-', as.numeric(factor(dat$centroid)), sep = '')
     
     # We're going to use the sequence ids as keys, so we want to clean them
     db$sequence_id <- clean_seq_ids(db$sequence_id)
     dat$centroid <- clean_seq_ids(dat$centroid)
     dat$sequence_id <- clean_seq_ids(dat$sequence_id)
+
     # merge results
-    dat <- merge_db_to_centroids(dat, db)
-  } else {
+    #dat <- merge_db_to_centroids(dat, db)
+    
+    colnames(dat)[1] <- "centroid_sequence_id"
+    
+    dat <- merge(dat, db, by = c("sequence_id"))#, "centroid_sequence_id"))
+    } else {
     # otherwise, we'll make up a centroid id and a sequence id, and
     
     #tmp_frame$centroid_id <- tmp_frame$sequence_id[1]
@@ -946,6 +920,7 @@ for (nm in unique(db$clone_id)){
 
 
 
+## write.csv(results, file = "~/Downloads/20_outliers.csv", row.names = F)
 
 
 
@@ -953,43 +928,6 @@ for (nm in unique(db$clone_id)){
 
 
 
-
-
-
-
-
-
-#results$centroid_id <- as.numeric(factor(results$centroid_id))
-
-### Temporary Write
-
-# Note:
-# input_file <- "19_VecF1_R3_S19-pooled-outlier-database-H90.csv"
-file_name <- gsub("_database.csv", "-reclustered-database.csv", file_name)
-
-cat("Writing: ", paste(root_dir, file_name, sep = ''), '\n', sep = '')
-
-#write.csv(results, 
-#          file = paste(root_dir, file_name, sep = ''), row.names = F)
-
-## --- --- --- --- --- --- --- --- --- --- --- --- --- ##
-
-## Important Variables at the end of Pooling:
-# dat <- all the important data we want
-# file_name <- the input file
-# root_path <- folder the input file is in
-# output_dir
-
-## --- --- --- --- --- --- --- --- --- --- --- --- --- ##
-
-## Route the traffic out
-if (grepl("-reclustered-database.csv", file_name)){
-  # Pass the file to the next script in the pipeline
-  cat(paste("Rscript CleanCluster-Union.R", file_name), '\n')
-  system(paste("Rscript CleanCluster-Union.R", file_name))
-}
-
-## --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ##
 
 
 
