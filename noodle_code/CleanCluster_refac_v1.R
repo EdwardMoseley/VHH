@@ -1,81 +1,38 @@
 # CleanCluster Algorithm
 
-## Quick utility
-
-check_statistics <- function(dat, tmp){
-  cat("Sequence ID Count identical: ", 
-      length(unique(dat$sequence_id)) == length(unique(tmp$sequence_id)), 
-      '\n')
-  
-  cat("Clone ID Count identical: ", 
-      length(unique(dat$clone_id)) == length(unique(tmp$clone_id)), 
-      '\n')
-  
-  cat("DNA Sequence Count identical: ", 
-      length(unique(dat$sequence)) == length(unique(tmp$sequence)), 
-      '\n')
-  
-  cat("Sequence Alignment Count identical: ", 
-      length(unique(dat$sequence_alignment)) == length(unique(tmp$sequence_alignment)), 
-      '\n')
-}
-
-print_statistics <- function(dat){
-  cat("Sequence ID Count identical: ", 
-      length(unique(dat$sequence_id)), 
-      '\n')
-  cat("Clone ID Count identical: ", 
-      length(unique(dat$clone_id)), 
-      '\n')
-  cat("DNA Sequence Count identical: ", 
-      length(unique(dat$sequence)), 
-      '\n')
-  cat("Sequence Alignment Count identical: ", 
-      length(unique(dat$sequence_alignment)), 
-      '\n')
-}
-
-## ###
-## CleanCluster-Pool
-## First, and final, step in generating 
-## clonal clusters for expert analysis.
-## ###
-
-## First pass call:
-# Rscript CleanCluster-Pool.R 21_VecF4_R3_S21_min_threshold_clone-pass.csv
-# Rscript CleanCluster-Pool.R Assembled_9_S18_min_threshold_clone-pass.csv
-# Percent VHH outliers:  3.42 
-# Rscript CleanCluster-Pool.R Assembled_D4_S6_min_threshold_clone-pass.csv
-## Last pass call:
-# Rscript CleanCluster-Pool.R 19_VecF1_R3_S19-rule-Pooled-Cleaning-Reclustering-Initial-Results-H90.csv 
-
 ## Load Utilities
 source("~/VHH/lib/utilities.R")
 
 ## Draw file info from commandArgs
+args <- c("20_VecF2_R3_S20_min_threshold_clone-pass copy.csv")
 
-args <- c("20_VecF2_R3_S20_min_threshold_clone-pass.csv")
+file_name <- args[1]
+cat("Initial Processing of: ", file_name, '\n', sep = '')
+# Define root_path
+root_path <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/"
+# Load data
+dat <- read.csv(paste(root_path, file_name, sep = ''), header = T, stringsAsFactors = F)
+# Trim CDR3s
+dat$junction_aa <- trim_CDR3(dat$junction_aa)
 
-# Rscript CleanCluster-Pool.R Global_Clone_Experiment_master_set-D1-09-10-11_min_threshold_clone-pass.csv
-# Rscript CleanCluster-Pool.R Global_Clone_Experiment_D1_S3_demand_two_min_threshold_clone-pass.csv
-# Rscript CleanCluster-Pool.R Clones_Inferred_Assembled_9_S18_min_threshold_clone-pass.csv
-# Rscript CleanCluster-Pool.R Clones_Inferred_Assembled_41_S16_min_threshold_clone-pass.csv
-  
-if (grepl("_min_threshold_clone-pass.csv", args[1])){
-  file_name <- args[1]
-  cat("Initial Processing of: ", file_name, '\n', sep = '')
-  # Define root_path
-  root_path <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/"
-  # Load data
-  dat <- read.csv(paste(root_path, file_name, sep = ''), header = T, stringsAsFactors = F)
-  # Trim CDR3s
-  dat$junction_aa <- trim_CDR3(dat$junction_aa)
-} else{
-  stop("Please provide the file in [prefix]_min_threshold_clone-pass.csv format OR [prefix]-Pooled-Cleaning-Reclustering-Initial-Results-H90.csv format.", call.=FALSE)
-}
+# Translate alignment
+dat$VHH <- fixed_translate_DNA(dat$sequence_alignment)
+
+# Trim sequences
+dat$VHH <- substr(dat$VHH, 11, nchar(dat$VHH))
+
+# Drop unproductive sequences
+all_seqs <- nrow(dat)
+# Keep productive only
+dat <- unproductive(dat)
+filtered_seqs <- nrow(dat)
+
+# Elevator music
+cat(file_name, '\n')
+cat(round(100 - (filtered_seqs/all_seqs*100), 5), "% of sequences unproductive (due to a premature stop codon).\n", sep = '')
 
 # Print clone counts
-cat(file_name, " begins with ", length(unique(dat$clone_id)), " clonal families.\n", sep = '')
+cat(file_name, " has ", length(unique(dat$clone_id)), " clonal families after removing unproductive sequences.\n", sep = '')
 
 ## Begin Cleaning
 
@@ -256,15 +213,7 @@ cat(file_name, " has ", length(unique(dat$clone_id)), " clonal families after po
 ## --- --- --- --- --- --- --- --- --- --- --- --- --- ##
 
 
-## Route the traffic out
-if (grepl("_min_threshold_clone-pass.csv", file_name)){
-  # change file name
-  file_name <- gsub("_min_threshold_clone-pass.csv", "-rule-pooled-families.csv", file_name)
-  # write.csv(dat, file = paste(root_path, file_name, sep = ''), row.names = F)
-  # -rule-pooled-families.csv
-  cat(paste("Rscript CleanCluster-toAA.R", file_name), '\n')
-  # Pass the file to the next script in the pipeline
-}
+
 
 ## Cleanup dfs (results are just summary stats)
 rm(df, tmp, tmp_frame, results)
@@ -276,7 +225,9 @@ rm(df, tmp, tmp_frame, results)
 # > file_name
 # [1] "20_VecF2_R3_S20-rule-pooled-families.csv"
 
+file_name <- gsub("_min_threshold_clone-pass.csv", "-processed-pooled.csv", file_name)
 
+write.csv(dat, file = paste0("~/Downloads/", file_name), row.names = F)
 
 
 
@@ -338,64 +289,6 @@ print_statistics(dat)
 # Here, the focus is to translate the data to amino acids
 # and remove unproductive sequence information before
 # calling mmseqs2 for subclustering by homology
-
-## We'll assign dat to tmp for this first...
-tmp <- dat
-
-## Amino Acid-only database
-
-# Input data: "20_VecF2_R3_S20-pooled-families.csv"
-# Output Data: "translated_dbs/20_VecF2_R3_S20-pooled-families_VHH_database.csv" 
-
-## No need to output data, we have a lot of ram
-output_dir <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/"
-
-# Assign source file information
-tmp$source_file <- rep(gsub("-rule-pooled-families.csv", "", file_name), times = nrow(tmp))
-# Translate - VHH
-tmp$VHH <- fixed_translate_DNA(tmp$sequence_alignment)
-
-# Trim sequences (or not yet?)
-## tmp$VHH <- substr(tmp$VHH, 11, nchar(tmp$VHH))
-
-# Drop unproductive sequences
-all_seqs <- nrow(tmp)
-# Keep productive only
-tmp <- unproductive(tmp)
-filtered_seqs <- nrow(tmp)
-
-# Elevator music
-cat(file_name, '\n')
-cat(round(100 - (filtered_seqs/all_seqs*100), 2), "% of sequences unproductive.\n", sep = '')
-
-# Rename file_name variable
-file_name <- gsub("-rule-pooled-families.csv", "-pooled-families_VHH_database.csv", file_name)
-
-## Assign tmp back to dat
-dat <- tmp
-
-## --- --- --- --- --- --- --- --- --- --- --- --- --- ##
-
-## Important Variables at the end of Pooling:
-# dat <- all the important data we want
-# AAdb <- Amino Acid Database
-# file_name <- the input file
-# root_path <- folder the input file is in
-# output_dir
-
-## --- --- --- --- --- --- --- --- --- --- --- --- --- ##
-
-## Route the traffic out
-if (grepl("-pooled-families_VHH_database.csv", file_name)){
-  # Pass the file to the next script in the pipeline
-  cat(paste("Rscript CleanCluster-MMseqs2.R", file_name), '\n')
-  # system(paste("Rscript CleanCluster-MMseqs2.R", file_name))
-}
-
-## Cleanup dfs
-rm(tmp)
-
-## --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ##
 
 
 
@@ -467,44 +360,21 @@ for (nm in unique(tmp$clone_id)){
 
 
 
-
-
-## HERE WE WANT TO LOAD RESULTS
-## AND COMPARE THEM TO THE RESULTS BELOW
-## (Where we aggregated the VHHs)
-
-
-## --- --- --- --- --- --- --- --- --- --- --- --- --- ##
-
-## Important Variables at the end of Pooling:
-# dat <- all the important data we want
-# file_name <- the input file
-# root_path <- folder the input file is in
-# output_dir
-
-## --- --- --- --- --- --- --- --- --- --- --- --- --- ##
-
-
-file_name <- gsub("VHH_database.csv", "subclustered_database.csv", file_name)
+file_name <- gsub("-processed-pooled.csv", "-subclustered.csv", file_name)
 root_dir <- "~/Downloads/"
-cat("Writing: ", paste(root_dir, file_name, sep = ''), '\n', sep = '')
-## write.csv(results, file = paste(root_dir, file_name, sep = ''), row.names = F)
+cat("Writing: ", paste(root_dir, "Example Materials/",file_name, sep = ''), '\n', sep = '')
+write.csv(results, file = paste(root_dir, "Example Materials/", file_name, sep = ''), row.names = F)
 
-## Route the traffic out
-#if (grepl("_subclustered_database.csv", file_name)){
-  # Pass the file to the next script in the pipeline
-  cat(paste("Rscript CleanCluster-Refining.R", file_name), '\n')
-#}
 
-## Cleanup  
-rm(AAdb, tmp)
+
+
 
 
 ## --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ##
 
 ## Reload from MMseqs2
-results <- read.csv("~/Downloads/Example Materials/20_VecF2_R3_S20-pooled-families_subclustered_database05Aug24.csv",
-                    header = T, stringsAsFactors = F)
+#results <- read.csv("~/Downloads/Example Materials/20_VecF2_R3_S20-pooled-families_subclustered_database05Aug24.csv",
+#                    header = T, stringsAsFactors = F)
 
 #length(unique(test$centroid_id))
 #length(unique(results$centroid_id))
@@ -578,7 +448,6 @@ results <- read.csv("~/Downloads/Example Materials/20_VecF2_R3_S20-pooled-famili
 ## ###
 
 ## Store data for now
-holder <- results
 dat <- results
 
 cat(file_name, " has ", length(unique(dat$clone_id)), " clonal families.\n", sep = '')
@@ -704,43 +573,8 @@ cat("Outliers plus clean sequences equal input data: ", nrow(cleaned) + nrow(out
 
 
 
-
-#root_dir <- "/Users/emoseley/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/"
-
-#results_file <- gsub("-pooled-families_subclustered_database.csv", "-pooled-clean-database.csv", file_name)
-#outliers_file <- gsub("-pooled-families_subclustered_database.csv", "-pooled-outlier-database.csv", file_name)
-
-#cat("Writing: ", paste(root_dir, results_file, sep = ''), '\n', sep = '')
-#write.csv(results, 
-#          file = paste(root_dir, results_file, sep = ''), 
-#          row.names = F)
-#cat("Writing: ", paste(root_dir, outliers_file, sep = ''), '\n', sep = '')
-#write.csv(outliers, 
-#          file = paste(root_dir, outliers_file, sep = ''), 
-#          row.names = F)
-
-
-## --- --- --- --- --- --- --- --- --- --- --- --- --- ##
-
-## Important Variables at the end of Pooling:
-# dat <- all the important data we want
-# file_name <- the input file
-# root_path <- folder the input file is in
-# output_dir
-
-## --- --- --- --- --- --- --- --- --- --- --- --- --- ##
-
-## Route the traffic out
-if (grepl("-pooled-families_subclustered_database.csv", file_name)){
-  # Pass the file to the next script in the pipeline
-  cat(paste("Rscript CleanCluster-Recluster.R", file_name), '\n')
-  system(paste("Rscript CleanCluster-Recluster.R", file_name))
-  #Rscript CleanCluster-Recluster.R 19_VecF1_R3_S19-rule-pooled-families_subclustered_database-H90.csv 
-}
-
-## --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ##
-
-
+# cleaned
+# outliers
 
 
 
@@ -857,6 +691,15 @@ output_dir <- "/Users/emoseley/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_
 
 
 
+
+
+
+
+hclusted_outliers <- db
+
+
+
+
 ## Since DB is outliers, we need to clean it
 results <- data.frame()
 
@@ -919,8 +762,17 @@ for (nm in unique(db$clone_id)){
 
 
 
+file_name <- gsub("-subclustered.csv", "-outliers-subclustered.csv", file_name)
+root_dir <- "~/Downloads/"
+cat("Writing: ", paste(root_dir, "Example Materials/",file_name, sep = ''), '\n', sep = '')
+write.csv(results, file = paste(root_dir, "Example Materials/", file_name, sep = ''), row.names = F)
 
-## write.csv(results, file = "~/Downloads/20_outliers.csv", row.names = F)
+
+
+
+
+
+## write.csv(results, file = "~/Downloads/20_reclustered_outliers.csv", row.names = F)
 
 
 
