@@ -29,9 +29,13 @@ setwd(ncbi_directory)
 files <- unique(gsub("*_L001_R[1|2]_001.fastq", "", files))
 # Drop extensions
 files <- files[!grepl("\\.", files)]
+files <- files[!(files %in% c("master_set","C1_S1","subsets_db-pass","subsets_min_threshold","Undetermined_S0"))]
 
 # Find prefixes of files again to ensure we don't run through the data twice
 completed_files <- gsub(".fmt7", "", list.files(final_dir))
+
+# We want to do 9_S18, so:
+#completed_files <- completed_files[!(completed_files %in% "")]#c("9_S18", "10_S19", "11_S20", "12_S21"))] #
 
 # Reads one and two
 R1 <- "_L001_R1_001.fastq"
@@ -182,6 +186,11 @@ suffix <- "_MPV_primers-pass.fastq"
   )
 #}
 
+## ###
+## EM QUICK EDIT
+## ###
+  
+##
 
 ## Collapse and Deduplicate
 
@@ -305,7 +314,6 @@ system(
         paste("-query ", ncbi_directory,'/', f, "_atleast-1.fasta ", sep = ''),
         paste("-out ", final_dir, '/', f, ".fmt7", sep = ''), sep = '')
 )
-  
   
 # Some elevator musi
 print(f)

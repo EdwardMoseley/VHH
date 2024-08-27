@@ -68,7 +68,7 @@ results <- read.csv(paste0(root_dir, database_file), sep = '\t', header = T, str
 
 # Translate VHHs
 results$VHH <- fixed_translate_DNA(results$sequence_alignment)
-results$VHH <- substr(results$VHH, 11, nchar(results$VHH))
+# results$VHH <- substr(results$VHH, 11, nchar(results$VHH))
 
 results <- unproductive(results)
 ```

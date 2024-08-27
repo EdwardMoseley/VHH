@@ -4,6 +4,18 @@ output: html_document
 date: "2024-03-30"
 ---
 
+```
+Input: 20_VecF2_R3_S20-pooled-families_subclustered_database.csv
+Output:
+(1) -> S19-pooled-clean-database.csv
+(2) -> S19-pooled-outlier-database.csv
+```
+
+```
+results_file <- gsub("-pooled-families_subclustered_database.csv", "-pooled-clean-database.csv", f)
+outliers_file <- gsub("-pooled-families_subclustered_database.csv", "-pooled-outlier-database.csv", f)
+```
+
 Here, we want to:
 
 1. Remove outlier subfamilies
@@ -21,8 +33,10 @@ Here, we want to:
 #dat <- read.csv("~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/19_VecF1_R3_S19_subclustered_database.csv", 
 #                header = T, stringsAsFactors = F)
 
-dat <- read.csv("~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/18_VecF3_R4_S18_subclustered_database.csv", 
-                header = T, stringsAsFactors = F)
+root_dir <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/"
+f <- "18_VecF3_R4_S18-pooled-families_subclustered_database-H90.csv"
+
+dat <- read.csv(paste(root_dir, f, sep = ''), header = T, stringsAsFactors = F)
 
 # Imports
 source("~/VHH/lib/utilities.R")
@@ -76,6 +90,7 @@ for (nm in unique(dat$clone_id)){
 ### Note: Cleaning can probably be added here, too
 
 ```{r, echo = F, eval = T, message = F, warning = F}
+holder <- results
 dat <- results
 results <- data.frame()
 
@@ -178,6 +193,17 @@ print(table(outliers$clone_id)[order(table(outliers$clone_id), decreasing = T)])
 
 
 ```{r}
-write.csv(results, file = "~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/S18-clean-database02Apr24.csv", row.names = F)
-write.csv(outliers, file = "~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/S18-outlier-database02Apr24.csv", row.names = F)
+root_dir <- "/Users/emoseley/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/"
+
+results_file <- gsub("-pooled-families_subclustered_database-H90.csv", "-pooled-clean-database-H90.csv", f)
+outliers_file <- gsub("-pooled-families_subclustered_database-H90.csv", "-pooled-outlier-database-H90.csv", f)
+
+cat("Writing: ", paste(root_dir, results_file, sep = ''), '\n', sep = '')
+write.csv(results, 
+          file = paste(root_dir, results_file, sep = ''), 
+          row.names = F)
+cat("Writing: ", paste(root_dir, outliers_file, sep = ''), '\n', sep = '')
+write.csv(outliers, 
+          file = paste(root_dir, outliers_file, sep = ''), 
+          row.names = F)
 ```

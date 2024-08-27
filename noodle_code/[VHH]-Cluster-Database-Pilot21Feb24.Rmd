@@ -129,7 +129,6 @@ for (f in files){
                                     CDR3s_in_cluster))
     
   }
-  
   cat("Completed file: ", f, '\n')
   file_out <- paste(res_dir, gsub('.tsv', '-consensuses26Feb24.csv', f), sep = '/')
   write.csv(tmp_res, file_out, row.names = F)

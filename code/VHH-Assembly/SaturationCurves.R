@@ -1,7 +1,6 @@
 # Saturation Curves
 source("~/VHH/lib/utilities.R")
 
-#root_dir <- "/Users/emoseley/VHH/data/Assembled/"
 root_dir <- "/Users/emoseley/Downloads/VHH Assembly 24Jul24 Materials/2024_TUCF_7981"
 
 file_list <- list.files(root_dir)[grepl("*_db-pass.tsv", list.files(root_dir))]
@@ -24,8 +23,10 @@ for (f in file_list){
   
   
   for (i in seq_along(sample_sizes)) {
+    # Set seed for random processes (sample())
     set.seed(i)
     sample_size <- sample_sizes[i]
+    # Random Process
     sampled_junctions <- sample(expanded_df$VHH, sample_size, replace = TRUE)
     unique_counts[i] <- length(unique(sampled_junctions))
   }
@@ -41,12 +42,7 @@ for (f in file_list){
 }
 
 
-# results$database <- ifelse(results$file %in% c("C2_S2_db-pass.tsv", "D2_S4_db-pass.tsv", "D3_S5_db-pass.tsv", "D4_S6_db-pass.tsv"), "Source", "Enriched")
-
 library(ggrepel)
-
-
-
 
 selection <- c("C2_S2_db-pass.tsv", 
                "D2_S4_db-pass.tsv", 
@@ -56,8 +52,6 @@ selection <- c("C2_S2_db-pass.tsv",
                "38_S12_db-pass.tsv",
                "40_S15_db-pass.tsv",
                "42_S17_db-pass.tsv")
-
-
 
 tmp <- results[results$file %in% selection,]
 

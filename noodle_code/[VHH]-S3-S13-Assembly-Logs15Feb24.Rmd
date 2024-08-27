@@ -446,13 +446,38 @@ docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
       EXTENDED> True
 INFER_JUNCTION> False
 
-PROGRESS> 00:02:32 |Done                | 0.0 min
+PROGRESS> 15:14:04 |Done                | 0.1 min
 
-PROGRESS> 00:05:31 |####################| 100% (120,914) 3.0 min
+PROGRESS> 15:18:04 |####################| 100% (120,913) 4.0 min
 
 OUTPUT> S3-M02-TRIM_atleast-1_db-pass.tsv
-  PASS> 99958
+  PASS> 99957
   FAIL> 20956
    END> MakeDb
 ```
+
+## Pass and Fail
+
+```{r}
+tmp <- read.csv("~/VHH/data/S3-M02-TRIM_atleast-1_db-fail.tsv", sep = '\t', header = T, stringsAsFactors = F)
+tmp$pass_fail <- rep(0, each = nrow(tmp))
+
+
+tmp_two <- read.csv("~/VHH/data/S3-M02-TRIM_atleast-1_db-pass.tsv", sep = '\t', header = T, stringsAsFactors = F)
+tmp_two$pass_fail <- rep(1, each = nrow(tmp_two))
+
+dat <- rbind(tmp, tmp_two)
+```
+
+### Genes
+
+
+
+
+```{r}
+IGHV <- readLines("~/VHH/data/imgt-data/imgt_gapped_alpaca_IGHV.fasta")
+IGHD <- readLines("~/VHH/data/imgt-data/imgt_gapped_alpaca_IGHD.fasta")
+IGHJ <- readLines("~/VHH/data/imgt-data/imgt_gapped_alpaca_IGHJ.fasta")
+```
+
 

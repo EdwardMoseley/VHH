@@ -14,12 +14,13 @@
 source("~/VHH/lib/utilities.R")
 
 ## Draw file info from commandArgs
-args <- c("GS_Schisto_d2VHH_14Aug24_min_threshold_clone-pass.csv")
+args <- c("GS_XLI_d2VHH_21Aug24_min_threshold_clone-pass.csv")
+#args <- c("GS_JPL_d2VHH_21Aug24_min_threshold_clone-pass.csv")
 
 file_name <- args[1]
 cat("Initial Processing of: ", file_name, '\n', sep = '')
 # Define root_path
-root_path <- "~/Downloads/2024_TUCF_7981/"
+root_path <- "~/Downloads/"
 # Load data
 dat <- read.csv(paste(root_path, file_name, sep = ''), header = T, stringsAsFactors = F)
 # Trim CDR3s
@@ -236,7 +237,7 @@ rm(df, tmp, tmp_frame, results)
 # [1] "20_VecF2_R3_S20-rule-pooled-families.csv"
 
 file_name <- gsub("_min_threshold_clone-pass.csv", "-processed-pooled.csv", file_name)
-
+cat("Writing: ", paste0(root_path, file_name), '\n')
 write.csv(dat, file = paste0(root_path, file_name), row.names = F)
 
 

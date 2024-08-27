@@ -34,7 +34,7 @@ for (f in files){
 We only want non-vectored sequences.
 
 ```{r}
-df <- df[!grepl("Vec" ,df$Illumina), ]
+df <- df[!grepl("Vec",df$Illumina), ]
 ```
 
 Trim CDR3s

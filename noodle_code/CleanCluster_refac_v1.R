@@ -9,7 +9,7 @@ args <- c("20_VecF2_R3_S20_min_threshold_clone-pass copy.csv")
 file_name <- args[1]
 cat("Initial Processing of: ", file_name, '\n', sep = '')
 # Define root_path
-root_path <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/"
+root_path <- "~/Downloads/Example Materials/"
 # Load data
 dat <- read.csv(paste(root_path, file_name, sep = ''), header = T, stringsAsFactors = F)
 # Trim CDR3s

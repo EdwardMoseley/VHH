@@ -2,8 +2,8 @@ source("~/VHH/lib/utilities.R")
 library("writexl")
 
 root_dir <- "~/Downloads/"
-input_file <- "query_results04Aug24.csv"
-query_sequences <- "query_seqs01Aug24.csv"
+input_file <- "query_results08Aug24.csv"
+query_sequences <- "query_seqs08Aug24.csv"
 database_folder <- "query_back/"
 #output_file <-"A_S57_min_threshold_clone-pass.csv"
 
@@ -65,7 +65,7 @@ for (nm in unique(dat$query_identifier)){
   
   
   # Write the data frame to an Excel file
-  write_xlsx(tmp_frame[,keep_cols], paste0(root_dir, nm, "_query_results04Aug24.xlsx"))
+  write_xlsx(tmp_frame[,keep_cols], paste0(root_dir, nm, "_query_results08Aug24.xlsx"))
 }
 
 

@@ -1,15 +1,37 @@
 ---
 title: "[VHH]-Outlier-Re-Clustering"
 output: html_document
-date: "2024-04-01"
+date: "2024-04-04"
 ---
+
+
+```
+Inputs: 
+(1) -> 20_VecF2_R3_S20-pooled-families_subclustered_database.csv
+(2) -> 20_VecF2_R3_S20_min_threshold_clone-pass.csv"
+Output:
+(1) -> S20-pooled-outlier-reclustered-database.csv
+```
+
+```
+results_file <- gsub("-pooled-families_subclustered_database.csv", "-pooled-clean-database.csv", f)
+outliers_file <- gsub("-pooled-families_subclustered_database.csv", "-pooled-outlier-database.csv", f)
+```
+
+19_VecF1_R3_S19-pooled-outlier-database.csv
+
+
+"/Users/emoseley/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/19_VecF1_R3_S19-pooled-outlier-database.csv"
+
+"/Users/emoseley/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/19_VecF1_R3_S19-pooled-clean-database.csv"
+
 
 ### Imports
 
 ```{r}
 # Imports
 source("~/VHH/lib/utilities.R")
-suppressPackageStartupMessages(library(stringdist))
+# suppressPackageStartupMessages(library(stringdist))
 suppressPackageStartupMessages(library(ggseqlogo))
 suppressPackageStartupMessages(library(shazam))
 ```
@@ -17,7 +39,10 @@ suppressPackageStartupMessages(library(shazam))
 ## Load Outliers
 
 ```{r}
-dat <- read.csv("~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/S18-outlier-database02Apr24.csv", header = T, stringsAsFactors = F)
+root_dir <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/"
+input_file <- "18_VecF3_R4_S18-pooled-outlier-database-H90.csv"
+
+dat <- read.csv(paste(root_dir, input_file, sep = ''), header = T, stringsAsFactors = F)
 ```
 
 ```{r}
@@ -26,10 +51,12 @@ dat <- read.csv("~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_d
 
 ## Load Source Database
 
+By source database, we mean the min...
+
 ```{r}
 tmp <- read.csv("~/VHH/data/Cluster-DBs/phylogenetic_dbs/18_VecF3_R4_S18_min_threshold_clone-pass.csv", 
                 header = T, stringsAsFactors = F)
-
+# 
 tmp$junction_aa <- trim_CDR3(tmp$junction_aa)
 # Translate VHHs
 tmp$VHH <- translate_DNA(tmp$sequence_alignment)
@@ -44,8 +71,9 @@ tmp <- unproductive(tmp)
 ```{r}
 # Clean sequence ids
 tmp$sequence_id <- clean_seq_ids(tmp$sequence_id)
+
 # For the old data, we don't need the new duplicate count
-dat$duplicate_count <- NULL
+tmp$duplicate_count <- NULL
 ```
 
 Merge to get data back
@@ -129,7 +157,7 @@ for (nm in unique(db$clone_id)){
     write_fasta(tmp_frame, "VHH", "sequence_id", paste(output_dir, "tmp.fasta", sep = ''))
     # Prepare mmseqs command
     command <- paste("/usr/local/Cellar/mmseqs2/15-6f452/bin/mmseqs ", 
-                     "easy-cluster -v 3 --min-seq-id 0.95 ", 
+                     "easy-cluster -v 3 --min-seq-id 0.90 ", 
                      paste(output_dir, "tmp.fasta", sep = ''), 
                      paste(output_dir, "tmp-H95", sep = ''),
                      paste(output_dir, "tmp", sep = ''))
@@ -180,101 +208,15 @@ results$order_index <- 1:nrow(results)
 ### Temporary Write
 
 ```{r}
+# Note:
+# input_file <- "19_VecF1_R3_S19-pooled-outlier-database-H90.csv"
+
+output_file <- gsub("-database-H90.csv", "-reclustered-database-H90.csv", input_file)
+
+
 write.csv(results, 
-          file = "~/Downloads/S18-outliers-re-clustered02Apr24.csv", row.names = F)
+          file = paste(root_dir, output_file, sep = ''), row.names = F)
 ```
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-```{r}
-# Pull sequences
-sequences <- Biostrings::AAStringSet(results$VHH)
-# Add names
-names(sequences) <- results$sequence_id
-# Perform multiple sequence alignment
-msa_result <- msa::msa(sequences, method = "ClustalOmega")
-# Store aligned results
-results$aligned_VHHs <- as.character(msa_result@unmasked)
-# Gsub for readability
-results$aligned_VHHs <- gsub("-", "_", results$aligned_VHHs)
-
-write.csv(results[,c("order_index",
-                     "sequence_id",
-                     "clone_id",
-                     "centroid_id",
-                     "duplicate_count",
-                     "family_median_VHH_homology",
-                     "family_median_CDR3_homology",
-                     "subfamily_median_VHH_homology",
-                     "subfamily_median_CDR3_homology",
-                     "junction_aa",
-                     "VHH",
-                     "aligned_VHHs")], file = paste("~/Downloads/S19-Family-",results$clone_id[1],"-","median-CDR3","-", median_CDR3, "27Mar24.csv", sep = ''), row.names = F)
-```
 

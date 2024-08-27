@@ -1,0 +1,227 @@
+---
+title: "[VHH]-Novel-Allele-Detection"
+output: html_document
+date: "2024-08-08"
+---
+
+Source: [Polymorphism detection and genotyping](https://tigger.readthedocs.io/en/stable/vignettes/Tigger-Vignette/)
+
+Adapative immune receptor repertoire sequencing (AIRR-Seq, Rep-Seq) data is currently the subject of much study. A key step in analyzing these data involves assigning the closest known V(D)J germline alleles to the (often somatically mutated) sample sequences using a tool such as IMGT/HighV-QUEST (1). However, if the sample utilizes alleles not in the germline database used for alignment, this step will fail. Additionally, this alignment has an associated error rate of ~5% (2), notably among sequences carrying a large number of somatic mutations.
+
+Here we provide a Tool for Immunoglobulin Genotype Elucidation via Rep-Seq (TIgGER). TIgGER addresses these issues by inferring the set of Immunoglobulin (Ig) alleles carried by an individual (including any novel alleles) and then using this set of alleles to correct the initial assignments given to sample sequences by existing tools.
+
+This vignette covers the following tasks:
+
+* Inferring the presence of novel IGHV alleles not in the germline database.
+* Inferring the personalized IGHV genotype of a sample.
+* Correcting the IGHV allele calls of a sample based on the IGHV genotype.
+
+Additional information about the methods used by TIgGER is available in:
+
+* [Gadala-Maria D, Yaari G, Uduman M, Kleinstein SH (2015) Automated analysis of high-throughput B cell sequencing data reveals a high frequency of novel immunoglobulin V gene segment alleles. PNAS 112(8):E862-70](http://www.pnas.org/content/early/2015/02/05/1417683112)
+
+
+```{r}
+#dat <- read.csv("~/Downloads/query_back/A_S57_db-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+```
+
+## Strategy
+
+1. Load all failed sequences
+
+2. Translate, drop unproductive
+
+
+```{r}
+root_dir <- "~/Downloads/failed_sequences/"
+dat <- data.frame()
+for (f in list.files(root_dir)){
+  cat("Loading:", f, '\n')
+  tmp <-read.csv(paste0(root_dir, f), header = T, stringsAsFactors = F, sep = '\t')
+  tmp$file <- rep(f, nrow(tmp))
+  dat <- rbind(dat, tmp)
+}
+```
+
+## Cleanup
+
+```{r}
+## Remove 
+
+```
+
+
+
+## Input
+
+```
+TIgGER requires two main inputs:
+
+Pre-processed Ig sequence data
+Database germline sequences
+AIRR-seq data is input as a data frame following the AIRR or Change-O standard where each row represents a unique observation and and columns represent data about that observation. The required names of the required columns are provided below along with a description of each.
+
+Column Name	- Description
+SEQUENCE_IMGT or sequence_alignment - V(D)J sequence gapped in the IMGT gapped format (3)
+V_CALL or v_call - (Comma separated) name(s) of the nearest V allele(s)
+J_CALL or j_call - (Comma separated) name(s) of the nearest J allele(s)
+JUNCTION or junction - Junction nucleotide sequence
+JUNCTION_LENGTH or junction_length - Length of the junction region of the V(D)J sample
+```
+
+Below is a past germline data thingy I did:
+
+```
+## Load Germline Sequences
+
+
+ Read in IMGT-gapped sequences
+references <- readIMGT(dir = "/Users/emoseley/Desktop/Tufts/Cowen Lab/alpaca/rawseqdata/igblast/vdj")
+
+# Reconstruct germline sequences
+dat <- createGermlines(dat, references, nproc=4)
+
+```
+
+### Imports
+
+```{r}
+# Load packages required for this example
+library(tigger)
+#library(dplyr)
+```
+
+
+## Novel Allele Detection
+
+```
+str(AIRRDb)
+```
+
+```{r}
+# novel <- findNovelAlleles(dat, SampleGermlineIGHV, nproc=1)
+```
+
+```
+Error in findNovelAlleles(dat, SampleGermlineIGHV, nproc = 1) : 
+  Not enough sample sequences were assigned to any germline:
+  (1) germline_min is too large or
+  (2) sequences names don't match germlines.
+```
+
+```
+str(SampleGermlineIGHV)
+ Named chr [1:344] "CAGGTTCAGCTGGTGCAGTCTGGAGCT...GAGGTGAAGAAGCCTGGGGCCTCAGTGAAGGTCTCCTGCAAGGCTTCTGGTTACACCTTT............ACCAGCTAT"| __truncated__ ...
+ - attr(*, "names")= chr [1:344] "IGHV1-18*01" "IGHV1-18*02" "IGHV1-18*03" "IGHV1-18*04" ...
+```
+
+
+Loading in Alleles
+
+```{r}
+#VHHGermlineIGHV <- readIgFasta("~/ncbi-igblast-1.17.1/database/alpaca_clean/IG_DNA/IGHV_clean")
+#VHHGermlineIGHJ <- readIgFasta("~/ncbi-igblast-1.17.1/database/alpaca_clean/IG_DNA/IGHJ_clean")
+#VHHGermlineIGHD <- readIgFasta("~/ncbi-igblast-1.17.1/database/alpaca_clean/IG_DNA/IGHD_clean")
+```
+
+### Gapped Germlines
+
+[IMGT/GENE-DB Query page](https://www.imgt.org/genedb/)
+
+* Citing IMGT/GENE-DB: Giudicelli V., Chaume D. and Lefranc M.-P.. Nucleic Acids Res., 33: D256 - D261 (2005). PMID:15608191 pdf
+
+
+```{r}
+VHHGappedGermlineIGHV <- readIgFasta("~/Downloads/Alpaca_IGHV.fasta")
+VHHGappedGermlineIGHJ <- readIgFasta("~/Downloads/Alpaca_IGHJ.fasta")
+VHHGappedGermlineIGHD <- readIgFasta("~/Downloads/Alpaca_IGHD.fasta")
+```
+
+
+**Note:** `min_seqs=50` returns nothing significant, so that is being lowered.
+
+```{r}
+novel <- findNovelAlleles(dat, 
+                          VHHGappedGermlineIGHV, 
+                          germline_min = 20,
+                          min_seqs = 20,
+                          j_max = 0.25,
+                          nproc=4)
+```
+
+
+
+```{r}
+# Plot evidence of the first (and only) novel allele from the example data
+novel_row <- which(!is.na(novel$polymorphism_call))[1]
+#plotNovel(dat, novel[novel_row, ])
+```
+
+
+
+
+
+
+
+```{r}
+dat$junction_length <- ifelse(is.na(dat$junction_length), 0, dat$junction_length)
+```
+
+
+The TIgGER procedure for identifying novel alleles (see citation above) involves taking all sequences which align to a particular germline allele and, for each position along the aligned sequences, plotting the mutation frequency at that postion as a function of the sequence-wide mutation count. While mutational hot-spots and cold-spots are both expected to have a y-intercept around zero, polymorphic positions will have a y-intercept larger than zero. The required minimum y-intercept may be specified in findNovelAlleles by y_intercept, but defaults to 1/8. Passing this y-intercept threshold is the first of three pieces of evidence that support the novel allele.
+
+The second piece of evidence supporting novel allele calls is the nucleotide usage at the polymorphic positions as a function of sequence-wide mutation count. We expect the polymorphic allele to be prevalent at all mutation counts, and we expect the mutation count equal to the number of polymorphisms in the novel sequence to be the most prevalent.
+
+Finally, to avoid cases where a clonal expansion might lead to a false positive, combinations of J gene and junction length are examined among sequences which perfectly match the proposed germline allele. A true novel allele is expected to utilize a wide range of J genes, and sequences with different junction length can be ruled out as not being clonally related. The maximum portion of sequences which can consist of a specific combination of J gene and junction length may be specified in findNovelAlleles by j_max.
+
+The three pieces of evidence desribed above can be viewed for any allele call made by findNovelAlleles using the function plotNovel.
+
+```{r}
+plotNovel(dat, novel[novel_row, ])
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+---
+
+# Reconstructing Clonal Germlines
+
+* [Link](https://cran.r-project.org/web/packages/dowser/vignettes/Germlines-Vignette.pdf)
+
+Construct clonal germlines
+To reconstruct clonal germlines, read in the IMGT-gapped sequence directory and supply it, along
+with your data, to the createGermlines function.
+Input data can be from multiple loci (this is different from older Dowser versions). However, the
+input reference sequences must be from one organism, such as human.
+
+```{r}
+library(dowser)
+library(dplyr)
+data(ExampleAirr)
+# Read in IMGT-gapped sequences
+references = readIMGT(dir = file.path("germlines", "human", "vdj"))
+# remove germline alignment columns for this example
+db = select(ExampleAirr, -"germline_alignment", -"germline_alignment_d_mask")
+# Reconstruct germline sequences
+ExampleAirr = createGermlines(db, references, nproc=1)
+# Check germline of first row
+ExampleAirr$germline_alignment_d_mask[1]
+# "CAGGTGCAGCTGGTGGAGTCTGGGGGA...GGCTTGG
+```

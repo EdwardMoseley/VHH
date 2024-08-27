@@ -1,8 +1,8 @@
 ---
-title: "[VHH]-S19-Pooled-and-Cleaned-Logos"
+title: "[VHH] Pooled, Cleaned, and Re-Pooled Logos"
 subtitle: "90%-Homology Sub-Clustering"
 output: html_document
-date: "2024-04-04"
+date: "2024-05-22"
 ---
 
 * **Note:** VHH duplicates are *not* well-tracked in the outlier group, which may lead to differences in CDR3 observed in `Most-frequent CDR3` relative to `Most-frequent VHH`.
@@ -10,21 +10,21 @@ date: "2024-04-04"
 ```{r, echo = F, eval = T}
 # * **Note:** VHH duplicates are *not* well-tracked in the outlier group, which may lead to differences in CDR3 observed in `Most-frequent CDR3` relative to `Most-frequent VHH`.
 
-# "[VHH]-S19-Unpooled-Pilot-Homology-Based-Cleaning-Logos"
-#results <- read.csv("~/Downloads/S19-Pooled-Cleaning-Reclustering-Initial-Results03Apr24.csv", 
-#                header = T, stringsAsFactors = F)
-#results <- read.csv("~/Downloads/S19-Pooled-Cleaning-Reclustering-Initial-Results03Apr24.csv", 
-#                header = T, stringsAsFactors = F)
+root_dir <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/"
+#root_dir <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/"
 
-# results <- read.csv("~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/19_VecF1_R3_S19_VHH_database.csv", header = T, stringsAsFactors = F)
+# ~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/GS_NGO0265_d2VHH_09Jul24-Cleaned19Apr24.csv
 
-# results <- read.csv("~/Downloads/S19-Pooled-Cleaning-Reclustering-Initial-Results04Apr24.csv", header = T, stringsAsFactors = F)
+# Global Set Experiment 
+# input_file <- "GS_NGO1549_d2VHH_09Jul24-Cleaned19Apr24.csv"
+input_file <- "GS_NGO0265_d2VHH_09Jul24-Cleaned19Apr24.csv"
 
-#root_dir <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/"
-#input_file <- "18_VecF3_R4_S18-Pooled-Cleaning-Reclustering-Initial-Results-H90.csv"
-root_dir <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/"
-# input_file <- "18_VecF3_R4_S18-H90-Cleaned10Apr24.csv"
-input_file <- "19_VecF1_R3_S19-H90-Cleaned10Apr24.csv"
+
+# Not working(?) Invalid "times" argument (duplicate_count?) (in unroll_dupes_fast)
+#input_file <- "13_VecF1_R2_S13-Cleaned19Apr24.csv"
+
+#[1] "09_S18-Cleaned15May24.csv" "10_S19-Cleaned15May24.csv" "11_S20-Cleaned15May24.csv" "12_S21-Cleaned15May24.csv" "33_S7-Cleaned15May24.csv" 
+#[6] "34_S8-Cleaned15May24.csv"  "35_S9-Cleaned15May24.csv"  "37_S11-Cleaned15May24.csv" "41_S16-Cleaned15May24.csv"
 
 results <- read.csv(paste(root_dir, input_file, sep = ''), header = T, stringsAsFactors = F)
 
@@ -45,6 +45,73 @@ rm(tmp_res)
 # Imports
 source("~/VHH/lib/utilities.R")
 suppressPackageStartupMessages(library(ggseqlogo))
+suppressPackageStartupMessages(library(stringdist))
+```
+
+```{r, echo = F, eval = T, warning = F}
+seqs <- data.frame()
+
+for (nm in unique(results$clone_id)){
+  tmp_frame <- results[results$clone_id == nm,]
+  # Pull most frequent VHH
+  most_abundant_VHH <- tmp_frame[which.max(tmp_frame$duplicate_count),]$VHH
+  clone_id <- tmp_frame[which.max(tmp_frame$duplicate_count),]$clone_id
+  CDR3 <- tmp_frame[which.max(tmp_frame$duplicate_count),]$junction_aa
+  duplicate_count <- tmp_frame[which.max(tmp_frame$duplicate_count),]$duplicate_count
+  centroid_id <- tmp_frame[which.max(tmp_frame$duplicate_count),]$centroid_id
+  
+  seqs <- rbind(seqs, cbind(clone_id, centroid_id, most_abundant_VHH, CDR3, duplicate_count))
+}
+
+
+# Pull sequences
+sequences <- Biostrings::AAStringSet(seqs$most_abundant_VHH)
+# Add names
+names(sequences) <- seqs$clone_id
+# Perform multiple sequence alignment
+msa_result <- msa::msa(sequences, method = "ClustalOmega", order = "input")
+# Store aligned results
+seqs$aligned_VHHs <- as.character(msa_result@unmasked)
+# Gsub for readability
+seqs$aligned_VHHs <- gsub("-", "_", seqs$aligned_VHHs)
+# Convert duplicate count to numeric
+seqs$duplicate_count <- as.numeric(seqs$duplicate_count)
+
+seqs <- seqs[order(seqs$duplicate_count, decreasing = T),]
+
+write.csv(seqs, file = paste("~/Downloads/GS-Families-Aligned-Experiment-", input_file, sep = ''), row.names = F)
+```
+
+```{r, echo = F, eval = F, warning = F}
+counts <- 1
+
+tmp_res <- seqs[seqs$duplicate_count >= counts,]
+
+strings <- tmp_res$most_abundant_VHH
+
+CDR3s <- tmp_res$CDR3
+
+# Compute the distance matrix using
+dist_matrix <- stringdistmatrix(strings, method = "lv")
+
+# Perform hierarchical clustering
+cluster_tree <- hclust(as.dist(dist_matrix), method = "complete")
+
+# ordering <- order.dendrogram(as.dendrogram(cluster_tree))
+
+main_title <- paste("Cluster Dendrogram of CDR3 families from ", gsub("-Cleaned19Apr24.csv", "", input_file),"\nDemand >= ", counts," VHHs, Distance Metric: Levenshtein", sep = '')
+
+tmp_res <- tmp_res[cluster_tree$order,]
+
+write.csv(tmp_res, file = paste("~/Downloads/GS-CoV-HCLUST-ORDERED-",input_file, sep = ''), row.names = F)
+
+par(family = "Courier")
+
+# Plot the dendrogram with labels
+plot(cluster_tree, main = main_title, xlab = "VHH Count-Clonal Family-Subfamily-CDR3", sub = NULL, 
+     labels = paste(tmp_res$duplicate_count,'-C', tmp_res$clone_id, '-SF', tmp_res$centroid_id,'-',tmp_res$CDR3, sep = ''), 
+     ylab = "Distance (Levenshtein)", 
+     cex = 0.75)
 ```
 
 ## Database Statistics
@@ -57,19 +124,22 @@ median_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing 
 median_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
 
 if (TRUE){
-cat("Database: ", gsub("_min_threshold_clone-pass.csv", "",results$source_file[1]), '\n', sep = '')
+cat("Database: ", input_file, '\n', sep = '')#gsub("_min_threshold_clone-pass.csv", "",results$source_file[1]), '\n', sep = '')
 cat("Overall Members (Including Duplicate DNA Reads): ", sum(results$duplicate_count), '\n', sep = '')
+cat("Number of Clonal Families: ", length(unique(results$clone_id)), '\n', sep = '')
 cat("Number of Sub-families: ", length(unique(results$centroid_id)), '\n', sep = '')
-cat("Unique VHHs: ", length(unique(results$VHH)), '\n', sep = '')
-cat("Unique CDR3s: ", length(unique(results$junction_aa)), '\n', sep = '')
+cat("Unique VHHs (Amino Acid-level): ", length(unique(results$VHH)), '\n', sep = '')
+cat("Unique CDR3s (Amino Acid-level): ", length(unique(results$junction_aa)), '\n', sep = '')
 cat("Most-frequent CDR3: ", median_CDR3, '\n', sep = '')
 cat("Most-frequent VHH: ", median_VHH, '\n', sep = '')
 cat("VHH's by Grouping:\n")
 print(table(results$group))
 cat("Clonal Family Membership Statistics:\n")
 print(summary(as.numeric(table(results$clone_id))))
-cat("Subcluster Membership Statistics:\n")
+cat("Clonal Subfamily Membership Statistics:\n")
 print(summary(as.numeric(table(results$centroid_id))))
+cat("Clonal Family Representation (clone_id on top, count on bottom):\n")
+print(top_groups(results, "clone_id"))
 }
 ```
 
@@ -80,7 +150,7 @@ print(summary(as.numeric(table(results$centroid_id))))
 tab <- top_groups(results, "clone_id")
 
 for (nm in head(names(tab), 100)){
-  tmp_frame <- results[results$clone_id == as.numeric(nm),]
+  tmp_frame <- results[results$clone_id == nm,]
   unrolled_VHHs <- unroll_dupes_fast(tmp_frame, "VHH")
   unrolled_CDR3s <- unroll_dupes_fast(tmp_frame, "junction_aa")
   # Pull statistics
@@ -90,9 +160,9 @@ for (nm in head(names(tab), 100)){
   if (length(unique(tmp_frame$group)) == 2){
     tmp_frame$group <- rep("mixed", each = nrow(tmp_frame))
   }
-  
+# unique(substr(input_file, 1, 2)),'-'
   if (nrow(tmp_frame) > 1){
-      cat(paste('Family: ',unique(substr(tmp_frame$source_file, 1, 2)),'-',unique(tmp_frame$clone_id), '\n', sep = ''))
+      cat(paste('Family: ',unique(tmp_frame$clone_id), '\n', sep = ''))
       cat(paste("Group: ", unique(tmp_frame$group)), '\n', sep = '')
       cat("Overall Members (Including Duplicate DNA Reads): ", sum(tmp_frame$duplicate_count), '\n', sep = '')
       cat("Number of Sub-families: ", length(unique(tmp_frame$centroid_id)), '\n', sep = '')

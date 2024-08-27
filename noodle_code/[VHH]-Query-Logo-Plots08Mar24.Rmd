@@ -2,7 +2,7 @@
 title: "[VHH]-Query-Logo-Plots"
 subtitle: "Query CDR3: NTGAV"
 output: html_document
-date: "2024-03-08"
+date: "2024-03-09"
 ---
 
 ```{r, echo = F, eval = T, warning=F}
@@ -34,7 +34,7 @@ for (nm in head(names(tab), 50)){
   common_CDR3 <- names(table(tmp_frame$junction_aa)[order(table(tmp_frame$junction_aa), decreasing = T)][1])
   
   if (nrow(tmp_frame) > 1){
-      cat("Group ID: ", unique(tmp_frame$clone_id), '\n', sep = '')
+      cat("Group ID: ", paste('S',unique(substr(tmp_frame$f, 1, 2)),'-',unique(tmp_frame$clone_id), sep = ''), '\n', sep = '')
       cat("Overall Members: ", nrow(tmp_frame), '\n', sep = '')
       cat("Unique VHHs: ", length(unique(tmp_frame$Aligned_VHHs)), '\n', sep = '')
       cat("Unique CDR3s: ", length(unique(tmp_frame$junction_aa)), '\n', sep = '')

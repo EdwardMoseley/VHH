@@ -72,6 +72,44 @@ cat("[Dat] Row count after Merge:", nrow(dat), "\n")
 colnames(dat)[which(colnames(dat) == "duplicate_count.x")] <- "duplicate_count"
 colnames(dat)[which(colnames(dat) == "duplicate_count.y")] <- "VHH_duplicate_count"
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+dat <- read.csv("~/Downloads/4_L1_lh3_S4_db-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+
+output_file <- "~/Downloads/4_L1_lh3_S4_db_min_threshold_clone-pass.csv"
+
 cat("Calculating distToNearest...\n")
 
 db <- shazam::distToNearest(dat, model = "ham", 

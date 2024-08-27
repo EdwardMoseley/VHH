@@ -1,191 +1,129 @@
-## ###
-## Abundance_Tables.R
-## ###
+## HPC_GS_Lookup
 
-## Load Utilities
-# source("~/VHH/lib/utilities.R")
-#
-## Load Utilities
+# Utilities
 source("/cluster/tufts/cowenlab/emosel01/code/lib/utilities.R")
 
-## Pull Root Directory
-root_dir <- "/cluster/tufts/cowenlab/emosel01/data/"
+root_dir <- "/cluster/tufts/cowenlab/emosel01/data/XLI/"
+file_name <- "GS_XLI_d2VHH_21Aug24-cleaned-GS.csv"
 
-output_table <- "background_abundance_table.csv"
+files <- list.files(root_dir)[grepl("-pass.tsv", list.files(root_dir))]
 
-cat("Creating: ", paste0(root_dir, output_table),"\n", sep = '')
-
-## Draw file info from commandArgs (for use later)
-# args <- commandArgs(trailingOnly=TRUE)
-# file_name <- args[1] 
-
-## /cluster/tufts/cowenlab/emosel01/data/hclust
-
-
-# Create a list to use as a dictionary
-files <- list()
-
-cat("Locating Files:\n")
-## Can change this later to be file_name <- "globals/GS_d2_18Jun24-Cleaned19Apr24.csv"
-cat(paste0(root_dir, "globals/GS_background_d2VHH_16Jul24-Cleaned19Apr24.csv\n"))
-
-# Populate key/values with files and their keys
-files[["master"]] <- paste0(root_dir, "globals/GS_background_d2VHH_16Jul24-Cleaned19Apr24.csv")
-
-file_list <- list.files(paste0(root_dir, "background/"))
-
-for (nm in gsub("_db-pass.tsv", "", file_list)){
-  # Load file
-  cat(paste0("background/",nm, "_db-pass.tsv\n"))
-  files[[nm]] <- paste0(root_dir, paste0("background/",nm, "_db-pass.tsv"))
-}
-
-max_clone_count <- 0
-max_id <- "S0"
-
-cat("Locating Files:\n")
-for (nm in names(files)){
-  cat(nm, '\n')
-  if (nm != "master"){
-    cat("Loading: ", nm, '\n')
-    files[[nm]] <- read.csv(files[[nm]], header = T, stringsAsFactors = F, sep = '\t')
-  } else {
-    cat("Loading: ", nm, '\n')
-    files[[nm]] <- read.csv(files[[nm]], header = T, stringsAsFactors = F)
-  }
-  
-  cat("Pre-Cleaning:\n")
-#  print(head(files[[nm]]))
-  clone_count <- length(unique(files[[nm]]$clone_id))
-  cat(clone_count, '\n')
-  cat(sum(files[[nm]]$duplicate_count), '\n')
-  
-  if (nm != "master"){
-    # Trim CDR3s
-    files[[nm]]$junction_aa <- trim_CDR3(files[[nm]]$junction_aa)
-    # Translate alignments to VHHs
-    files[[nm]]$VHH <- fixed_translate_DNA(files[[nm]]$sequence_alignment)
-    # Trim sequence, as we do elsewhere
-    files[[nm]]$VHH <- substr(files[[nm]]$VHH, 11, nchar(files[[nm]]$VHH))
-    # Drop unproductive sequences
-    files[[nm]] <- unproductive(files[[nm]])
-  }
-  
-  cat("After-Cleaning:\n")
-  cat(length(unique(files[[nm]]$clone_id)), '\n')
-  cat(sum(files[[nm]]$duplicate_count), '\n')
-  cat('\n')
-  
-  if (max_clone_count < clone_count){
-    max_clone_count <- clone_count
-    max_id <- nm
-  }
-}
-
-# Subset the global set
-master <- files[["master"]]
-
-# Iterate over the files to ensure that we have VHH's accounted for
-for (f in names(files)){
-  cat(f, '\n')
-  cat(nrow(files[[f]]), '\n')
-  files[[f]] <- files[[f]][which(files[[f]]$VHH %in% master$VHH),]
-  cat(nrow(files[[f]]), '\n')
-}
-
-## Assign Families from Global Set
-
-## ###
-## Note: Is there a bug here?
-## We need to perform lookups by full-VHH
-## As the CDR3 could have ambiguous/incourrect matches
-## ###
-
-res <- data.frame()
-for (f in names(files)[names(files) != "master"]){
-  # Subset data frame
-  tmp <- files[[f]]
-  print(f)
-  #print(table(tmp$clone_id))
-  # Iterate over each VHH
-  count <- 0
-  max_count <- length(unique(tmp$junction_aa))
-  for (CDR3 in unique(tmp$junction_aa)){
-    count <- count + 1
-    if (round(count/max_count*100, 2) %% 5 == 0) cat("Progress:", round(count/max_count*100, 2), '\n')
-    tmp_frame <- tmp[tmp$junction_aa == CDR3,]
-    tmp_frame$clone_id <- rep(master[which(master$junction_aa == CDR3),]$clone_id[1], nrow(tmp_frame))
-    tmp_frame$f <- rep(f, nrow(tmp_frame))
-    # Rbind those
-    res <- rbind(res, tmp_frame)
-  }
-}
-
-cat("Writing: ", paste0(root_dir, output_table), '\n', sep = '')
-write.csv(res, file = paste0(root_dir, output_table), row.names = F)
-
-## Aggregate to clone level
-
-dfs <- list()
-
-for (nm in names(files)){
-  cat(nm, '\n')
-  dfs[[nm]] <- clonal_statistics(res[res$f == nm,])
-}
-
-# Remove clone ids
-for (nm in names(files)){
-  dfs[[nm]]$clone_id <- NULL
-  # We don't need clone_id in this case
-}
+GS_name <- list.files(root_dir)[grepl("GS", list.files(root_dir))]
 
 # Drop global set
-dfs[["master"]] <- NULL
+files <- files[!(files %in% GS_name)]
 
-# Merge order table
+print("File list:")
+print(files)
 
-merge_order <- data.frame()
+cat("Loading:", file_name, '\n')
 
-for (nm in names(dfs)){
-  cat(nm, '\n')
-  cat(nrow(dfs[[nm]]), '\n')
-  cat(length(unique(dfs[[nm]]$median_CDR3)), '\n')
-  # Look at counts
-  # print(as.numeric(sum(dfs[[nm]]$abundance)))
+## Load Global Set
+GS <- read.csv(paste0(root_dir,file_name),
+               header = T, stringsAsFactors = F)
+
+
+## Strategy:
+
+# Merge experiment_data to global_data on sequence_id for clone_ids
+
+
+## Note:
+# If they're in the Global Set, then they MUST
+# Have >= 2 VHH observations across multiple sets (no singleton sequences)
+# Not have a premature stop codon
+# As a result, we can expect to lose a lot of samples from each component
+# data set.
+
+
+results <- list()
+for (f in files){
+  tmp <- read.csv(paste0(root_dir, f), header = T, stringsAsFactors = F, sep = '\t')
+  # Drop clone info if it is there
+  tmp$dist_nearest <- NULL
+  tmp$clone_id <- NULL
   
-  merge_order <- rbind(merge_order, cbind(nm, length(unique(dfs[[nm]]$median_CDR3))))
+  tmp <- merge(GS[,c("sequence", "clone_id")], tmp, by = "sequence", all.x = T)
+  tmp <- tmp[!is.na(tmp$duplicate_count),]
+  tmp$file <- rep(f, times = nrow(tmp))
+  results[[f]] <- tmp
 }
 
-merge_order <- as.data.frame(merge_order)
-colnames(merge_order) <- c("run", "counts")
-merge_order$counts <- as.numeric(as.character(merge_order$counts))
-merge_order <- merge_order[order(merge_order$counts, decreasing = T),]
 
-for (i in 1:nrow(merge_order)){
-  # Rename abundance
-  colnames(dfs[[merge_order$run[i]]])[2] <- paste0("abundance-", merge_order$run[i])
+for (f in names(results)){
+  cat(f, '\n')
+  cat(length(unique(results[[f]]$clone_id)), '\n')
 }
 
-tmp <- merge(dfs[[merge_order$run[1]]], 
-             dfs[[merge_order$run[2]]], 
-             by = "median_CDR3", all.x = T)
 
+# Aggregate each experiment's duplicate_count to the clone_id level
 
-for (i in 3:nrow(merge_order)){
-  tmp <- merge(tmp, dfs[[merge_order$run[i]]], 
-               all.x = T, 
-               by = "median_CDR3")
+dat <- results
+
+for (nm in names(dat)){
+  dat[[nm]] <- aggregate(duplicate_count ~ clone_id, FUN = sum, data = dat[[nm]])
 }
 
-holder <- tmp
+# Merge duplicate counts on clone id to GS_agg, GS will have CDR3 mode identifier
 
-for (nm in colnames(tmp)[2:ncol(tmp)]){
-  tmp[[nm]] <- as.numeric(tmp[[nm]])
+GS_agg <- data.frame()
+# Iterate over clone ids
+for (nm in unique(GS$clone_id)){
+  tmp_frame <- GS[GS$clone_id == nm,]
+  # Unroll
+  unrolled_VHHs <- unroll_dupes_fast(tmp_frame, "VHH")
+  unrolled_CDR3s <- unroll_dupes_fast(tmp_frame, "junction_aa")
+  # Pull statistics
+  median_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)][1])
+  median_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
+  abundance <- sum(tmp_frame$duplicate_count)
+  
+  # Keep the integer as the cluster_id
+  clone_id <- nm
+  
+  GS_agg <- rbind(GS_agg, cbind(clone_id, median_CDR3, median_VHH, abundance))
 }
 
-# Replace NA's with zero
-tmp[is.na(tmp)] <- 0
 
-cat("Writing: ", "/cluster/tufts/cowenlab/emosel01/data/GS_background_18Jul24-Cleaned.csv", '\n')
-write.csv(tmp, file = "/cluster/tufts/cowenlab/emosel01/data/GS_background_18Jul24-Cleaned.csv", row.names = F)
+holder <- GS_agg
+
+for (nm in names(dat)){
+  colnames(dat[[nm]])[2] <- gsub("_min_threshold_clone-pass.csv", "", nm)
+  GS_agg <- merge(GS_agg, dat[[nm]], by = "clone_id", all.x = T)
+}
+
+GS_agg[is.na(GS_agg)] <- 0
+
+tmp <- GS_agg
+
+strings <- tmp$median_VHH
+
+CDR3s <- tmp$median_CDR3
+
+cat("Computing Distance Matrix.\n")
+
+# Compute the distance matrix
+dist_matrix <- stringdist::stringdistmatrix(strings, method = "lv")
+
+# Perform hierarchical clustering
+cluster_tree <- hclust(as.dist(dist_matrix), method = "complete")
+
+tmp <- tmp[cluster_tree$order,]
+
+#main_title <- paste("Cluster Dendrogram of CDR3 families Abundance Data\nDemand >= ", 2," VHHs, Distance Metric: Levenshtein", sep = '')
+
+#par(family = "Courier", cex = 0.75)#0.55)
+
+# Plot the dendrogram with labels
+#plot(cluster_tree, 
+#     main = main_title, 
+#     xlab = "Overall VHH Count-Mode CDR3", sub = NULL, 
+#     labels = tmp$median_CDR3,#[cluster_tree$order]), 
+#     ylab = "Distance (Levenshtein)", 
+#     cex = 0.75)#0.55)
+
+file_name <- gsub("-cleaned-GS.csv", "abundance_table.csv", file_name)
+
+cat("Writing:", paste0(root_dir, file_name), '\n')
+write.csv(tmp, file = paste0(root_dir, file_name), row.names = F)
 

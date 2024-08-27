@@ -1,0 +1,711 @@
+---
+title: "[VHH]-Complete-Cluster-Pooling-and-Cleaning"
+output: html_document
+date: "2024-04-03"
+---
+
+
+## Load clonal database
+
+```{r}
+# Load utilities
+suppressPackageStartupMessages(library(stringdist))
+source("~/VHH/lib/utilities.R")
+dat <- read.csv("~/VHH/data/Cluster-DBs/phylogenetic_dbs/18_VecF3_R4_S18_min_threshold_clone-pass.csv", header = T, stringsAsFactors = F)
+```
+
+## Derive Statistics
+
+Creates a data frame with one `median_CDR3` observation per `clone_id`.
+
+```{r}
+## Data frame for storing all results
+tab <- table(dat$clone_id)
+# Instantiate a counter
+counter <- 0
+# instantiate tmp_res
+tmp_res <- data.frame()
+
+for (nm in names(tab)){
+  # Remind where we are
+  if (counter %% 100 == 0){
+    cat("Progress: ", round(counter/length(tab)*100, 2), "%", '\n', sep = '')
+  }
+  # Increment Counter
+  counter <- counter + 1
+  # Subset the clones of interest
+  tmp_frame <- dat[dat$clone_id == as.numeric(nm),]
+  tmp_frame$junction_aa <- trim_CDR3(tmp_frame$junction_aa)
+  # Keep the integer as the cluster_id
+  clone_id <- nm
+  ## Note: here we need to ensure that we account for the duplicates
+  unrolled_CDR3s <- unroll_dupes_fast(tmp_frame, "junction_aa")
+  # Make consensus sequence
+  consensus_sequence <- strict_consensus(unrolled_CDR3s)
+  # Pull statistics
+  median_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
+  # Bind results
+  tmp_res <- rbind(tmp_res, cbind(clone_id,
+                                  consensus_sequence,
+                                  median_CDR3))
+}
+
+rm(tmp_frame)
+```
+
+## Identify groups with the same median CDR3
+
+Now we find all duplicate `median_CDR3` observations, and store them in `df`.
+
+```{r}
+# If we find a duplicated median_CDR3 in tmp_res, then those families should be pooled
+df <- tmp_res[duplicated(tmp_res$median_CDR3) | duplicated(tmp_res$median_CDR3, fromLast=TRUE),]
+df$med_len <- nchar(df$median_CDR3)
+```
+
+```{r}
+non_dup_df <- tmp_res[!(tmp_res$clone_id %in% df$clone_id),]
+non_dup_df$med_len <- nchar(non_dup_df$median_CDR3)
+```
+
+```{r}
+summary(df$med_len)
+summary(non_dup_df$med_len)
+t.test(df$med_len, non_dup_df$med_len)
+```
+
+**Here we could run statistics on families that tend to have multiple families.**
+
+## Combine groups with identical median CDR3s
+
+Strategy:
+
+1. Iterate over unique `df$median_CDR3`
+
+2. Pull the `clone_id` values associated with the duplicate CDR3s from `dat`
+
+3. Subset them, tally members
+
+4. Absorb the smaller families into the larger ones
+
+```{r}
+results <- dat
+
+for (median_CDR3 in unique(df$median_CDR3)){
+  # Subset from the statistics database
+  tmp <- df[df$median_CDR3 == median_CDR3,]
+  # Subset from the clonal database
+  tmp_frame <- results[(results$clone_id %in% tmp$clone_id),]
+  # Tabulate clone_ids to find which family is larger
+  tablet <- table(tmp_frame$clone_id)
+  # Order
+  tablet <- tablet[order(tablet, decreasing = T)]
+  # Iterate over 2..length(tablet), adding other groups to the top group
+  for (nm in as.numeric(names(tablet)[2:length(tablet)])){
+    results[results$clone_id == nm,]$clone_id <- rep(as.numeric(names(tablet[1])), each = nrow(results[results$clone_id == nm,]))
+  }
+}
+```
+
+## Double-check
+
+```{r}
+dat <- results
+
+## Data frame for storing all results
+tab <- table(dat$clone_id)
+# Instantiate a counter
+counter <- 0
+# Reinstantiate tmp_res
+
+tmp_res <- data.frame()
+for (nm in names(tab)){
+  # Remind where we are
+  if (counter %% 100 == 0){
+    cat("Progress: ", round(counter/length(tab)*100, 2), "%", '\n', sep = '')
+  }
+  # Increment Counter
+  counter <- counter + 1
+  # Subset the clones of interest
+  tmp_frame <- dat[dat$clone_id == as.numeric(nm),]
+  tmp_frame$junction_aa <- trim_CDR3(tmp_frame$junction_aa)
+  # Keep the integer as the cluster_id
+  clone_id <- nm
+  ## Note: here we need to ensure that we account for the duplicates
+  unrolled_CDR3s <- unroll_dupes_fast(tmp_frame, "junction_aa")
+  # Make consensus sequence
+  consensus_sequence <- strict_consensus(unrolled_CDR3s)
+  # Pull statistics
+  median_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
+  # Bind results
+  tmp_res <- rbind(tmp_res, cbind(clone_id,
+                                  consensus_sequence,
+                                  median_CDR3))
+}
+
+```
+
+The data frame below should be empty.
+
+```{r}
+df <- tmp_res[duplicated(tmp_res$median_CDR3) | duplicated(tmp_res$median_CDR3, fromLast=TRUE),]
+```
+
+#### Write [19_VecF1_R3_S19]-pooled-families03Apr24.csv
+
+```{r}
+# write.csv(results, file = "~/Downloads/20_VecF2_R3_S20-pooled-families04Apr24.csv", row.names = F)
+```
+
+# Collapse-DBs-to-AA-Seqs.R
+
+```{r}
+files <- c("18_VecF3_R4_S18-pooled-families04Apr24.csv","19_VecF1_R3_S19-pooled-families04Apr24.csv", "20_VecF2_R3_S20-pooled-families04Apr24.csv")
+
+f <- files[1]
+
+# Iterate over files
+# for (f in files){
+  # Load the file
+
+tmp <- results # read.csv(paste(root_dir, f, sep = ''), header = T, stringsAsFactors = F)
+# Capture source file
+tmp$source_file <- rep(f, each = nrow(tmp))
+# Trim CDR3
+tmp$junction_aa <- trim_CDR3(tmp$junction_aa)
+# Translate - VHH
+tmp$VHH <- translate_DNA(tmp$sequence_alignment)
+# Trim sequences
+tmp$VHH <- substr(tmp$VHH, 11, nchar(tmp$VHH))
+# Drop unproductive sequences
+all_seqs <- nrow(tmp)
+# Keep productive only
+tmp <- unproductive(tmp)
+filtered_seqs <- nrow(tmp)
+# Elevator music
+cat(f, '\n')
+cat(round(100 - (filtered_seqs/all_seqs*100), 2), "% of sequences unproductive.\n", sep = '')
+# Keep only necessary information
+tmp <- tmp[,c("sequence_id","VHH","junction_aa","duplicate_count", "clone_id", "source_file")]
+# Hold another frame for collapsing VHHs
+tmp_frame <- tmp[ ,c("VHH", "duplicate_count")]
+# Drop duplicate count, as we will add it back later
+tmp$duplicate_count <- NULL
+# Aggregate
+tmp_frame <- aggregate(duplicate_count ~ VHH, data = tmp_frame, FUN = sum)
+# Merge back to other data
+tmp <- merge(tmp_frame, tmp, by = "VHH")
+# Drop duplicates
+tmp <- tmp[!duplicated(tmp$VHH),]
+
+  # Rename file
+  f <- gsub("-pooled-families04Apr24.csv", "-pooled-families_VHH_database04Apr24.csv", f)
+  # Write
+#  write.csv(tmp, file = paste(output_dir, f, sep = ''), row.names = F)
+  #results <- rbind(tmp, results)
+#}
+```
+
+# AA-DB-mmseqs2-Clustering.R
+
+Here, we will cluster each `clone_id` according to homology.
+
+```{r}
+# AA-DB-mmseqs2-Clustering
+
+# Imports
+# store directory info
+root_dir <- "/Users/emoseley/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/"
+output_dir <- "/Users/emoseley/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/tmp/"
+
+# Load up data
+#files <- list.files(root_dir)
+#files <- files[grepl("VHH_database.csv", files)]
+
+#files <- c("20_VecF2_R3_S20-pooled-families_VHH_database04Apr24.csv", "19_VecF1_R3_S19-pooled-families_VHH_database04Apr24.csv")
+
+f <- gsub("-pooled-families04Apr24.csv", "-pooled-families_VHH_database04Apr24.csv", f)
+
+#for (f in files[2]){
+  # Load the file
+  # tmp <- read.csv(paste(root_dir, f, sep = ''), header = T, stringsAsFactors = F)
+  # Create a data frame for holding results
+  results <- data.frame()
+  # Iterate over Hierarchically Clustered clone_ids, re-clustering
+  for (nm in unique(tmp$clone_id)){
+    # Subset observations
+    tmp_frame <- tmp[tmp$clone_id == nm,]
+    # write fasta for mmseqs2
+    write_fasta(tmp_frame, "VHH", "sequence_id", paste(output_dir, "tmp.fasta", sep = ''))
+    # Prepare mmseqs command
+    command <- paste("/usr/local/Cellar/mmseqs2/15-6f452/bin/mmseqs ", 
+                     "easy-cluster -v 2 --min-seq-id 0.95 ", 
+                     paste(output_dir, "tmp.fasta", sep = ''), 
+                     paste(output_dir, "tmp-H95", sep = ''),
+                     paste(output_dir, "tmp", sep = ''))
+    ## Call mmseqs to do its job
+    system(command)
+    # Load results
+    dat <- read.csv(paste(output_dir,"tmp-H95_cluster.tsv", sep = ''), header = F, stringsAsFactors = F, sep = '\t')
+    # Assign Variable Names
+    colnames(dat) <- c("centroid", "sequence_id")
+    # Create a centroid id
+    dat$centroid_id <- as.numeric(factor(dat$centroid))
+    # We're going to use the sequence ids as keys, so we want to clean them
+    tmp$sequence_id <- clean_seq_ids(tmp$sequence_id)
+    dat$centroid <- clean_seq_ids(dat$centroid)
+    dat$sequence_id <- clean_seq_ids(dat$sequence_id)
+    # merge results
+    dat <- merge_db_to_centroids(dat, tmp)
+    # Combine results and move on
+    results <- rbind(results, dat)
+#  }
+  # write.csv(results, file = paste(root_dir, gsub("VHH_database04Apr24.csv", "subclustered_database04Apr24.csv", f), sep = ''), row.names = F)
+}
+
+```
+
+# [VHH]-Cluster-Refining30Mar24.Rmd
+
+Here, we want to:
+
+1. Remove outlier subfamilies
+  * 0-5AA CDR3 < 100% Homology to Herarchically-Clustered VHH
+  * 6-10AA CDR3 < 80% Homology to Herarchically-Clustered VHH
+  * >10AA CDR3 < 60% Homology to Herarchically-Clustered VHH
+
+2. Place them into a "Outlier Database"
+
+3. Re-define Hiearchical Clones
+
+4. Sub-cluster each clone with MMseqs2
+
+```{r, echo = F, eval = T}
+#dat <- read.csv("~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/19_VecF1_R3_S19_subclustered_database.csv", 
+#                header = T, stringsAsFactors = F)
+
+#dat <- read.csv("~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/20_VecF2_R3_S20-pooled-families_subclustered_database04Apr24.csv", 
+#                header = T, stringsAsFactors = F)
+
+dat <- results
+
+# Imports
+# source("~/VHH/lib/utilities.R")
+suppressPackageStartupMessages(library(stringdist))
+suppressPackageStartupMessages(library(ggseqlogo))
+```
+
+### Family Statistics:
+
+1. `family_median_VHH_homology` - Statistic is defined as the VHH's percent homology to the family median VHH.
+
+2. `family_median_CDR3_homology` - Statistic is defined as the CDR3's percent homology to the family median CDR3.
+
+```{r, echo = F, eval = T}
+# Hold results in results
+results <- data.frame()
+# Iterate over clone ids
+for (nm in unique(dat$clone_id)){
+  tmp_frame <- dat[dat$clone_id == nm,]
+  
+  # Unroll
+  unrolled_VHHs <- unroll_dupes_fast(tmp_frame, "VHH")
+  unrolled_CDR3s <- unroll_dupes_fast(tmp_frame, "junction_aa")
+  
+  # Pull statistics
+  median_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)][1])
+  median_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
+  consensus_CDR3 <- strict_consensus(unrolled_CDR3s)
+  
+  # Distance from median
+  tmp_frame$family_median_VHH_homology <- 100 - (as.vector(adist(median_VHH, tmp_frame$VHH))/nchar(median_VHH))*100
+  
+  tmp_frame$family_median_CDR3_homology <- 100 - (as.vector(adist(median_CDR3, tmp_frame$junction_aa))/nchar(median_CDR3))*100
+  
+  tmp_frame$family_consensus_CDR3_homology <- 100 - (as.vector(adist(consensus_CDR3, tmp_frame$junction_aa))/nchar(consensus_CDR3))*100
+  
+  results <- rbind(results, tmp_frame)
+}
+```
+
+### Sub-Family Statistics:
+
+3. `subfamily_median_VHH_homology` - Statistic is defined as the VHH's percent homology to its subfamily median VHH.
+
+4. `subfamily_median_CDR3_homology`- Statistic is defined as the CDR3's percent homology to its subfamily median CDR3.
+
+5. `VHH Homology Order Statistic` - After ordering VHH's by their `family_median_VHH_homology` (in the range 1 to the number of VHHs in the family), the `VHH Homology Order Statistic` can be used to access the VHH observation associated with it.
+
+`digest::digest("hello", algo = "md5")`
+
+### Note: Cleaning can probably be added here, too
+
+```{r, echo = F, eval = T, message = F, warning = F}
+dat <- results
+results <- data.frame()
+
+for (clone_id in unique(dat$clone_id)){
+  # Subset clone id
+  tmp <- dat[dat$clone_id == clone_id,]
+  # For each centroid id
+  for (nm in unique(tmp$centroid_id)){
+    #cat("Centroid ID:", nm, '\n')
+    tmp_frame <- tmp[tmp$centroid_id == nm,]
+    # Unroll strings
+    unrolled_VHHs <- unroll_dupes_fast(tmp_frame, "VHH")
+    unrolled_CDR3s <- unroll_dupes_fast(tmp_frame, "junction_aa")
+    # Pull statistics
+    median_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)][1])
+    median_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
+    consensus_CDR3 <- strict_consensus(unrolled_CDR3s)
+    # Distance from median
+    tmp_frame$subfamily_median_VHH_homology <- 100 - (as.vector(adist(median_VHH, tmp_frame$VHH))/nchar(median_VHH))*100
+    # Subfamiliy Median
+    tmp_frame$subfamily_median_CDR3_homology <- 100 - (as.vector(adist(median_CDR3, tmp_frame$junction_aa))/nchar(median_CDR3))*100
+    # Subfamily Consensus
+    tmp_frame$subfamily_consensus_CDR3_homology <- 100 - (as.vector(adist(consensus_CDR3, tmp_frame$junction_aa))/nchar(consensus_CDR3))*100
+    # Stack frames
+    results <- rbind(results, tmp_frame)
+  }
+}
+
+# Ordering
+results <- results[order(results$family_median_VHH_homology, 
+                         results$subfamily_median_VHH_homology, 
+                         results$duplicate_count, 
+                         decreasing = T),]
+
+# Order statistic
+results$order_index <- 1:nrow(results)
+```
+
+## Iterate Over families and centroids, culling members for further clustering
+
+1. Remove outlier subfamilies
+  * 0-5AA CDR3 < 100% Homology to Herarchically-Clustered VHH
+  * 6-10AA CDR3 < 80% Homology to Herarchically-Clustered VHH
+  * >10AA CDR3 < 60% Homology to Herarchically-Clustered VHH
+
+2. Place them into a "Outlier Database"
+
+3. Re-define Hiearchical Clones
+
+4. Sub-cluster each clone with MMseqs2
+
+```{r}
+dat <- results
+# Store results (keepers)
+results <- data.frame()
+# Store outliers (for re-clustering)
+outliers <- data.frame()
+
+# Iterate over unique clone ids
+for (clone_id in unique(dat$clone_id)){
+  cat("Clone:", clone_id, '\n')
+  # Subset clone id
+  tmp <- dat[dat$clone_id == clone_id,]
+  
+  # For each centroid id
+  for (nm in unique(tmp$centroid_id)){
+    cat("Subcluster ID:", nm, '\n')
+    # Subset centroid id
+    tmp_frame <- tmp[tmp$centroid_id == nm,]
+    # Calculate quick stats for rule-based cleaning
+    CDR3_length <- nchar(tmp_frame$junction_aa[1])
+    avg_CDR3_percent_homology <- mean(tmp_frame$family_median_CDR3_homology)
+    
+    # Rule-based Cleanup here
+    if (CDR3_length < 5 & avg_CDR3_percent_homology < 100){
+      outliers <- rbind(outliers, tmp_frame)
+    } else if (CDR3_length < 10 & avg_CDR3_percent_homology < 80){
+      outliers <- rbind(outliers, tmp_frame)
+    } else if (CDR3_length >= 10 & avg_CDR3_percent_homology < 60){
+      outliers <- rbind(outliers, tmp_frame)
+    } else {
+      results <- rbind(results, tmp_frame)
+    }
+  }
+  
+}
+
+# Store clean results
+clean_results <- results
+outlier_results <- outliers
+```
+
+## Check Results
+
+```{r}
+cat("Percent VHH outliers: ", round(nrow(outliers)/nrow(dat)*100, 2), '\n')
+cat("Subfamily outliers:\n")
+print(table(outliers$clone_id)[order(table(outliers$clone_id), decreasing = T)])
+```
+
+#### Write
+
+```{r}
+# write.csv(clean_results, file = "~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/S18-pooled-clean-database04Apr24.csv", row.names = F)
+# write.csv(outlier_results, file = "~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/S18-pooled-outlier-database04Apr24.csv", row.names = F)
+```
+
+# [VHH]-Outlier-Re-Clustering
+
+### Imports
+
+```{r}
+# Imports
+suppressPackageStartupMessages(library(ggseqlogo))
+suppressPackageStartupMessages(library(shazam))
+```
+
+## Load Outliers
+
+```{r}
+# Load outliers
+dat <- outliers# read.csv("~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/S19-pooled-outlier-database02Apr24.csv", header = T, stringsAsFactors = F)
+```
+
+```{r}
+# boxplot(dat$family_median_VHH_homology ~ dat$clone_id)
+```
+
+## Load Source Database
+
+```{r}
+tmp <- read.csv("~/VHH/data/Cluster-DBs/phylogenetic_dbs/18_VecF3_R4_S18_min_threshold_clone-pass.csv", 
+                header = T, stringsAsFactors = F)
+
+#tmp <- results
+tmp$junction_aa <- trim_CDR3(tmp$junction_aa)
+# Translate VHHs
+tmp$VHH <- translate_DNA(tmp$sequence_alignment)
+# Trim sequences
+tmp$VHH <- substr(tmp$VHH, 11, nchar(tmp$VHH))
+# Keep productive only
+tmp <- unproductive(tmp)
+```
+
+### Identify DNA Sequences of VHHs
+
+```{r}
+# Clean sequence ids
+tmp$sequence_id <- clean_seq_ids(tmp$sequence_id)
+
+# For the old data, we don't need the new duplicate count
+tmp$duplicate_count <- NULL
+```
+
+Merge to get data back
+
+```{r}
+dat <- merge(dat, tmp, by = c("sequence_id", "VHH", "junction_aa", "clone_id"))
+```
+
+## Drop old names
+
+```{r}
+colnames(dat)[which(colnames(dat) == "dist_nearest")] <- "old_dist_nearest"
+colnames(dat)[which(colnames(dat) == "clone_id")] <- "old_clone_id"
+colnames(dat)[which(colnames(dat) == "centroid_id")] <- "old_centroid_id"
+colnames(dat)[which(colnames(dat) == "centroid")] <- "old_centroid"
+colnames(dat)[which(colnames(dat) == "centroid_sequence_id")] <- "old_centroid_sequence_id"
+# Drop centroid info?
+```
+
+## Clonal Inference
+
+### Dist to nearest
+
+```{r}
+# Read the dataset
+db <- dat
+
+#file_out <- gsub("_db-", "_productive-", f)
+#cat('\n')
+#cat("Writing: ", f, '\n')
+#write.table(db, file = file_out, sep = '\t')
+
+cat("Calculating distToNearest...\n")
+
+db <- distToNearest(db, model = "ham", normalize = "len", 
+                    vCallColumn = "v_call", 
+                    jCallColumn = "j_call",
+                    nproc = 4)
+```
+
+```{r}
+# determine the threshold
+#threshold <- findThreshold(db$old_dist_nearest, method = "density", cutoff = "opt")
+#thr <- threshold@threshold
+
+thr <- summary(db$dist_nearest)[["Median"]]
+
+#print("Threshold Data:")
+#print(thr)
+new_thr <- thr + (thr*0.25)
+print("25% Higher Threshold:")
+print(round(new_thr, 2))
+
+cat("Inferring Clones:\n")
+system.time(
+# Clonal assignment using hierarchical clustering
+db <- scoper::hierarchicalClones(db, 
+                                 threshold=new_thr, 
+                                 v_call="v_call", 
+                                 j_call = "j_call")
+)
+
+db <- db@db
+```
+
+## Sub-cluster with MMseqs2
+
+```{r}
+output_dir <- "/Users/emoseley/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/tmp/"
+
+results <- data.frame()
+
+# Iterate over Hierarchically Clustered clone_ids, re-clustering
+for (nm in unique(db$clone_id)){
+  # Subset observations
+  tmp_frame <- db[db$clone_id == nm,]
+  # If the family has more than one member, we will re-cluster
+  if (nrow(tmp_frame) > 1){
+    # write fasta for mmseqs2
+    write_fasta(tmp_frame, "VHH", "sequence_id", paste(output_dir, "tmp.fasta", sep = ''))
+    # Prepare mmseqs command
+    command <- paste("/usr/local/Cellar/mmseqs2/15-6f452/bin/mmseqs ", 
+                     "easy-cluster -v 2 --min-seq-id 0.95 ", 
+                     paste(output_dir, "tmp.fasta", sep = ''), 
+                     paste(output_dir, "tmp-H95", sep = ''),
+                     paste(output_dir, "tmp", sep = ''))
+    ## Call mmseqs to do its job
+    system(command)
+    # Load results
+    dat <- read.csv(paste(output_dir,"tmp-H95_cluster.tsv", sep = ''), header = F, stringsAsFactors = F, sep = '\t')
+    # Assign Variable Names
+    colnames(dat) <- c("centroid", "sequence_id")
+    # Create a centroid id
+    dat$centroid_id <- as.numeric(factor(dat$centroid))
+    # We're going to use the sequence ids as keys, so we want to clean them
+    db$sequence_id <- clean_seq_ids(db$sequence_id)
+    dat$centroid <- clean_seq_ids(dat$centroid)
+    dat$sequence_id <- clean_seq_ids(dat$sequence_id)
+    # merge results
+    dat <- merge_db_to_centroids(dat, db)
+  } else {
+    # otherwise, we'll make up a centroid id and a sequence id, and
+    tmp_frame$centroid_id <- tmp_frame$sequence_id[1]
+    tmp_frame$centroid_sequence_id <- tmp_frame$sequence_id[1]
+    tmp_frame$centroid <- tmp_frame$VHH[1]
+    # Now we assign to dat for rbind
+    dat <- tmp_frame
+  }
+  # Combine results and move on
+  results <- rbind(results, dat)
+}
+
+results$centroid_id <- as.numeric(factor(results$centroid_id))
+```
+
+
+```{r}
+# Ordering
+results <- results[order(results$family_median_VHH_homology, 
+                         results$subfamily_median_VHH_homology, 
+                         results$duplicate_count, 
+                         decreasing = T),]
+
+# Order statistic
+results$order_index <- 1:nrow(results)
+```
+
+
+
+### Temporary Write
+
+```{r}
+#write.csv(results, 
+#          file = "~/Downloads/S18-pooled-outliers-re-clustered04Apr24.csv", row.names = F)
+```
+
+# Outlier-DB-Statistics ([VHH]-Clean-and-Outlier-Analysis02Apr24.Rmd)
+
+## Load Data
+
+```{r}
+# Load cleaned database
+clean_db <- results#read.csv("~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/S19-pooled-clean-database02Apr24.csv", header = T, stringsAsFactors = F)
+
+# Load re-clustered outliers
+outlier_db <- outliers# read.csv("~/Downloads/S19-pooled-outliers-re-clustered02Apr24.csv", header = T, stringsAsFactors = F)
+```
+
+### Family Statistics:
+
+1. `family_median_VHH_homology` - Statistic is defined as the VHH's percent homology to the family median VHH.
+
+2. `family_median_CDR3_homology` - Statistic is defined as the CDR3's percent homology to the family median CDR3.
+
+```{r, echo = F, eval = T}
+clean_db <- family_statistics(clean_db)
+outlier_db <- family_statistics(outlier_db)
+```
+
+### Sub-Family Statistics:
+
+3. `subfamily_median_VHH_homology` - Statistic is defined as the VHH's percent homology to its subfamily median VHH.
+
+4. `subfamily_median_CDR3_homology`- Statistic is defined as the CDR3's percent homology to its subfamily median CDR3.
+
+5. `VHH Homology Order Statistic` - After ordering VHH's by their `family_median_VHH_homology` (in the range 1 to the number of VHHs in the family), the `VHH Homology Order Statistic` can be used to access the VHH observation associated with it.
+
+```{r, echo = F, eval = T, message = F, warning = F}
+clean_test_db <- subfamily_statistics(clean_db)
+outlier_test_db <- subfamily_statistics(outlier_db)
+```
+
+## Harmonize Outlier DB
+
+For outliers, we will use their old `clone_id` and `centroid_id` values as prefixes to their new values.
+
+```{r}
+#outlier_test_db$clone_id <- paste(outlier_test_db$old_clone_id, '-', outlier_test_db$clone_id, sep = '')
+#outlier_test_db$centroid_id <- paste(outlier_test_db$old_centroid_id, '-', outlier_test_db$centroid_id, sep = '')
+
+# Clean column names
+outlier_test_db <- outlier_test_db[colnames(outlier_test_db) %in% colnames(clean_test_db)]
+clean_test_db <- clean_test_db[,colnames(outlier_test_db)]
+```
+
+### Add a large number to outlier clone IDs so they are distinguishable
+
+```{r}
+outlier_test_db$clone_id <- outlier_test_db$clone_id + 100000
+outlier_test_db$centroid_id <- outlier_test_db$centroid_id + 100000
+```
+
+### Stack and Write
+
+```{r}
+clean_test_db$group <- rep("clean", each = nrow(clean_test_db))
+outlier_test_db$group <- rep("outliers", each = nrow(outlier_test_db))
+
+results <- rbind(clean_test_db, outlier_test_db)
+```
+
+```{r}
+# Ordering
+results <- results[order(results$family_median_VHH_homology, 
+                         results$subfamily_median_VHH_homology, 
+                         results$duplicate_count, 
+                         decreasing = T),]
+
+# Order statistic
+results$order_index <- 1:nrow(results)
+
+write.csv(results, file = "~/Downloads/S19-Pooled-Cleaning-Reclustering-Initial-Results04Apr24.csv", row.names = F)
+```
+
+
+

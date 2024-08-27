@@ -31,11 +31,17 @@ suppressPackageStartupMessages(library(ggseqlogo))
 ## Load Data
 
 ```{r}
+root_dir <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/"
+clean_file <- "18_VecF3_R4_S18-pooled-clean-database-H90.csv"
+outlier_file <- "18_VecF3_R4_S18-pooled-outlier-reclustered-database-H90.csv"
+
 # Load cleaned database
-clean_db <- read.csv("~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/S18-clean-database02Apr24.csv", header = T, stringsAsFactors = F)
+#clean_db <- read.csv("~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/S19-pooled-clean-database02Apr24.csv", header = T, stringsAsFactors = F)
+clean_db <- read.csv(paste(root_dir, clean_file, sep = ''), header = T, stringsAsFactors = F)
 
 # Load re-clustered outliers
-outlier_db <- read.csv("~/Downloads/S18-outliers-re-clustered02Apr24.csv", header = T, stringsAsFactors = F)
+#outlier_db <- read.csv("~/Downloads/S19-pooled-outliers-re-clustered02Apr24.csv", header = T, stringsAsFactors = F)
+outlier_db <- read.csv(paste(root_dir, outlier_file, sep = ''), header = T, stringsAsFactors = F)
 ```
 
 ### Family Statistics:
@@ -60,7 +66,6 @@ outlier_db <- family_statistics(outlier_db)
 ### Note: Cleaning can probably be added here, too
 
 ```{r, echo = F, eval = T, message = F, warning = F}
-
 clean_test_db <- subfamily_statistics(clean_db)
 outlier_test_db <- subfamily_statistics(outlier_db)
 ```
@@ -90,7 +95,6 @@ outlier_test_db$centroid_id <- outlier_test_db$centroid_id + 100000
 clean_test_db$group <- rep("clean", each = nrow(clean_test_db))
 outlier_test_db$group <- rep("outliers", each = nrow(outlier_test_db))
 
-
 results <- rbind(clean_test_db, outlier_test_db)
 ```
 
@@ -103,6 +107,12 @@ results <- results[order(results$family_median_VHH_homology,
 
 # Order statistic
 results$order_index <- 1:nrow(results)
+```
 
-write.csv(results, file = "~/Downloads/S18-Cleaning-Reclustering-Initial-Results02Apr24.csv", row.names = F)
+```{r}
+
+root_dir <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/"
+output_file <- gsub("-pooled-clean-database-H90.csv", "-Pooled-Cleaning-Reclustering-Initial-Results-H90.csv", clean_file)
+
+write.csv(results, file = paste(root_dir, output_file, sep = ''), row.names = F)
 ```

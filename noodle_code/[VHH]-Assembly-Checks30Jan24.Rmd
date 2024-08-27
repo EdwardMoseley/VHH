@@ -109,25 +109,25 @@ SEQUENCES> 880072
 
 ## (2) Trim Primers
 
-
+**Adjusted here, so may not align from previous command**
 
 Note: "read 1 is `CPRIMER` region"
 
 ```{bash, eval = F}
 docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
-MaskPrimers.py score -s /data/13_VecF1_R2_S13-TRIM_primers-pass.fastq -p /data/AlpVHH_R1_primers_07Jan24.fasta \
-    --start 0 --mode cut --revpr --pf CPRIMER --outname 13_VecF1_R2_S13-MPC-TRIM --log /data/MPC-13_VecF1_R2_S13-TRIM.log
+MaskPrimers.py score -s /data/13_VecF1_R2_S13_MPV_primers-pass.fastq -p /data/AlpVHH_R1_primers_07Jan24.fasta \
+    --start 0 --mode cut --revpr --pf CPRIMER --outname 13_VecF1_R2_S13_MPC --log /data/13_VecF1_R2_S13-MPC.log
 ```
 
 
 
 ```
 docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
-MaskPrimers.py score -s /data/13_VecF1_R2_S13-TRIM_primers-pass.fastq -p /data/AlpVHH_R1_primers_07Jan24.fasta \
-    --start 0 --mode cut --revpr --pf CPRIMER --outname 13_VecF1_R2_S13-MPC-TRIM --log /data/MPC-13_VecF1_R2_S13-TRIM.log
+MaskPrimers.py score -s /data/13_VecF1_R2_S13_MPV_primers-pass.fastq -p /data/AlpVHH_R1_primers_07Jan24.fasta \
+    --start 0 --mode cut --revpr --pf CPRIMER --outname 13_VecF1_R2_S13_MPC --log /data/13_VecF1_R2_S13-MPC.log
        START> MaskPrimers
      COMMAND> score
-    SEQ_FILE> 13_VecF1_R2_S13-TRIM_primers-pass.fastq
+    SEQ_FILE> 13_VecF1_R2_S13_MPV_primers-pass.fastq
  PRIMER_FILE> AlpVHH_R1_primers_07Jan24.fasta
         MODE> cut
    MAX_ERROR> 0.2
@@ -137,9 +137,9 @@ MaskPrimers.py score -s /data/13_VecF1_R2_S13-TRIM_primers-pass.fastq -p /data/A
 PRIMER_FIELD> CPRIMER
        NPROC> 6
 
-PROGRESS> 22:14:31 |####################| 100% (873,330) 11.2 min
+PROGRESS> 13:02:49 |####################| 100% (873,330) 10.6 min
 
-   OUTPUT> 13_VecF1_R2_S13-MPC-TRIM_primers-pass.fastq
+   OUTPUT> 13_VecF1_R2_S13_MPC_primers-pass.fastq
 SEQUENCES> 873330
      PASS> 865721
      FAIL> 7609
@@ -147,9 +147,245 @@ SEQUENCES> 873330
 
 ```
 
+### (4) Deduplication and Filtering
+
+The last stage of the workflow involves two filtering steps to yield the final repertoire. First, the set of unique sequences is identified using the `CollapseSeq.py `tool, allowing for up to 20 interior N-valued positions (`-n 20` and `--inner`), and **you requiring that all reads considered duplicates share the same C-region primer annotation (`--uf CPRIMER`)**. Additionally, the V-segment primer annotations of the set of duplicate reads are propagated into the annotation of each retained unique sequence (`--cf VPRIMER` and `--act set`):
+
+```{bash, eval = F}
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+CollapseSeq.py -s /data/13_VecF1_R2_S13_MPC_primers-pass.fastq -n 20 --inner --uf CPRIMER \
+    --cf VPRIMER --act set --outname 13_VecF1_R2_S13
+```
+
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+CollapseSeq.py -s /data/13_VecF1_R2_S13_MPC_primers-pass.fastq -n 20 --inner --uf CPRIMER \
+    --cf VPRIMER --act set --outname 13_VecF1_R2_S13
+       START> CollapseSeq
+        FILE> 13_VecF1_R2_S13_MPC_primers-pass.fastq
+ MAX_MISSING> 20
+ UNIQ_FIELDS> CPRIMER
+ COPY_FIELDS> VPRIMER
+COPY_ACTIONS> set
+   MAX_FIELD> None
+   MIN_FIELD> None
+       INNER> True
+KEEP_MISSING> False
+
+PROGRESS> [0 missing] 13:04:32 |####################| 100% (865,721) 0.5 min
+
+      OUTPUT> 13_VecF1_R2_S13_collapse-unique.fastq
+   SEQUENCES> 865721
+      UNIQUE> 644182
+   DUPLICATE> 221539
+UNDETERMINED> 0
+         END> CollapseSeq
+```
+
+## Collapse Seqs
+
+`CollapseSeq` stores the count of duplicate reads for each sequence in the `DUPCOUNT` annotation. Following duplicate removal, the data is subset to only those unique sequence with at least two representative reads by using the group subcommand of `SplitSeq.py` on the count field (`-f DUPCOUNT`) and specifying a numeric threshold (`--num 2`):
+
+```{bash, eval = F}
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+  SplitSeq.py group -s /data/13_VecF1_R2_S13_collapse-unique.fastq -f DUPCOUNT --num 1 --outname 13_VecF1_R2_S13
+```
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+  SplitSeq.py group -s /data/13_VecF1_R2_S13_collapse-unique.fastq -f DUPCOUNT --num 1 --outname 13_VecF1_R2_S13
+    START> SplitSeq
+  COMMAND> group
+     FILE> 13_VecF1_R2_S13_collapse-unique.fastq
+    FIELD> DUPCOUNT
+THRESHOLD> 1.0
+
+PROGRESS> 13:10:47 |####################| 100% (644,182) 2.7 min
+
+  OUTPUT1> 13_VecF1_R2_S13_under-1.fastq
+  OUTPUT2> 13_VecF1_R2_S13_atleast-1.fastq
+SEQUENCES> 644182
+    PARTS> 2
+      END> SplitSeq
+
+
+```
+
+### (5) Creating an annotation table
+
+Finally, the annotations, including duplicate read count (`DUPCOUNT`), isotype (`CPRIMER`) and V-segment primer (`VPRIMER`), of the final repertoire are then extracted from the `SplitSeq.py` output into a tab-delimited file using the table subcommand of `ParseHeaders.py`:
+
+```{bash, eval = F}
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+  ParseHeaders.py table -s /data/13_VecF1_R2_S13_atleast-1.fastq -f ID DUPCOUNT CPRIMER VPRIMER
+```
+
+
+### Prep for IMGT
+
+```
+# Make sure we are where we need to be
+cd ~/VHH/data
+# Copy over the file
+cp 13_VecF1_R2_S13_atleast-1.fastq ~/ncbi-igblast-1.17.1/
+# Change the directory
+cd ~/ncbi-igblast-1.17.1
+```
+## Convert the file to fasta
+
+```{r, echo = T, eval = F}
+# Arguments
+args <- c("13_VecF1_R2_S13_atleast-1.fastq")
+# args = commandArgs(trailingOnly=TRUE)
+
+# Directory
+directory <- "/Users/emoseley/VHH/data/"
+
+# Set current working directory to ncbi-igblast-1.17.1
+setwd("~/ncbi-igblast-1.17.1")
+
+file_origin <- paste("~/ncbi-igblast-1.17.1/", args[1], sep = '')
+file_output <- gsub(".fastq", ".fasta", file_origin)
+results <- gsub(".fastq", '.fmt7', args)
+
+# load the fastq
+tmp <- ShortRead::readFastq(file_origin)
+
+# write as fasta
+ShortRead::writeFasta(tmp, file = file_output)
+```
+
+### IMGT
+
+```{bash, eval = F}
+bin/igblastn -germline_db_V database/alpaca_vhh_clean/alpaca_V -germline_db_D database/alpaca_vhh_clean/alpaca_D -germline_db_J database/alpaca_vhh_clean/alpaca_J -domain_system imgt -ig_seqtype Ig -organism alpaca -auxiliary_data optional_file/alpaca_gl.aux -outfmt '7 std qseq sseq btop' -query ~/ncbi-igblast-1.17.1/13_VecF1_R2_S13_atleast-1.fasta -out ~/ncbi-igblast-1.17.1/13_VecF1_R2_S13_atleast-1.fmt7
+```
+
+```
+# Copy back to data
+cp 13_VecF1_R2_S13_atleast-1.fmt7 ~/VHH/data
+cp 13_VecF1_R2_S13_atleast-1.fasta ~/VHH/data
+```
+
+### Make Database
+
+```{bash, eval = F}
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+  MakeDb.py igblast -i /data/13_VecF1_R2_S13_atleast-1.fmt7 -s /data/13_VecF1_R2_S13_atleast-1.fasta \
+  -r /data/imgt-data/imgt_gapped_alpaca_IGHV.fasta \
+  /data/imgt-data/imgt_gapped_alpaca_IGHD.fasta  \
+  /data/imgt-data/imgt_gapped_alpaca_IGHJ.fasta \
+  --outdir /data/ --failed --format airr --extended
+```
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+  MakeDb.py igblast -i /data/13_VecF1_R2_S13_atleast-1.fmt7 -s /data/13_VecF1_R2_S13_atleast-1.fasta \
+  -r /data/imgt-data/imgt_gapped_alpaca_IGHV.fasta \
+  /data/imgt-data/imgt_gapped_alpaca_IGHD.fasta  \
+  /data/imgt-data/imgt_gapped_alpaca_IGHJ.fasta \
+  --outdir /data/ --failed --format airr --extended
+         START> MakeDB
+       COMMAND> igblast
+  ALIGNER_FILE> 13_VecF1_R2_S13_atleast-1.fmt7
+      SEQ_FILE> 13_VecF1_R2_S13_atleast-1.fasta
+       ASIS_ID> False
+    ASIS_CALLS> False
+      VALIDATE> strict
+      EXTENDED> True
+INFER_JUNCTION> False
+
+PROGRESS> 14:31:10 |Done                | 0.3 min
+
+PROGRESS> 14:47:46 |####################| 100% (644,182) 16.6 min
+
+OUTPUT> 13_VecF1_R2_S13_atleast-1_db-pass.tsv
+  PASS> 529861
+  FAIL> 114321
+   END> MakeDb
+```
+
+```{R}
+tmp <- read.csv("~/VHH/data/13_VecF1_R2_S13_atleast-1_db-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+```
 
 
 
+
+
+
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+ParseDb.py select -d /data/13_VecF1_R2_S13_atleast-1_db-pass.tsv \
+-f productive -u T --outname 13_VecF1_R2_S13
+```
+
+
+  START> ParseDb
+COMMAND> select
+   FILE> S1-M02-TRIM_atleast-1_db-pass.tsv
+ FIELDS> productive
+ VALUES> T
+  REGEX> False
+
+PROGRESS> 12:40:20 |####################| 100% (114,459) 0.9 min
+
+   OUTPUT> S1_data_p_parse-select.tsv
+  RECORDS> 114459
+ SELECTED> 104031
+DISCARDED> 10428
+      END> ParseDb
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  MaskPrimers.py score -s /data/14_VecF2_R2_S14_MPV_primers-pass.fastq -p /data/AlpVHH_R1_primers_07Jan24.fasta --start 0 --mode cut --revpr --pf CPRIMER --outname 14_VecF2_R2_S14_TRIMMED --log /data/14_VecF2_R2_S14_MPC.log
+
+       START> MaskPrimers
+     COMMAND> score
+    SEQ_FILE> 13_VecF1_R2_S13_MPV_primers-pass.fastq
+ PRIMER_FILE> AlpVHH_R1_primers_07Jan24.fasta
+        MODE> cut
+   MAX_ERROR> 0.2
+   START_POS> 0
+  REV_PRIMER> False
+     BARCODE> False
+PRIMER_FIELD> CPRIMER
+       NPROC> 6
+
+PROGRESS> 03:24:11 |####################| 100% (873,330) 5.1 min
+
+   OUTPUT> 13_VecF1_R2_S13_TRIMMED_primers-pass.fastq
+SEQUENCES> 873330
+     PASS> 1
+     FAIL> 873329
+      END> MaskPrimers
+```
+
+
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+CollapseSeq.py -s /data/S2-REV-M02-TRIM_primers-pass.fastq -n 20 --inner --uf CPRIMER \
+    --cf VPRIMER --act set --outname S2-M02-TRIM
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+CollapseSeq.py -s /data/13_VecF1_R2_S13-MPC-TRIM_primers-pass.fastq -n 20 --inner --uf CPRIMER \
+    --cf VPRIMER --act set --outname 13_VecF1_R2_S13-MPC-TRIM
+```
 
 
 
@@ -1111,4 +1347,675 @@ SEQUENCES> 911526
      PASS> 904440
      FAIL> 7086
       END> MaskPrimers
+```
+
+```
+"docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  MaskPrimers.py score -s /data/1_L1_sh2_S1_quality-pass.fastq -p /data/AlpVHH_R2_primers_07Jan24.fasta --start 0 --mode cut --pf VPRIMER --outname 1_L1_sh2_S1_MPV --log /data/1_L1_sh2_S1_TRIM.log"
+       START> MaskPrimers
+     COMMAND> score
+    SEQ_FILE> 1_L1_sh2_S1_quality-pass.fastq
+ PRIMER_FILE> AlpVHH_R2_primers_07Jan24.fasta
+        MODE> cut
+   MAX_ERROR> 0.2
+   START_POS> 0
+  REV_PRIMER> False
+     BARCODE> False
+PRIMER_FIELD> VPRIMER
+       NPROC> 6
+
+PROGRESS> 03:42:47 |####################| 100% (625,069) 6.5 min
+
+   OUTPUT> 1_L1_sh2_S1_MPV_primers-pass.fastq
+SEQUENCES> 625069
+     PASS> 620452
+     FAIL> 4617
+      END> MaskPrimers
+
+[1] "10_L3_lh2_S10"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  MaskPrimers.py score -s /data/10_L3_lh2_S10_quality-pass.fastq -p /data/AlpVHH_R2_primers_07Jan24.fasta --start 0 --mode cut --pf VPRIMER --outname 10_L3_lh2_S10_MPV --log /data/10_L3_lh2_S10_TRIM.log"
+       START> MaskPrimers
+     COMMAND> score
+    SEQ_FILE> 10_L3_lh2_S10_quality-pass.fastq
+ PRIMER_FILE> AlpVHH_R2_primers_07Jan24.fasta
+        MODE> cut
+   MAX_ERROR> 0.2
+   START_POS> 0
+  REV_PRIMER> False
+     BARCODE> False
+PRIMER_FIELD> VPRIMER
+       NPROC> 6
+
+PROGRESS> 03:48:28 |####################| 100% (542,750) 5.6 min
+
+   OUTPUT> 10_L3_lh2_S10_MPV_primers-pass.fastq
+SEQUENCES> 542750
+     PASS> 538726
+     FAIL> 4024
+      END> MaskPrimers
+
+[1] "11_L3_sh3_S11"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  MaskPrimers.py score -s /data/11_L3_sh3_S11_quality-pass.fastq -p /data/AlpVHH_R2_primers_07Jan24.fasta --start 0 --mode cut --pf VPRIMER --outname 11_L3_sh3_S11_MPV --log /data/11_L3_sh3_S11_TRIM.log"
+       START> MaskPrimers
+     COMMAND> score
+    SEQ_FILE> 11_L3_sh3_S11_quality-pass.fastq
+ PRIMER_FILE> AlpVHH_R2_primers_07Jan24.fasta
+        MODE> cut
+   MAX_ERROR> 0.2
+   START_POS> 0
+  REV_PRIMER> False
+     BARCODE> False
+PRIMER_FIELD> VPRIMER
+       NPROC> 6
+
+PROGRESS> 03:54:21 |####################| 100% (579,731) 5.8 min
+
+   OUTPUT> 11_L3_sh3_S11_MPV_primers-pass.fastq
+SEQUENCES> 579731
+     PASS> 575951
+     FAIL> 3780
+      END> MaskPrimers
+
+[1] "12_L3_lh3_S12"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  MaskPrimers.py score -s /data/12_L3_lh3_S12_quality-pass.fastq -p /data/AlpVHH_R2_primers_07Jan24.fasta --start 0 --mode cut --pf VPRIMER --outname 12_L3_lh3_S12_MPV --log /data/12_L3_lh3_S12_TRIM.log"
+       START> MaskPrimers
+     COMMAND> score
+    SEQ_FILE> 12_L3_lh3_S12_quality-pass.fastq
+ PRIMER_FILE> AlpVHH_R2_primers_07Jan24.fasta
+        MODE> cut
+   MAX_ERROR> 0.2
+   START_POS> 0
+  REV_PRIMER> False
+     BARCODE> False
+PRIMER_FIELD> VPRIMER
+       NPROC> 6
+
+PROGRESS> 03:59:14 |####################| 100% (477,406) 4.8 min
+
+   OUTPUT> 12_L3_lh3_S12_MPV_primers-pass.fastq
+SEQUENCES> 477406
+     PASS> 473771
+     FAIL> 3635
+      END> MaskPrimers
+
+[1] "15_VecF3_R2_S15"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  MaskPrimers.py score -s /data/15_VecF3_R2_S15_quality-pass.fastq -p /data/AlpVHH_R2_primers_07Jan24.fasta --start 0 --mode cut --pf VPRIMER --outname 15_VecF3_R2_S15_MPV --log /data/15_VecF3_R2_S15_TRIM.log"
+       START> MaskPrimers
+     COMMAND> score
+    SEQ_FILE> 15_VecF3_R2_S15_quality-pass.fastq
+ PRIMER_FILE> AlpVHH_R2_primers_07Jan24.fasta
+        MODE> cut
+   MAX_ERROR> 0.2
+   START_POS> 0
+  REV_PRIMER> False
+     BARCODE> False
+PRIMER_FIELD> VPRIMER
+       NPROC> 6
+
+PROGRESS> 04:04:18 |####################| 100% (489,548) 5.0 min
+
+   OUTPUT> 15_VecF3_R2_S15_MPV_primers-pass.fastq
+SEQUENCES> 489548
+     PASS> 485637
+     FAIL> 3911
+      END> MaskPrimers
+
+[1] "16_VecF4_R2_S16"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  MaskPrimers.py score -s /data/16_VecF4_R2_S16_quality-pass.fastq -p /data/AlpVHH_R2_primers_07Jan24.fasta --start 0 --mode cut --pf VPRIMER --outname 16_VecF4_R2_S16_MPV --log /data/16_VecF4_R2_S16_TRIM.log"
+       START> MaskPrimers
+     COMMAND> score
+    SEQ_FILE> 16_VecF4_R2_S16_quality-pass.fastq
+ PRIMER_FILE> AlpVHH_R2_primers_07Jan24.fasta
+        MODE> cut
+   MAX_ERROR> 0.2
+   START_POS> 0
+  REV_PRIMER> False
+     BARCODE> False
+PRIMER_FIELD> VPRIMER
+       NPROC> 6
+
+PROGRESS> 04:10:37 |####################| 100% (622,598) 6.2 min
+
+   OUTPUT> 16_VecF4_R2_S16_MPV_primers-pass.fastq
+SEQUENCES> 622598
+     PASS> 615960
+     FAIL> 6638
+      END> MaskPrimers
+
+[1] "17_VecF3_R3_S17"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  MaskPrimers.py score -s /data/17_VecF3_R3_S17_quality-pass.fastq -p /data/AlpVHH_R2_primers_07Jan24.fasta --start 0 --mode cut --pf VPRIMER --outname 17_VecF3_R3_S17_MPV --log /data/17_VecF3_R3_S17_TRIM.log"
+       START> MaskPrimers
+     COMMAND> score
+    SEQ_FILE> 17_VecF3_R3_S17_quality-pass.fastq
+ PRIMER_FILE> AlpVHH_R2_primers_07Jan24.fasta
+        MODE> cut
+   MAX_ERROR> 0.2
+   START_POS> 0
+  REV_PRIMER> False
+     BARCODE> False
+PRIMER_FIELD> VPRIMER
+       NPROC> 6
+
+PROGRESS> 04:15:39 |####################| 100% (492,329) 4.9 min
+
+   OUTPUT> 17_VecF3_R3_S17_MPV_primers-pass.fastq
+SEQUENCES> 492329
+     PASS> 488521
+     FAIL> 3808
+      END> MaskPrimers
+
+[1] "18_VecF3_R4_S18"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  MaskPrimers.py score -s /data/18_VecF3_R4_S18_quality-pass.fastq -p /data/AlpVHH_R2_primers_07Jan24.fasta --start 0 --mode cut --pf VPRIMER --outname 18_VecF3_R4_S18_MPV --log /data/18_VecF3_R4_S18_TRIM.log"
+       START> MaskPrimers
+     COMMAND> score
+    SEQ_FILE> 18_VecF3_R4_S18_quality-pass.fastq
+ PRIMER_FILE> AlpVHH_R2_primers_07Jan24.fasta
+        MODE> cut
+   MAX_ERROR> 0.2
+   START_POS> 0
+  REV_PRIMER> False
+     BARCODE> False
+PRIMER_FIELD> VPRIMER
+       NPROC> 6
+
+PROGRESS> 04:21:39 |####################| 100% (589,344) 5.9 min
+
+   OUTPUT> 18_VecF3_R4_S18_MPV_primers-pass.fastq
+SEQUENCES> 589344
+     PASS> 584419
+     FAIL> 4925
+      END> MaskPrimers
+
+[1] "19_VecF1_R3_S19"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  MaskPrimers.py score -s /data/19_VecF1_R3_S19_quality-pass.fastq -p /data/AlpVHH_R2_primers_07Jan24.fasta --start 0 --mode cut --pf VPRIMER --outname 19_VecF1_R3_S19_MPV --log /data/19_VecF1_R3_S19_TRIM.log"
+       START> MaskPrimers
+     COMMAND> score
+    SEQ_FILE> 19_VecF1_R3_S19_quality-pass.fastq
+ PRIMER_FILE> AlpVHH_R2_primers_07Jan24.fasta
+        MODE> cut
+   MAX_ERROR> 0.2
+   START_POS> 0
+  REV_PRIMER> False
+     BARCODE> False
+PRIMER_FIELD> VPRIMER
+       NPROC> 6
+
+PROGRESS> 04:26:19 |####################| 100% (467,123) 4.6 min
+
+   OUTPUT> 19_VecF1_R3_S19_MPV_primers-pass.fastq
+SEQUENCES> 467123
+     PASS> 463122
+     FAIL> 4001
+      END> MaskPrimers
+
+[1] "2_L1_lh2_S2"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  MaskPrimers.py score -s /data/2_L1_lh2_S2_quality-pass.fastq -p /data/AlpVHH_R2_primers_07Jan24.fasta --start 0 --mode cut --pf VPRIMER --outname 2_L1_lh2_S2_MPV --log /data/2_L1_lh2_S2_TRIM.log"
+       START> MaskPrimers
+     COMMAND> score
+    SEQ_FILE> 2_L1_lh2_S2_quality-pass.fastq
+ PRIMER_FILE> AlpVHH_R2_primers_07Jan24.fasta
+        MODE> cut
+   MAX_ERROR> 0.2
+   START_POS> 0
+  REV_PRIMER> False
+     BARCODE> False
+PRIMER_FIELD> VPRIMER
+       NPROC> 6
+
+PROGRESS> 04:32:14 |####################| 100% (576,161) 5.8 min
+
+   OUTPUT> 2_L1_lh2_S2_MPV_primers-pass.fastq
+SEQUENCES> 576161
+     PASS> 572052
+     FAIL> 4109
+      END> MaskPrimers
+
+[1] "20_VecF2_R3_S20"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  MaskPrimers.py score -s /data/20_VecF2_R3_S20_quality-pass.fastq -p /data/AlpVHH_R2_primers_07Jan24.fasta --start 0 --mode cut --pf VPRIMER --outname 20_VecF2_R3_S20_MPV --log /data/20_VecF2_R3_S20_TRIM.log"
+       START> MaskPrimers
+     COMMAND> score
+    SEQ_FILE> 20_VecF2_R3_S20_quality-pass.fastq
+ PRIMER_FILE> AlpVHH_R2_primers_07Jan24.fasta
+        MODE> cut
+   MAX_ERROR> 0.2
+   START_POS> 0
+  REV_PRIMER> False
+     BARCODE> False
+PRIMER_FIELD> VPRIMER
+       NPROC> 6
+
+PROGRESS> 04:35:29 |####################| 100% (322,637) 3.2 min
+
+   OUTPUT> 20_VecF2_R3_S20_MPV_primers-pass.fastq
+SEQUENCES> 322637
+     PASS> 320225
+     FAIL> 2412
+      END> MaskPrimers
+
+[1] "21_VecF4_R3_S21"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  MaskPrimers.py score -s /data/21_VecF4_R3_S21_quality-pass.fastq -p /data/AlpVHH_R2_primers_07Jan24.fasta --start 0 --mode cut --pf VPRIMER --outname 21_VecF4_R3_S21_MPV --log /data/21_VecF4_R3_S21_TRIM.log"
+       START> MaskPrimers
+     COMMAND> score
+    SEQ_FILE> 21_VecF4_R3_S21_quality-pass.fastq
+ PRIMER_FILE> AlpVHH_R2_primers_07Jan24.fasta
+        MODE> cut
+   MAX_ERROR> 0.2
+   START_POS> 0
+  REV_PRIMER> False
+     BARCODE> False
+PRIMER_FIELD> VPRIMER
+       NPROC> 6
+
+PROGRESS> 04:39:33 |####################| 100% (402,502) 4.0 min
+
+   OUTPUT> 21_VecF4_R3_S21_MPV_primers-pass.fastq
+SEQUENCES> 402502
+     PASS> 399633
+     FAIL> 2869
+      END> MaskPrimers
+
+[1] "22_VecF4_R4_S22"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  MaskPrimers.py score -s /data/22_VecF4_R4_S22_quality-pass.fastq -p /data/AlpVHH_R2_primers_07Jan24.fasta --start 0 --mode cut --pf VPRIMER --outname 22_VecF4_R4_S22_MPV --log /data/22_VecF4_R4_S22_TRIM.log"
+       START> MaskPrimers
+     COMMAND> score
+    SEQ_FILE> 22_VecF4_R4_S22_quality-pass.fastq
+ PRIMER_FILE> AlpVHH_R2_primers_07Jan24.fasta
+        MODE> cut
+   MAX_ERROR> 0.2
+   START_POS> 0
+  REV_PRIMER> False
+     BARCODE> False
+PRIMER_FIELD> VPRIMER
+       NPROC> 6
+
+PROGRESS> 04:45:03 |####################| 100% (540,141) 5.4 min
+
+   OUTPUT> 22_VecF4_R4_S22_MPV_primers-pass.fastq
+SEQUENCES> 540141
+     PASS> 536176
+     FAIL> 3965
+      END> MaskPrimers
+
+[1] "3_L1_sh3_S3"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  MaskPrimers.py score -s /data/3_L1_sh3_S3_quality-pass.fastq -p /data/AlpVHH_R2_primers_07Jan24.fasta --start 0 --mode cut --pf VPRIMER --outname 3_L1_sh3_S3_MPV --log /data/3_L1_sh3_S3_TRIM.log"
+       START> MaskPrimers
+     COMMAND> score
+    SEQ_FILE> 3_L1_sh3_S3_quality-pass.fastq
+ PRIMER_FILE> AlpVHH_R2_primers_07Jan24.fasta
+        MODE> cut
+   MAX_ERROR> 0.2
+   START_POS> 0
+  REV_PRIMER> False
+     BARCODE> False
+PRIMER_FIELD> VPRIMER
+       NPROC> 6
+
+PROGRESS> 04:51:35 |####################| 100% (639,389) 6.4 min
+
+   OUTPUT> 3_L1_sh3_S3_MPV_primers-pass.fastq
+SEQUENCES> 639389
+     PASS> 635303
+     FAIL> 4086
+      END> MaskPrimers
+
+[1] "4_L1_lh3_S4"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  MaskPrimers.py score -s /data/4_L1_lh3_S4_quality-pass.fastq -p /data/AlpVHH_R2_primers_07Jan24.fasta --start 0 --mode cut --pf VPRIMER --outname 4_L1_lh3_S4_MPV --log /data/4_L1_lh3_S4_TRIM.log"
+       START> MaskPrimers
+     COMMAND> score
+    SEQ_FILE> 4_L1_lh3_S4_quality-pass.fastq
+ PRIMER_FILE> AlpVHH_R2_primers_07Jan24.fasta
+        MODE> cut
+   MAX_ERROR> 0.2
+   START_POS> 0
+  REV_PRIMER> False
+     BARCODE> False
+PRIMER_FIELD> VPRIMER
+       NPROC> 6
+
+PROGRESS> 04:57:20 |####################| 100% (555,566) 5.6 min
+
+   OUTPUT> 4_L1_lh3_S4_MPV_primers-pass.fastq
+SEQUENCES> 555566
+     PASS> 551347
+     FAIL> 4219
+      END> MaskPrimers
+
+[1] "5_L2_sh2_S5"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  MaskPrimers.py score -s /data/5_L2_sh2_S5_quality-pass.fastq -p /data/AlpVHH_R2_primers_07Jan24.fasta --start 0 --mode cut --pf VPRIMER --outname 5_L2_sh2_S5_MPV --log /data/5_L2_sh2_S5_TRIM.log"
+       START> MaskPrimers
+     COMMAND> score
+    SEQ_FILE> 5_L2_sh2_S5_quality-pass.fastq
+ PRIMER_FILE> AlpVHH_R2_primers_07Jan24.fasta
+        MODE> cut
+   MAX_ERROR> 0.2
+   START_POS> 0
+  REV_PRIMER> False
+     BARCODE> False
+PRIMER_FIELD> VPRIMER
+       NPROC> 6
+
+PROGRESS> 05:01:05 |####################| 100% (356,715) 3.7 min
+
+   OUTPUT> 5_L2_sh2_S5_MPV_primers-pass.fastq
+SEQUENCES> 356715
+     PASS> 354396
+     FAIL> 2319
+      END> MaskPrimers
+
+[1] "6_L2_lh2_S6"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  MaskPrimers.py score -s /data/6_L2_lh2_S6_quality-pass.fastq -p /data/AlpVHH_R2_primers_07Jan24.fasta --start 0 --mode cut --pf VPRIMER --outname 6_L2_lh2_S6_MPV --log /data/6_L2_lh2_S6_TRIM.log"
+       START> MaskPrimers
+     COMMAND> score
+    SEQ_FILE> 6_L2_lh2_S6_quality-pass.fastq
+ PRIMER_FILE> AlpVHH_R2_primers_07Jan24.fasta
+        MODE> cut
+   MAX_ERROR> 0.2
+   START_POS> 0
+  REV_PRIMER> False
+     BARCODE> False
+PRIMER_FIELD> VPRIMER
+       NPROC> 6
+
+PROGRESS> 05:07:49 |####################| 100% (647,003) 6.6 min
+
+   OUTPUT> 6_L2_lh2_S6_MPV_primers-pass.fastq
+SEQUENCES> 647003
+     PASS> 642420
+     FAIL> 4583
+      END> MaskPrimers
+
+[1] "7_L2_sh3_S7"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  MaskPrimers.py score -s /data/7_L2_sh3_S7_quality-pass.fastq -p /data/AlpVHH_R2_primers_07Jan24.fasta --start 0 --mode cut --pf VPRIMER --outname 7_L2_sh3_S7_MPV --log /data/7_L2_sh3_S7_TRIM.log"
+       START> MaskPrimers
+     COMMAND> score
+    SEQ_FILE> 7_L2_sh3_S7_quality-pass.fastq
+ PRIMER_FILE> AlpVHH_R2_primers_07Jan24.fasta
+        MODE> cut
+   MAX_ERROR> 0.2
+   START_POS> 0
+  REV_PRIMER> False
+     BARCODE> False
+PRIMER_FIELD> VPRIMER
+       NPROC> 6
+
+PROGRESS> 05:13:21 |####################| 100% (545,912) 5.4 min
+
+   OUTPUT> 7_L2_sh3_S7_MPV_primers-pass.fastq
+SEQUENCES> 545912
+     PASS> 542511
+     FAIL> 3401
+      END> MaskPrimers
+
+[1] "8_L2_lh3_S8"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  MaskPrimers.py score -s /data/8_L2_lh3_S8_quality-pass.fastq -p /data/AlpVHH_R2_primers_07Jan24.fasta --start 0 --mode cut --pf VPRIMER --outname 8_L2_lh3_S8_MPV --log /data/8_L2_lh3_S8_TRIM.log"
+       START> MaskPrimers
+     COMMAND> score
+    SEQ_FILE> 8_L2_lh3_S8_quality-pass.fastq
+ PRIMER_FILE> AlpVHH_R2_primers_07Jan24.fasta
+        MODE> cut
+   MAX_ERROR> 0.2
+   START_POS> 0
+  REV_PRIMER> False
+     BARCODE> False
+PRIMER_FIELD> VPRIMER
+       NPROC> 6
+
+PROGRESS> 05:18:40 |####################| 100% (519,628) 5.2 min
+
+   OUTPUT> 8_L2_lh3_S8_MPV_primers-pass.fastq
+SEQUENCES> 519628
+     PASS> 515552
+     FAIL> 4076
+      END> MaskPrimers
+
+[1] "9_L3_sh2_S9"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  MaskPrimers.py score -s /data/9_L3_sh2_S9_quality-pass.fastq -p /data/AlpVHH_R2_primers_07Jan24.fasta --start 0 --mode cut --pf VPRIMER --outname 9_L3_sh2_S9_MPV --log /data/9_L3_sh2_S9_TRIM.log"
+       START> MaskPrimers
+     COMMAND> score
+    SEQ_FILE> 9_L3_sh2_S9_quality-pass.fastq
+ PRIMER_FILE> AlpVHH_R2_primers_07Jan24.fasta
+        MODE> cut
+   MAX_ERROR> 0.2
+   START_POS> 0
+  REV_PRIMER> False
+     BARCODE> False
+PRIMER_FIELD> VPRIMER
+       NPROC> 6
+
+PROGRESS> 05:25:22 |####################| 100% (645,206) 6.5 min
+
+   OUTPUT> 9_L3_sh2_S9_MPV_primers-pass.fastq
+SEQUENCES> 645206
+     PASS> 640920
+     FAIL> 4286
+      END> MaskPrimers
+
+[1] "Undetermined_S0"
+[1] "docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  MaskPrimers.py score -s /data/Undetermined_S0_quality-pass.fastq -p /data/AlpVHH_R2_primers_07Jan24.fasta --start 0 --mode cut --pf VPRIMER --outname Undetermined_S0_MPV --log /data/Undetermined_S0_TRIM.log"
+       START> MaskPrimers
+     COMMAND> score
+    SEQ_FILE> Undetermined_S0_quality-pass.fastq
+ PRIMER_FILE> AlpVHH_R2_primers_07Jan24.fasta
+        MODE> cut
+   MAX_ERROR> 0.2
+   START_POS> 0
+  REV_PRIMER> False
+     BARCODE> False
+PRIMER_FIELD> VPRIMER
+       NPROC> 6
+
+PROGRESS> 05:44:27 |####################| 100% (2,830,613) 18.6 min
+
+   OUTPUT> Undetermined_S0_MPV_primers-pass.fastq
+SEQUENCES> 2830613
+     PASS> 471525
+     FAIL> 2359088
+      END> MaskPrimers
+
+(base) emoseley@MacBook-Pro-5 noodle_code % 
+
+```
+
+---
+
+# More stuff
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+MaskPrimers.py score -s /data/14_VecF2_R2_S14_MPV_primers-pass.fastq -p /data/AlpVHH_R1_primers_07Jan24.fasta \
+    --start 0 --mode cut --revpr --pf CPRIMER --outname 14_VecF2_R2_S14_MPC --log /data/14_VecF2_R2_S14-MPC.log
+```
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+MaskPrimers.py score -s /data/14_VecF2_R2_S14_MPV_primers-pass.fastq -p /data/AlpVHH_R1_primers_07Jan24.fasta \
+    --start 0 --mode cut --revpr --pf CPRIMER --outname 14_VecF2_R2_S14_MPC --log /data/14_VecF2_R2_S14-MPC.log
+       START> MaskPrimers
+     COMMAND> score
+    SEQ_FILE> 14_VecF2_R2_S14_MPV_primers-pass.fastq
+ PRIMER_FILE> AlpVHH_R1_primers_07Jan24.fasta
+        MODE> cut
+   MAX_ERROR> 0.2
+   START_POS> 0
+  REV_PRIMER> True
+     BARCODE> False
+PRIMER_FIELD> CPRIMER
+       NPROC> 6
+
+PROGRESS> 17:10:28 |####################| 100% (432,439) 5.0 min
+
+   OUTPUT> 14_VecF2_R2_S14_MPC_primers-pass.fastq
+SEQUENCES> 432439
+     PASS> 429015
+     FAIL> 3424
+      END> MaskPrimers
+```
+
+#### Deduplication and filtering
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+CollapseSeq.py -s /data/14_VecF2_R2_S14_MPC_primers-pass.fastq -n 20 --inner --uf CPRIMER \
+    --cf VPRIMER --act set --outname 14_VecF2_R2_S14
+```
+
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+CollapseSeq.py -s /data/14_VecF2_R2_S14_MPC_primers-pass.fastq -n 20 --inner --uf CPRIMER \
+    --cf VPRIMER --act set --outname 14_VecF2_R2_S14
+       START> CollapseSeq
+        FILE> 14_VecF2_R2_S14_MPC_primers-pass.fastq
+ MAX_MISSING> 20
+ UNIQ_FIELDS> CPRIMER
+ COPY_FIELDS> VPRIMER
+COPY_ACTIONS> set
+   MAX_FIELD> None
+   MIN_FIELD> None
+       INNER> True
+KEEP_MISSING> False
+
+PROGRESS> [0 missing] 22:04:30 |####################| 100% (429,015) 0.3 min
+
+      OUTPUT> 14_VecF2_R2_S14_collapse-unique.fastq
+   SEQUENCES> 429015
+      UNIQUE> 364550
+   DUPLICATE> 64465
+UNDETERMINED> 0
+         END> CollapseSeq
+```
+
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+  SplitSeq.py group -s /data/14_VecF2_R2_S14_collapse-unique.fastq -f DUPCOUNT --num 1 --outname 14_VecF2_R2_S14
+```
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0  \
+  SplitSeq.py group -s /data/14_VecF2_R2_S14_collapse-unique.fastq -f DUPCOUNT --num 1 --outname 14_VecF2_R2_S14
+    START> SplitSeq
+  COMMAND> group
+     FILE> 14_VecF2_R2_S14_collapse-unique.fastq
+    FIELD> DUPCOUNT
+THRESHOLD> 1.0
+
+PROGRESS> 22:29:16 |####################| 100% (364,550) 2.0 min
+
+  OUTPUT1> 14_VecF2_R2_S14_under-1.fastq
+  OUTPUT2> 14_VecF2_R2_S14_atleast-1.fastq
+SEQUENCES> 364550
+    PARTS> 2
+      END> SplitSeq
+```
+
+
+
+
+
+
+# Prep for IMGT
+
+```
+# Move to VHH directory
+cd ~/VHH/data
+# Copy over the file
+cp 14_VecF2_R2_S14_atleast-1.fastq ~/ncbi-igblast-1.17.1/
+# Change the directory
+cd ~/ncbi-igblast-1.17.1
+```
+### Convert the file to fasta
+
+```{r, echo = T, eval = F}
+# Arguments
+args <- c("14_VecF2_R2_S14_atleast-1.fastq")
+# args = commandArgs(trailingOnly=TRUE)
+
+# Directory
+directory <- "/Users/emoseley/VHH/data/"
+
+# Set current working directory to ncbi-igblast-1.17.1
+setwd("~/ncbi-igblast-1.17.1")
+
+file_origin <- paste("~/ncbi-igblast-1.17.1/", args[1], sep = '')
+file_output <- gsub(".fastq", ".fasta", file_origin)
+results <- gsub(".fastq", '.fmt7', args)
+
+# load the fastq
+tmp <- ShortRead::readFastq(file_origin)
+
+# write as fasta
+ShortRead::writeFasta(tmp, file = file_output)
+```
+
+### IMGT
+
+```{bash, eval = F}
+bin/igblastn -germline_db_V database/alpaca_vhh_clean/alpaca_V -germline_db_D database/alpaca_vhh_clean/alpaca_D -germline_db_J database/alpaca_vhh_clean/alpaca_J -domain_system imgt -ig_seqtype Ig -organism alpaca -auxiliary_data optional_file/alpaca_gl.aux -outfmt '7 std qseq sseq btop' -query ~/ncbi-igblast-1.17.1/14_VecF2_R2_S14_atleast-1.fasta -out ~/ncbi-igblast-1.17.1/14_VecF2_R2_S14.fmt7
+```
+
+```
+# Copy back to data
+cp 14_VecF2_R2_S14.fmt7 ~/VHH/data
+cp 14_VecF2_R2_S14_atleast-1.fasta ~/VHH/data
+```
+
+### Make Database
+
+```{bash, eval = F}
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+  MakeDb.py igblast -i /data/14_VecF2_R2_S14.fmt7 -s /data/14_VecF2_R2_S14_atleast-1.fasta \
+  -r /data/imgt-data/imgt_gapped_alpaca_IGHV.fasta \
+  /data/imgt-data/imgt_gapped_alpaca_IGHD.fasta  \
+  /data/imgt-data/imgt_gapped_alpaca_IGHJ.fasta \
+  --outdir /data/ --failed --format airr --extended
+```
+
+```
+  MakeDb.py igblast -i /data/14_VecF2_R2_S14.fmt7 -s /data/14_VecF2_R2_S14_atleast-1.fasta \
+  -r /data/imgt-data/imgt_gapped_alpaca_IGHV.fasta \
+  /data/imgt-data/imgt_gapped_alpaca_IGHD.fasta  \
+  /data/imgt-data/imgt_gapped_alpaca_IGHJ.fasta \
+  --outdir /data/ --failed --format airr --extended
+         START> MakeDB
+       COMMAND> igblast
+  ALIGNER_FILE> 14_VecF2_R2_S14.fmt7
+      SEQ_FILE> 14_VecF2_R2_S14_atleast-1.fasta
+       ASIS_ID> False
+    ASIS_CALLS> False
+      VALIDATE> strict
+      EXTENDED> True
+INFER_JUNCTION> False
+
+PROGRESS> 00:14:12 |Done                | 0.1 min
+
+PROGRESS> 00:25:22 |####################| 100% (364,550) 11.2 min
+
+OUTPUT> 14_VecF2_R2_S14_db-pass.tsv
+  PASS> 299218
+  FAIL> 65332
+   END> MakeDb
+
+
+```
+
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+ParseDb.py select -d /data/14_VecF2_R2_S14_db-pass.tsv \
+-f productive -u T --outname 14_VecF2_R2_S14
+  START> ParseDb
+COMMAND> select
+   FILE> 14_VecF2_R2_S14_db-pass.tsv
+ FIELDS> productive
+ VALUES> T
+  REGEX> False
+
+PROGRESS> 01:56:09 |####################| 100% (299,218) 2.4 min
+
+   OUTPUT> 14_VecF2_R2_S14_parse-select.tsv
+  RECORDS> 299218
+ SELECTED> 213225
+DISCARDED> 85993
+      END> ParseDb
+
 ```

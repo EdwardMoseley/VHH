@@ -157,3 +157,74 @@ install.packages("shazam")
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+## Take 2
+
+https://changeo.readthedocs.io/en/stable/install.html
+
+
+
+```
+sudo apt-get install python3-scipy
+```
+
+```
+pip install biopython
+```
+
+```
+pip install presto --user
+```
+
+
+```
+pip3 install changeo
+```
+
+
+
+
+
+### Installing R
+
+
+sudo apt update
+sudo apt install r-base
+
+
+site (https://cloud.r-project.org/bin/linux/debian/buster-cran42/) and download the appropriate binary for your architecture. Since you're using a Debian-based system, choose the Debian package.
+Install the Downloaded Package: Once downloaded, navigate to the directory where the package is located and install it using dpkg.
+
+
+### Install packages
+
+```
+sudo R
+```
+
+```
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install(version = "3.8")
+```
+
+
+## Take 3
+
+
+
+```
+
+```
+

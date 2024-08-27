@@ -14,7 +14,10 @@ suppressPackageStartupMessages(library(ggplot2))
 top_groups <- function(results, clone_var){
   return(table(results[[clone_var]])[order(table(results[[clone_var]]), decreasing = T)])
 }
+```
 
+```{r, echo = F, eval = T, warning = F}
+# Here we load our results file
 df <- read.csv("~/Downloads/TRYYSDSYWGCGHGGEY-0.4-07Mar24.csv", header = T, stringsAsFactors = F)
 ```
 

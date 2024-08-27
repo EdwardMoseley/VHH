@@ -5,20 +5,6 @@ date: "2024-06-24"
 ---
 
 
-Lane1_fastq – Folder containing all R1 and R2 Illumina Files
-Move .fastq files to ../data/assembly and prepare for assembly
-Call VHHAssembly.sh
-Assembles and annotates VHHs
-Keep counts throughout, and visualize databases with MASH
-Create Global Set
-Aggregate data from as many experiments as are relevant
-Call HierarchicalClustering.sh
-Infers clones on “Global” VHH database
-Run Cleancluster algorithm on Global Set (Call CleanCluster.sh)
-For each independent experiment, look up clonal assignments
-
-
-
 ```{r}
 library(ggplot2)
 library(reshape2)
@@ -27,79 +13,46 @@ library(pheatmap)
 
 ```{r}
 # Read the data
-# distances <- read.table("~/Downloads/distances.tsv", header = FALSE, sep = "\t")
-# distances <- read.table("~/Downloads/new_distances.tsv", header = FALSE, sep = "\t")
-# distances <- read.table("~/Downloads/Impulse_Lulu_CoV_distances.tsv", header = F, sep = '\t')
-# distances <- read.table("~/Downloads/MASH_Schisto_PassFail_distances.tsv", header = F, sep = '\t')
+# distances <- read.table("~/Downloads/MASH_JPL_distances25Aug24.tsv", header = F, sep = '\t')
 
-distances <- read.table("~/Downloads/MASH_NGO0265_NGO1549_distances09Jul24.tsv", header = F, sep = '\t')
+distances <- read.table("~/Downloads/MASH_XIV_distances25Aug24.tsv", header = F, sep = '\t')
 
 
+# distances <- read.table("~/Downloads/MASH_NGO0265_NGO1549_distances09Jul24.tsv", header = F, sep = '\t')
+
+# distances <- read.table("~/Downloads/MASH_gonorrhea_distances11Jul24.tsv", header = F, sep = '\t')
+# distances <- read.csv("~/Downloads/MASH_gonorrhea_distances15Jul24.tsv", header = F, sep = '\t')
 
 # Assign column names for clarity
 colnames(distances) <- c("Genome1", "Genome2", "Mash_Distance", "P_value", "Shared_Kmers")
 
-
-# file_path <- "/cluster/tufts/cowenlab/emosel01/data/assembly/"
+#file_path <- "/cluster/tufts/cowenlab/emosel01/data/tmp_holder/"
+#file_path <- "/cluster/tufts/cowenlab/emosel01/data/assembly/"
 #file_path <- "/cluster/tufts/cowenlab/emosel01/data/hclust/"
 #file_path <- "/cluster/tufts/cowenlab/emosel01/data/2024_TUCF_7981/"
-file_path <- "/cluster/tufts/cowenlab/emosel01/data/assembled2/"
+#file_path <- "/cluster/tufts/cowenlab/emosel01/data/assembled2/"
+#file_path <- "/cluster/tufts/cowenlab/emosel01/data/assembled/"
+file_path <- "/cluster/tufts/cowenlab/emosel01/data/XIV/"
 
 distances$Genome1 <- gsub(file_path, "", distances$Genome1)
 distances$Genome2 <- gsub(file_path, "", distances$Genome2)
 
-# _atleast-1.fasta
-# _db-pass.fasta
+# suffix <- "_atleast-1.fasta"
+#suffix <- "_db-pass.fasta"
+#suffix <- "_db-pass.fasta"
 suffix <- ".fasta"
 
 distances$Genome1 <- gsub(suffix, "", distances$Genome1)
 distances$Genome2 <- gsub(suffix, "", distances$Genome2)
 
-
-
+# Remove fails
+#distances <- distances[!grepl("fail", distances$Genome1),]
+#distances <- distances[!grepl("fail", distances$Genome2),]
 
 # Create a matrix of distances
 distance_matrix <- reshape2::acast(distances, Genome1 ~ Genome2, value.var = "Mash_Distance")
 distance_matrix[is.na(distance_matrix)] <- 0  # Replace NAs with 0 for self-comparisons
 ```
-
-
-```{r}
-var_names <- c("1_L1_sh2_S1",
-               "2_L1_lh2_S2",
-               "3_L1_sh3_S3",
-               #"4_L1_lh3_S4",
-               "5_L2_sh2_S5",
-               "6_L2_lh2_S6",
-               "7_L2_sh3_S7",
-               "8_L2_lh3_S8",
-               "9_L3_sh2_S9",
-               "10_L3_lh2_S10",
-               "11_L3_sh3_S11",
-               "12_L3_lh3_S12",
-               "13_VecF1_R2_S13",
-               "14_VecF1_R2_S14",
-               "15_VecF3_R2_S15",
-               "16_VecF4_R2_S16",
-               "17_VecF3_R3_S17",
-               "18_VecF3_R4_S18",
-               "19_VecF1_R3_S19",          
-               "20_VecF2_R3_S20",
-               "21_VecF4_R3_S21",
-               "22_VecF4_R4_S22")
-```
-
-```{r}
-distance_matrix <- distance_matrix[,var_names]
-distance_matrix <- distance_matrix[var_names,]
-```
-
-```{r}
-# distance_matrix <- distance_matrix[,c("9_S18", colnames(distance_matrix)[!(colnames(distance_matrix) %in% "9_S18")])]
-
-# distance_matrix <- distance_matrix[c("9_S18", row.names(distance_matrix)[!(row.names(distance_matrix) %in% "9_S18")]),]
-```
-
 
 ## Heatmap
 
@@ -110,8 +63,8 @@ pheatmap(distance_matrix,
          cluster_cols = T,#TRUE, 
          display_numbers = T,#,TRUE,
          number_color = "white",
-         color = colorRampPalette(c("red", "blue"))(50),
-         main = "MASH Distance Heatmap - Schistosome Databases")
+         color = colorRampPalette(c("blue", "red"))(50),
+         main = "MASH Distance Heatmap - Databases")
 ```
 
 ## PCA
@@ -152,6 +105,8 @@ tmp <- tmp[,grepl("-pass", colnames(distance_matrix))]
 
 
 ```{r}
+# tmp <- distance_matrix
+
 # Perform PCA
 pca <- prcomp(tmp, scale. = TRUE)
 
@@ -174,17 +129,6 @@ ggplot(pca_df, aes(x = PC1, y = PC2, color = rownames(pca$x),
   ylab("Principal Component 2") +
   theme_minimal()
 ```
-
-
-
-
-
-
-
-
-
-
-
 
 
 

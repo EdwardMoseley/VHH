@@ -1,0 +1,113 @@
+---
+title: "[VHH] Illumina Runs: Most Represented Families"
+output: html_document
+date: "2024-02-13"
+---
+
+```{r, echo = F, eval = T}
+suppressMessages(library(ggplot2))
+suppressMessages(library(ggseqlogo))
+suppressMessages(library(gridExtra))
+suppressMessages(library(msa))
+suppressMessages(library(Biostrings))
+knitr::opts_chunk$set(fig.width=12, fig.height=4) 
+
+#### Translate
+translate_DNA <- function(dna_data){
+  clean_dna <- gsub("[^ACTG]", "", dna_data)
+  DNA_strings <- Biostrings::DNAStringSet(clean_dna)
+  translations <- as.character(Biostrings::translate(DNA_strings))
+  return(translations)
+}
+
+#### Trim CDR3
+trim_CDR3 <- function(seq_vec){
+  return(substr(seq_vec, 2, nchar(seq_vec)-1))
+}
+
+top_groups <- function(results, clone_var){
+  return(table(results[[clone_var]])[order(table(results[[clone_var]]), decreasing = T)])
+}
+
+unproductive <- function(results){
+  return(results[which(!grepl("\\*", results$VHH, fixed = F)),])
+}
+```
+
+# Illumina Run: 13_VecF1_R2_S13
+
+```{r, echo = F}
+# df <- read.csv("~/VHH/data/Old Data/S3_specificity_test_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+
+#S3$experiment <- rep("S3", each = nrow(S3))
+
+df <- read.csv("~/VHH/data/13_VecF1_R2_S13_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+
+# df <- read.csv("~/VHH/data/14_VecF1_R2_S14_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+#F14$experiment <- rep("F14", each = nrow(F14))
+
+# df <- read.csv("~/VHH/data/17_VecF3_R3_S17_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+
+# df <- read.csv("~/VHH/data/18_VecF3_R4_S18_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
+
+# [1] "1_L1_sh2_S1_min_threshold_clone-pass.tsv"    
+# [2] "10_L3_lh2_S10_min_threshold_clone-pass.tsv"  
+# [3] "11_L3_sh3_S11_min_threshold_clone-pass.tsv"  
+# [4] "12_L3_lh3_S12_min_threshold_clone-pass.tsv"  
+# [5] "13_VecF1_R2_S13_min_threshold_clone-pass.tsv"
+# [6] "14_VecF1_R2_S14_min_threshold_clone-pass.tsv"
+# [7] "14_VecF2_R2_S14_min_threshold_clone-pass.tsv"
+# [8] "15_VecF3_R2_S15_min_threshold_clone-pass.tsv"
+# [9] "16_VecF4_R2_S16_min_threshold_clone-pass.tsv"
+#[10] "17_VecF3_R3_S17_min_threshold_clone-pass.tsv"
+#[11] "18_VecF3_R4_S18_min_threshold_clone-pass.tsv"
+#[12] "19_VecF1_R3_S19_min_threshold_clone-pass.tsv"
+#[13] "20_VecF2_R3_S20_min_threshold_clone-pass.tsv"
+#[14] "22_VecF4_R4_S22_min_threshold_clone-pass.tsv"
+
+# Tally clones
+tmp <- as.data.frame(top_groups(df, "clone_id"))
+colnames(tmp) <- c("clone_id", "VHH_count")
+cat("This Illumina run has ", length(unique(df$clone_id)), " clonal families.\n", sep = '')
+cat("Statistics of VHH's per Clonal Family (all families):\n", sep = '')
+summary(tmp$VHH_count)
+```
+
+## Clonal Family (2+ Members) Logo Plots
+
+```{r, echo = F, warning=F}
+tab <- top_groups(df, "clone_id")
+# tmp <- df[df$clone_id %in% head(as.numeric(names(tab)), 25),]
+  
+for (nm in names(tab)){
+  tmp_frame <- df[df$clone_id == as.numeric(nm),]
+  
+  # Translate VHH
+  tmp_frame$VHH <- translate_DNA(tmp_frame$sequence_alignment)
+  # Trim CDR3
+  tmp_frame$junction_aa <- trim_CDR3(tmp_frame$junction_aa)
+  # Pull most frequent CDR3
+  common_CDR3 <- names(table(tmp_frame$junction_aa)[order(table(tmp_frame$junction_aa), decreasing = T)][1])
+  
+  if (nrow(tmp_frame) > 1){
+      cat("Group ID: ", unique(tmp_frame$clone_id), '\n', sep = '')
+      cat("Overall Members: ", nrow(tmp_frame), '\n', sep = '')
+      cat("Unique VHHs: ", length(unique(tmp_frame$VHH)), '\n', sep = '')
+      cat("Unique CDR3s: ", length(unique(tmp_frame$junction_aa)), '\n', sep = '')
+      cat("Most-frequent CDR3: ", common_CDR3, ' (with ',nrow(tmp_frame[tmp_frame$junction_aa == common_CDR3,]), ' CDR3 observations)\n', sep = '')
+      print(ggseqlogo(as.character(tmp_frame$junction_aa), seq_type='aa', method = 'p') + 
+        theme_classic() + ggtitle(paste(" CDR3 Logo Plot for cluster with the most common CDR3 sequence:\n               ", common_CDR3, sep = '')))
+  }
+}
+
+```
+
+## Clonal Family IDs and Counts (2+ members)
+
+```{r, echo = F, eval = T}
+# Tally clones
+tmp <- as.data.frame(top_groups(df, "clone_id"))
+colnames(tmp) <- c("clone_id", "VHH_count")
+cat("List of Clonal Family IDs and their counts:\n", sep = '')
+print(tmp[tmp$VHH_count >= 2,])
+```

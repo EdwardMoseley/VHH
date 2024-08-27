@@ -26,6 +26,32 @@ GGCCGCTCAGTTGCAGCTGGCGGAGTCCGGTGGAGGCTTGGTGCAGGCTGGGGGGTCTCTGAGAATTTCCTGTGCAGCCT
 GGCCGCTCAGGTGCAGCTCGCGGAGACAGGCGGAGGCTTGGTGCAACCTGGGGGGTCTCTGAGACTCTCCTGTGCAGCCACTGGAGATATCTACGGTATCTATGCCTTTAACTGGTACCGCCAGGCTCCAGGAAAGCAGCGCGAATTGGTCGCGACTATCACTGACGGTGGTACCACAAACATTGCTGACTCCGTGAAGGGCCGATTCACCATCACCAGAAGCAACGAGGACAAGAACACAGTATATCTGCACATGAACAGTCTGAAACCTGAGGACACGGCCGTCTATTACTGTAATGCAGACCTCCTGGTTCCTTACGGTGGTTTGGATGAGACTGACTATTGGGGCCCGGGCACCCAGGTCACCGTCTCCTCAGAACCCAAGACACCAAAACCACAACCGG
 ```
 
+
+**Note:** Seq[1] in `df` (constructed below) appears to begin with `CTTCGCTGTGGTGCGC` (`>short_hinge`), which should be trimmed. It also appears to end with `reverseComplement(DNAString("CCCAACCGGCCATGGC")) = GCCATGGCCGGTTGGG` (`>VHH-VecF1`)
+
+(Note that these results came from the S20 run).
+
+```
+>short_hinge
+CTTCGCTGTGGTGCGC
+>long_hinge
+GGTTTTGGTGTCTTGGG
+```
+
+**AlpVHH_R1_primers_05Feb24.fasta**
+
+```
+>vhh_forward
+GGTGGTCCTGGCTGC
+>VHH-VecF1
+CCCAACCGGCCATGGC
+```
+
+
+# ALTERNATE STRATEGY
+
+## PULL Substring (mid-sequence) of Query sequence, and `grepl()` through all fastq files (note that they have primer regions, so the sequence we are looking for is in the middle).
+
 ```{bash}
 !/home/linuxbrew/.linuxbrew/Cellar/mmseqs2/15-6f452/bin/mmseqs easy-search /content/DNA_Query_seqs12Mar24.fasta /content/20_VecF2_R3_S20_assemble-pass.fastq alnResult.m8 tmp \
 --search-type 3
@@ -42,7 +68,18 @@ dat <- read.csv("~/Downloads/S20_VecF2_R3_S20-MMseqs2-Easy-search.m8",
                 header = F, stringsAsFactors = F, sep = '\t')
 
 # Apply column names
-colnames(dat) <- c("query","target","fident","alnlen","mismatch","gapopen","qstart","qend","tstart","tend","evalue","bits")
+colnames(dat) <- c("query",
+                   "target",
+                   "fident",
+                   "alnlen",
+                   "mismatch",
+                   "gapopen",
+                   "qstart",
+                   "qend",
+                   "tstart",
+                   "tend",
+                   "evalue",
+                   "bits")
 ```
 
 #### Load Query Sequences
@@ -84,7 +121,40 @@ df$qual <- NULL
 df <- merge(df, results, by = "query", all.x = T)
 ```
 
+
+
+
+
+
+
+
+
+
+
+
 ---
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

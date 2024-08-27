@@ -1,0 +1,147 @@
+---
+title: "[VHH]-Clonal-Inferrence"
+output: html_document
+date: "2024-02-10"
+---
+
+
+### Load Libraries
+
+```{r}
+suppressPackageStartupMessages(library(airr))
+suppressPackageStartupMessages(library(alakazam))
+suppressPackageStartupMessages(library(ggplot2))
+suppressPackageStartupMessages(library(tigger))
+# get the distance to nearest neighbors
+suppressPackageStartupMessages(library(shazam))
+```
+
+
+### Load DB
+
+```{r}
+directory <- "~/VHH/data"
+files <- list.files(directory)[grepl("db-pass.tsv", list.files(directory))]
+file_list <- paste(directory, files, sep = '/')
+file_list <- file_list[!(file_list %in% c("~/VHH/data/Selected-XLN-XME-XMF-SmPDE-VHHs_9-23_db-pass.tsv",
+                                          "~/VHH/data/13_VecF1_R2_S13_atleast-1_db-pass.tsv"))]
+
+# Drop unproductive sequences
+for (f in file_list){
+  # Read the dataset
+  db <- read_rearrangement(file.path(f))
+  # Subset productive clones
+  cat("Input:", nrow(db),'\n')
+  db <- db[db$productive == T,]
+  cat("Productive:", nrow(db), '\n')
+  
+  file_out <- gsub("_db-", "_productive-", f)
+  cat('\n')
+  cat("Writing: ", f, '\n')
+  write.table(db, file = file_out, sep = '\t')
+  
+  db <- distToNearest(db, model = "ham", normalize = "len", 
+                    vCallColumn = "v_call", 
+                    jCallColumn = "j_call",
+                    nproc = 4)
+
+  # determine the threshold
+  threshold <- findThreshold(db$dist_nearest, method = "density")
+  thr <- threshold@threshold
+  
+  print("Threshold Data:")
+  print(thr)
+  new_thr <- thr - (thr*0.25)
+  print("25% Lower Threshold:")
+  print(round(new_thr, 2))
+  
+  cat('\n')
+  
+  # Outfile prefix
+  prefix <- gsub("_db-pass.tsv", '', gsub("~/VHH/data/", "", f))
+  prefix <- paste(prefix, "_min_threshold", sep = '')
+  
+  # So we can see what we're doing
+  print(paste("docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 DefineClones.py -d ",
+        f, 
+        paste(" --vh v_call --model ham --norm len --dist ", round(new_thr, 2), " --format airr --nproc 4", sep = ''),
+        paste(" --outname ", prefix, sep = ''), " --outdir /data/", sep = ''))
+  
+  
+  # Tell the system
+  system(
+  print(paste("docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 DefineClones.py -d ",
+        f, 
+        paste(" --vh v_call --model ham --norm len --dist ", round(new_thr, 2), " --format airr --nproc 4", sep = ''),
+        paste(" --outname ", prefix, sep = ''), " --outdir /data/", sep = ''))
+  )
+}
+
+
+ /data/13_VecF1_R2_S13_parse-select.tsv --vf v_call \
+--model ham --norm len --dist 0.22 --format airr --nproc 4 \
+--outname 13_VecF1_R2_S13_min_threshold --outdir /data/
+
+```
+
+
+`hierarchicalClones`
+
+
+
+
+## Clonal diversity analysis
+
+### Clonal assignment using the CDR3 as a fingerprint
+
+Note: we will _decrease_ the threshold value by 25% (arbitrarily) in an effort to increase the specificity of the clonal grouping.
+
+```{r}
+db <- distToNearest(db, model = "ham", normalize = "len", 
+                    vCallColumn = "v_call", 
+                    jCallColumn = "j_call",
+                    nproc = 4)
+
+# determine the threshold
+threshold <- findThreshold(db$dist_nearest, method = "density")
+thr <- threshold@threshold
+
+print(thr)
+new_thr <- thr - (thr*0.25)
+print("25% Lower Threshold:")
+print(round(new_thr, 2))
+```
+
+```
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
+DefineClones.py -d /data/13_VecF1_R2_S13_parse-select.tsv --vf v_call \
+--model ham --norm len --dist 0.22 --format airr --nproc 4 \
+--outname 13_VecF1_R2_S13_min_threshold --outdir /data/
+
+       START> DefineClones
+        FILE> 13_VecF1_R2_S13_parse-select.tsv
+   SEQ_FIELD> junction
+     V_FIELD> v_call
+     J_FIELD> j_call
+ MAX_MISSING> 0
+GROUP_FIELDS> None
+      ACTION> set
+        MODE> gene
+    DISTANCE> 0.22
+     LINKAGE> single
+       MODEL> ham
+        NORM> len
+         SYM> avg
+       NPROC> 4
+
+PROGRESS> [Grouping sequences] 21:33:12 (374815) 10.8 min
+
+PROGRESS> [Assigning clones] 06:53:50 |####################| 100% (374,815) 571.1 min
+
+ OUTPUT> 13_VecF1_R2_S13_min_threshold_clone-pass.tsv
+ CLONES> 13070
+RECORDS> 374815
+   PASS> 374815
+   FAIL> 0
+    END> DefineClones
+```

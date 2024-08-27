@@ -25,6 +25,7 @@ suppressPackageStartupMessages(library(shazam))
 docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 \
 ParseDb.py select -d /data/13_VecF1_R2_S13_atleast-1_db-pass.tsv \
 -f productive -u T --outname 13_VecF1_R2_S13
+
   START> ParseDb
 COMMAND> select
    FILE> 13_VecF1_R2_S13_atleast-1_db-pass.tsv
@@ -153,6 +154,12 @@ RECORDS> 374815
    FAIL> 0
     END> DefineClones
 ```
+
+
+
+
+docker run -v /Users/emoseley/VHH/data:/data immcantation/suite:4.4.0 DefineClones.py -d /data/1_L1_sh2_S1_productive-pass.tsv --vf v_call --model ham --norm len --dist 0.23 --format airr --nproc 4 --outname 1_L1_sh2_S1_min_threshold --outdir /data/
+
 
 
 #### Productive Sequences Only

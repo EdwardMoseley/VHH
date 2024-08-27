@@ -1,0 +1,129 @@
+---
+title: '[VHH] Tufts HPC Quick Start'
+output: html_document
+date: "2024-05-27"
+---
+
+# User Guides
+
+[HPC Tutorials](https://it.tufts.edu/high-performance-computing/hpc-tutorials)
+
+More tutorials:
+
+[HPC New User](https://tufts.app.box.com/v/HPC-New-User)
+
+Note, for cluster questions: `tts-research@tufts.edu`
+
+## General Information
+
+### Storage
+
+Your Home Directory (10GB, fixed) should be: `/cluster/home/your_utln`
+
+You can check your limit with: `quota -s`
+
+Your research project storage (from 50GB and up) path should be
+`/cluster/tufts/yourlabname/`, and each member of the lab group has a
+dedicated directory `/cluster/tufts/yourlabname/your_utln`
+
+To see your research project storage quota by running the following
+command from login node: `showquota`
+
+Note: research storage is shared within a research group.
+
+#### Uploading Data
+
+* Local_Path is the path to your files or directory on your local
+computer
+
+* Cluster_Path is the path to your files or directory on the cluster
+Home Directory: `/cluster/home/your_utln/your_folder`
+
+Research Project Storage Space Directory: `/cluster/tufts/yourlabname/your_utln/your_folder`
+
+**Examples:**
+
+Download From Cluster:
+
+```
+scp your_utln@xfer.cluster.tufts.edu:Cluster_Path Local_Path
+```
+
+_For Example_
+
+```
+emoseley@MacBook-Pro-5 ~ % scp -r emosel01@xfer.cluster.tufts.edu:/cluster/tufts/hpc/tools/WorkshopDemo/20210420 /Users/emoseley/Desktop/example_files
+```
+
+Upload to Cluster:
+
+```
+scp Local_Path your_utln@xfer.cluster.tufts.edu:Cluster_Path
+```
+
+
+### Batch Job File
+
+```
+!#/bin/sh
+#SBATCH -J My_Job_Name #job name
+#SBATCH !"time=00-00:20:00 #requested time (DD-HH:MM:SS)
+#SBATCH -p preempt #running on "preempt" partition/queue
+#SBATCH -N 1 #1 nodes
+#SBATCH -n 2 #2 tasks total
+#SBATCH -c 1 #1 cpu cores per task
+#SBATCH !"mem=2g #requesting 2GB of RAM total
+#SBATCH !"output=MyJob.%j.%N.out #saving standard output to file,
+%j=JOBID, %N=NodeName
+#SBATCH !"error=MyJob.%j.%N.err #saving standard error to file,
+%j=JOBID, %N=NodeName
+#SBATCH !"mail-type=ALL #email optitions
+#SBATCH !"mail-user=Your_Tufts_Email@tufts.edu
+
+!$commands_you_would_like_to_exe_on_the_compute_nodes]
+
+# for example, running a python script
+# load the module so the correct version python is available to you
+module load anaconda/3
+# run python script
+python myscript.py #make sure myscript.py exists in the current directory
+```
+
+### Submit Job
+
+```
+$ sbatch myjob.sh
+```
+
+# Initial Steps
+
+## Administrative
+
+1. Receive access to cluster
+
+## Connecting to Cluster
+
+Connect to Tufts VPN first with Cisco AnyConnect Mobility Client
+
+```
+vpn.tufts.edu/duo
+```
+
+Note that 2-Factor Authentication is required (pick up the phone).
+
+Next, `ssh` in:
+
+```
+ssh emosel01@login.pax.tufts.edu
+```
+
+Password is the same throughout.
+
+## Landing
+
+```
+$ pwd
+/cluster/home/emosel01
+cd
+/cluster/tufts/cowenlab/emosel01
+```

@@ -34,35 +34,10 @@ unproductive <- function(results){
 }
 ```
 
-# Illumina Run: 3_L1_sh3_S3
+# Illumina Run: 14_VecF1_R2_S14
 
 ```{r, echo = F}
-# df <- read.csv("~/VHH/data/Old Data/S3_specificity_test_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
-
-#S3$experiment <- rep("S3", each = nrow(S3))
-
-# df <- read.csv("~/VHH/data/13_VecF1_R2_S13_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
-
-df <- read.csv("~/VHH/data/3_L1_sh3_S3_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
-
-
-# [1] "1_L1_sh2_S1_min_threshold_clone-pass.tsv"    
-# [2] "10_L3_lh2_S10_min_threshold_clone-pass.tsv"  
-# [3] "11_L3_sh3_S11_min_threshold_clone-pass.tsv"  
-# [4] "12_L3_lh3_S12_min_threshold_clone-pass.tsv"  
-# [5] "13_VecF1_R2_S13_min_threshold_clone-pass.tsv"
-# [6] "14_VecF1_R2_S14_min_threshold_clone-pass.tsv"
-# [7] "14_VecF2_R2_S14_min_threshold_clone-pass.tsv"
-# [8] "15_VecF3_R2_S15_min_threshold_clone-pass.tsv"
-# [9] "16_VecF4_R2_S16_min_threshold_clone-pass.tsv"
-# [10] "17_VecF3_R3_S17_min_threshold_clone-pass.tsv"
-# [11] "18_VecF3_R4_S18_min_threshold_clone-pass.tsv"
-# [12] "19_VecF1_R3_S19_min_threshold_clone-pass.tsv"
-# [13] "2_L1_lh2_S2_min_threshold_clone-pass.tsv"    
-# [14] "20_VecF2_R3_S20_min_threshold_clone-pass.tsv"
-# [15] "21_VecF4_R3_S21_min_threshold_clone-pass.tsv"
-# [16] "22_VecF4_R4_S22_min_threshold_clone-pass.tsv"
-# [17] "3_L1_sh3_S3_min_threshold_clone-pass.tsv"    
+df <- read.csv("~/VHH/data/Cluster-DBs/14_VecF1_R2_S14_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
 
 # Tally clones
 tmp <- as.data.frame(top_groups(df, "clone_id"))
@@ -101,12 +76,13 @@ for (nm in head(names(tab), 50)){
 
 ```
 
-## Clonal Family IDs and Counts (2+ members)
 
 ```{r, echo = F, eval = T}
+## Clonal Family IDs and Counts (2+ members)
+
 # Tally clones
-tmp <- as.data.frame(top_groups(df, "clone_id"))
-colnames(tmp) <- c("clone_id", "VHH_count")
-cat("List of Clonal Family IDs and their counts:\n", sep = '')
-print(tmp[tmp$VHH_count >= 2,])
+#tmp <- as.data.frame(top_groups(df, "clone_id"))
+#colnames(tmp) <- c("clone_id", "VHH_count")
+#cat("List of Clonal Family IDs and their counts:\n", sep = '')
+#print(tmp[tmp$VHH_count >= 2,])
 ```

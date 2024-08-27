@@ -8,7 +8,7 @@ source("~/VHH/lib/utilities.R")
 # Path
 mmseqs_path <- "/usr/local/Cellar/mmseqs2/15-6f452/bin/mmseqs "
 
-query_dir <- "~/VHH/code/VHH-Query/queries/"
+query_dir <- "~/VHH/code/VHH-Query/VHH-DNA-Seqs/"
 root_dir <- "~/VHH/data/"
 output_dir <- "~/VHH/code/VHH-Query/tmp/"
 

@@ -35,7 +35,6 @@ library(ggtree)
 
 df <- read.csv("~/VHH/data/Cluster-DBs/results/V600-Cluster-DB26Feb24.csv",
                header = T, stringsAsFactors = F)
-
 ```
 
 ### Query Clonal Consensus Sequences
@@ -43,17 +42,17 @@ df <- read.csv("~/VHH/data/Cluster-DBs/results/V600-Cluster-DB26Feb24.csv",
 We will query the aggregate clonal database for consensus sequences with close matches.
 
 ```{r}
-i <- 15 # (for "RLLSVTNPKGIY") 
+# i <- 15 # (for "RLLSVTNPKGIY") 
 
 # Specify query sequence
-query_seq <- df[df$f == "19_VecF1_R3_S19_min_threshold_clone-pass.tsv",]$consensus_sequence[i]
+query_seq <- "YADWGLYGDFDDY"# df[df$f == "19_VecF1_R3_S19_min_threshold_clone-pass.tsv",]$consensus_sequence[i]
 
 # Store the resulting distances
 df$query_dist <- as.vector(adist(query_seq, df$consensus_sequence))
 
 df$percent_sim <- 1 - (df$query_dist/nchar(query_seq))
 
-rate <- 0.5
+rate <- 0.6
 
 # tmp_frame 
 tmp_frame <- df[df$percent_sim >= rate,]

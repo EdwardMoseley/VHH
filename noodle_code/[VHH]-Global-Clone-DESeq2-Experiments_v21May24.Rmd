@@ -29,9 +29,6 @@ This notebook relies heavily on:
 
 4. Proceed with DESeq2
 
-
-Global_Clone_Experiment_9_S18_demand_two_min_threshold_clone-pass.csv
-
 ## Real Data
 
 ```{r}
@@ -65,18 +62,18 @@ files <- list()
 #files[["S13"]] <- "13_VecF1_R2_S13-Cleaned19Apr24.csv"
 #files[["S14"]] <- "14_VecF1_R2_S14-Cleaned19Apr24.csv"
 
-files[["master"]] <- "/translated_dbs/culled_databases/GS18May24-Cleaned19Apr24.csv"
+files[["master"]] <- "/translated_dbs/culled_databases/GS_d2_18Jun24-Cleaned19Apr24.csv"
 
 files[["09"]] <- "Clones_Inferred_Assembled_9_S18_min_threshold_clone-pass.csv"
 files[["10"]] <- "Clones_Inferred_Assembled_10_S19_min_threshold_clone-pass.csv"
 files[["11"]] <- "Clones_Inferred_Assembled_11_S20_min_threshold_clone-pass.csv"
 files[["12"]] <- "Clones_Inferred_Assembled_12_S21_min_threshold_clone-pass.csv"
 
-files[["33"]] <- "Clones_Inferred_Assembled_33_S7_min_threshold_clone-pass.csv"
-files[["34"]] <- "Clones_Inferred_Assembled_34_S8_min_threshold_clone-pass.csv"
-files[["35"]] <- "Clones_Inferred_Assembled_35_S9_min_threshold_clone-pass.csv"
-files[["37"]] <- "Clones_Inferred_Assembled_37_S11_min_threshold_clone-pass.csv"
-files[["41"]] <- "Clones_Inferred_Assembled_41_S16_min_threshold_clone-pass.csv"
+#files[["33"]] <- "Clones_Inferred_Assembled_33_S7_min_threshold_clone-pass.csv"
+#files[["34"]] <- "Clones_Inferred_Assembled_34_S8_min_threshold_clone-pass.csv"
+#files[["35"]] <- "Clones_Inferred_Assembled_35_S9_min_threshold_clone-pass.csv"
+#files[["37"]] <- "Clones_Inferred_Assembled_37_S11_min_threshold_clone-pass.csv"
+#files[["41"]] <- "Clones_Inferred_Assembled_41_S16_min_threshold_clone-pass.csv"
 
 
 max_clone_count <- 0
@@ -110,6 +107,7 @@ for (nm in names(files)){
 }
 ```
 
+Old, partial set:
 
 ```
 [1] "master"
@@ -193,6 +191,91 @@ for (nm in names(files)){
 [1] 391340
 ```
 
+--- 
+
+New, full set:
+
+```
+[1] "master"
+[1] "Pre-Cleaning:"
+[1] 7120
+[1] 7429576
+[1] "After-Cleaning:"
+[1] 7120
+[1] 7429576
+
+[1] "09"
+[1] "Pre-Cleaning:"
+[1] 872
+[1] 420404
+[1] "After-Cleaning:"
+[1] 716
+[1] 416921
+
+[1] "10"
+[1] "Pre-Cleaning:"
+[1] 1083
+[1] 369840
+[1] "After-Cleaning:"
+[1] 908
+[1] 366123
+
+[1] "11"
+[1] "Pre-Cleaning:"
+[1] 1136
+[1] 584751
+[1] "After-Cleaning:"
+[1] 936
+[1] 578692
+
+[1] "12"
+[1] "Pre-Cleaning:"
+[1] 309
+[1] 547818
+[1] "After-Cleaning:"
+[1] 269
+[1] 538897
+
+[1] "33"
+[1] "Pre-Cleaning:"
+[1] 962
+[1] 522298
+[1] "After-Cleaning:"
+[1] 782
+[1] 518242
+
+[1] "34"
+[1] "Pre-Cleaning:"
+[1] 792
+[1] 296461
+[1] "After-Cleaning:"
+[1] 657
+[1] 293643
+
+[1] "35"
+[1] "Pre-Cleaning:"
+[1] 894
+[1] 446099
+[1] "After-Cleaning:"
+[1] 733
+[1] 442254
+
+[1] "37"
+[1] "Pre-Cleaning:"
+[1] 4665
+[1] 436390
+[1] "After-Cleaning:"
+[1] 3853
+[1] 423417
+
+[1] "41"
+[1] "Pre-Cleaning:"
+[1] 129
+[1] 397436
+[1] "After-Cleaning:"
+[1] 117
+[1] 391340
+```
 
 ## We need only those in master
 
@@ -274,8 +357,8 @@ for (f in names(files)[names(files) != "master"]){
 
 ```{r}
 for (nm in unique(res$f)){
-  tmp_frame <- res[res$f == nm,]
-  write.csv(tmp_frame, file = paste0("~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/", nm, "-pilot-cleaned22May24.csv"), row.names = F)
+  #tmp_frame <- res[res$f == nm,]
+  #write.csv(tmp_frame, file = paste0("~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/", nm, "-pilot-cleaned22May24.csv"), row.names = F)
 }
 ```
 
@@ -345,10 +428,6 @@ merge_order <- merge_order[order(merge_order$counts, decreasing = T),]
 ```
 
 
-
-
-
-
 ## Merge Routine (Source Libraries)
 
 
@@ -383,7 +462,7 @@ holder <- tmp
 ```
 
 ```{r}
-tmp <- holder
+# tmp <- holder
 ```
 
 ### Replace <NA> with Zero Drop 0-Enriched Clones
@@ -403,6 +482,369 @@ tmp[is.na(tmp)] <- 0
 #tmp <- tmp[tmp$enriched_total != 0,]
 #tmp$enriched_total <- NULL
 ```
+
+
+```{r}
+write.csv(tmp, file = "~/Downloads/Abundances_Table_for_adding_Ranks25Jun24.csv", row.names = F)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Reloading to add rank statistics
+
+
+
+
+
+
+
+```{r}
+# tmp <- read.csv("~/Downloads/Abundances_Table_for_adding_Ranks25Jun24.csv", header = T, stringsAsFactors = F)
+
+tmp <- read.csv("~/Downloads/GS-Spike-Lulu-S09-10-11-12-Abundances-CoV-HCLUST-ORDERED.csv", header = T, stringsAsFactors = F)
+```
+
+
+
+```
+                  median_CDR3 abundance.11 abundance.10 abundance.09 abundance.12
+1         AAAGGFSGYVCSRPNEYDY           13            0            0            0
+2         AAAHFLYYSDSDDLNDYDY            1            0            0            0
+3      AAANPLLSFQPMCDLLETRYAS            1            0            2            0
+4 AAAPGPSCDAPGDPPGDYLDYNLPYDY            1            1            0            0
+5           AAAPGVIVPTSAASYKW         2200         1439         1433         2085
+6        AAAPNSRIGRCSLGDAQFKI            4            0            0            0
+```
+
+```{r}
+# We will begin with the first set of abundances
+results <- tmp[,c(1:2)]
+# Order and add ranks
+results <- results[order(results[,2], decreasing = TRUE),]
+results[[paste0(colnames(results)[2], '.rank')]] <- 1:nrow(results)
+
+# Iterate over all columns after first
+for (nm in colnames(tmp)[3:ncol(tmp)]){
+  # Subset the columns we need
+  tmp_frame <- tmp[,c("median_CDR3", nm)]
+  # Order and add rank statistic
+  tmp_frame <- tmp_frame[order(tmp_frame[[nm]], decreasing = TRUE),]
+  tmp_frame[[paste0(nm, '.rank')]] <- 1:nrow(tmp_frame)
+  # Merge on median_CDR3 
+  results <- merge(results, tmp_frame, by = "median_CDR3")
+}
+
+```
+
+# Order according to dendrogram
+
+
+```{r}
+dat <- read.csv("~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/GS_d2_18Jun24-Cleaned19Apr24.csv", header = T, stringsAsFactors = F)
+
+clonal_statistics <- function(dat){
+  # Hold results in results
+  results <- data.frame()
+  # Iterate over clone ids
+  for (nm in unique(dat$clone_id)){
+    tmp_frame <- dat[dat$clone_id == nm,]
+    # Unroll
+    unrolled_VHHs <- unroll_dupes_fast(tmp_frame, "VHH")
+    unrolled_CDR3s <- unroll_dupes_fast(tmp_frame, "junction_aa")
+    # Pull statistics
+    median_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)][1])
+    median_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
+    abundance <- sum(tmp_frame$duplicate_count)
+    
+    # Keep the integer as the cluster_id
+    clone_id <- nm
+    
+    results <- rbind(results, cbind(clone_id, median_CDR3, median_VHH, abundance))
+  }
+  return(results)
+}
+
+dat <- clonal_statistics(dat)
+```
+
+Merge data
+
+```{r}
+test <- merge(tmp, dat[,c("median_CDR3", "median_VHH")], by = c("median_CDR3"))
+
+# Drop ranks
+test <- test[,!grepl("rank", colnames(test))]
+test$overall <- rowSums(test[,c(2:5)])
+```
+
+
+
+```{r}
+strings <- test$median_VHH
+
+CDR3s <- test$median_CDR3
+
+# Compute the distance matrix using
+dist_matrix <- stringdistmatrix(strings, method = "lv")
+
+# Perform hierarchical clustering
+cluster_tree <- hclust(as.dist(dist_matrix), method = "complete")
+
+counts <- 1
+
+main_title <- paste("Cluster Dendrogram of CDR3 families from Abundance Data\nDemand >= ", counts," VHHs, Distance Metric: Levenshtein", sep = '')
+
+# test <- test[cluster_tree$order,]
+```
+
+```{r}
+# write.csv(results, file = paste("~/Downloads/GS-d2-IgRAMFix-Pilot-Abundances-CoV-HCLUST-ORDERED.csv", sep = ''), row.names = F)
+
+par(family = "Courier", cex = 1)
+
+# Plot the dendrogram with labels
+plot(cluster_tree, 
+     main = main_title, 
+     xlab = "Overall VHH Count-Mode CDR3", sub = NULL, 
+     labels = paste(test$overall,"-", test$median_CDR3, sep = ''), 
+     ylab = "Distance (Levenshtein)", 
+     cex = 1)
+```
+
+
+
+
+
+# Order according to dendrogram
+
+## Load Global Set
+
+To do this, since we only have clonal family data, we need VHHs
+
+```{r}
+dat <- read.csv("~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/GS_d2_18Jun24-Cleaned19Apr24.csv", header = T, stringsAsFactors = F)
+
+clonal_statistics <- function(dat){
+  # Hold results in results
+  results <- data.frame()
+  # Iterate over clone ids
+  for (nm in unique(dat$clone_id)){
+    tmp_frame <- dat[dat$clone_id == nm,]
+    # Unroll
+    unrolled_VHHs <- unroll_dupes_fast(tmp_frame, "VHH")
+    unrolled_CDR3s <- unroll_dupes_fast(tmp_frame, "junction_aa")
+    # Pull statistics
+    median_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)][1])
+    median_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
+    abundance <- sum(tmp_frame$duplicate_count)
+    
+    # Keep the integer as the cluster_id
+    clone_id <- nm
+    
+    results <- rbind(results, cbind(clone_id, median_CDR3, median_VHH, abundance))
+  }
+  return(results)
+}
+
+tmp <- clonal_statistics(dat)
+```
+
+Order like dendrogram
+
+```{r}
+counts <- 1
+
+#tmp_res <- tmp[seqs$duplicate_count >= counts,]
+
+strings <- tmp$median_VHH
+
+CDR3s <- tmp$median_CDR3
+
+# Compute the distance matrix using
+dist_matrix <- stringdistmatrix(strings, method = "lv")
+
+# Perform hierarchical clustering
+cluster_tree <- hclust(as.dist(dist_matrix), method = "complete")
+
+# ordering <- order.dendrogram(as.dendrogram(cluster_tree))
+```
+
+```{r}
+main_title <- paste("Cluster Dendrogram of CDR3 families from Abundance Data\nDemand >= ", counts," VHHs, Distance Metric: Levenshtein", sep = '')
+
+test <- tmp[cluster_tree$order,]
+
+# write.csv(tmp_res, file = paste("~/Downloads/GS-Abundances-CoV-HCLUST-ORDERED-", sep = ''), row.names = F)
+
+par(family = "Courier", cex = 0.5)
+
+# Plot the dendrogram with labels
+plot(cluster_tree, main = main_title, xlab = "VHH Count-Clonal Family-Subfamily-CDR3", sub = NULL, 
+     labels = paste("GS-", tmp$clone_id, '-', tmp$junction_aa, sep = ''), 
+     ylab = "Distance (Levenshtein)", 
+     cex = 0.5)
+```
+
+```{r}
+write.csv(test, file = "~/Downloads/GS_Abundances_CoV-HCLUST-ORDERED-Global_Set_7120obs.csv", row.names = F)
+```
+
+
+### Create XLSX file
+
+```{r}
+# Install and load the openxlsx package
+install.packages("openxlsx")
+library(openxlsx)
+
+# Create a sample data frame
+df <- data.frame(
+  Name = c("John", "Jane", "Doe"),
+  Age = c(23, 25, 28),
+  Score = c(85, 90, 88)
+)
+
+# Create a workbook and add a worksheet
+wb <- createWorkbook()
+addWorksheet(wb, "Sheet1")
+
+# Write the data frame to the worksheet
+writeData(wb, "Sheet1", df)
+
+# Create a custom style with Courier font
+courier_style <- createStyle(fontName = "Courier New")
+
+# Apply the style to the entire worksheet
+addStyle(wb, "Sheet1", style = courier_style, rows = 1:nrow(df) + 1, cols = 1:ncol(df), gridExpand = TRUE)
+
+# Save the workbook
+saveWorkbook(wb, "data.xlsx", overwrite = TRUE)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+### Order Data Like Dendrogram (by CDR3)
+
+```{r}
+tmp <- read.csv("~/Downloads/Pilot_Global_Set_Abundances22May24.csv", 
+                header = T, stringsAsFactors = F)
+```
+
+
+```{r}
+dat <- read.csv("~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/GS-Cleaned18May24.csv", 
+                header = T, stringsAsFactors = F)
+
+
+dat <- dat[,c("junction_aa", "clone_id", "VHH")]
+```
+
+
+```{r}
+colnames(tmp)[1] <- "junction_aa"
+
+tmp <- merge(tmp, dat, by = "junction_aa", all.x = T)
+
+tmp <- tmp[!duplicated(tmp$junction_aa),]
+```
+
+
+
+
+
+
+```{r}
+counts <- 1
+
+#tmp_res <- tmp[seqs$duplicate_count >= counts,]
+
+strings <- tmp$VHH
+
+CDR3s <- tmp$junction_aa
+
+# Compute the distance matrix using
+dist_matrix <- stringdistmatrix(strings, method = "lv")
+
+# Perform hierarchical clustering
+cluster_tree <- hclust(as.dist(dist_matrix), method = "complete")
+
+# ordering <- order.dendrogram(as.dendrogram(cluster_tree))
+
+main_title <- paste("Cluster Dendrogram of CDR3 families from Abundance Data\nDemand >= ", counts," VHHs, Distance Metric: Levenshtein", sep = '')
+
+tmp <- tmp[cluster_tree$order,]
+
+# write.csv(tmp_res, file = paste("~/Downloads/GS-Abundances-CoV-HCLUST-ORDERED-", sep = ''), row.names = F)
+
+par(family = "Courier", cex = 0.5)
+
+# Plot the dendrogram with labels
+plot(cluster_tree, main = main_title, xlab = "VHH Count-Clonal Family-Subfamily-CDR3", sub = NULL, 
+     labels = paste("GS-", tmp$clone_id, '-', tmp$junction_aa, sep = ''), 
+     ylab = "Distance (Levenshtein)", 
+     cex = 0.5)
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -442,13 +884,13 @@ Condition2_Sample5 Condition2
 ```
 
 ```{r}
-count_data  <- as.matrix(cbind(tmp$abundanceD1,
-                               tmp$abundanceS18,
-                               tmp$abundanceS19,
-                               tmp$abundanceS20))
+count_data  <- as.matrix(cbind(tmp$`abundance-37`,
+                               tmp$`abundance-09`,
+                               tmp$`abundance-10`,
+                               tmp$`abundance-11`))
 
 
-colnames(count_data) <- c("Source-D1", "Selected-19", "Selected-20", "Selected-21")
+colnames(count_data) <- c("LowStringency", "CoV2Spike", "VHHCompetitionOne", "VHHCompetitionTwo")
 
 count_data <- as.matrix(apply(count_data, 2, as.numeric))
 
@@ -464,7 +906,7 @@ num_samples_per_condition <- 1
 
 # Create sample information data frame
 sample_info <- data.frame(
-  condition = factor(rep(c("Source", "Selected", "Selected", "Selected"), each = num_samples_per_condition)),
+  condition = factor(rep(c("LowStringency", "CoV2Spike", "VHHCompetitionOne", "VHHCompetitionTwo"), each = num_samples_per_condition)),
   row.names = colnames(count_data)
 )
 ```
@@ -473,12 +915,12 @@ sample_info <- data.frame(
 
 ```{r}
 # Set reference to source
-sample_info$condition <- relevel(sample_info$condition, ref = "Source")
+sample_info$condition <- relevel(sample_info$condition, ref = "LowStringency")
 
 # Create DESeqDataSet object
 dds <- DESeqDataSetFromMatrix(countData = count_data, 
                               colData = sample_info, 
-                              design = ~ condition)
+                              design = ~ 1)#condition) # If no replicates, change to ~ 1
 
 # Perform differential expression analysis
 dds <- DESeq(dds)
@@ -495,6 +937,8 @@ top_genes <- res[order(res$padj, decreasing = F), ]
 top_genes <- na.omit(top_genes[top_genes$log2FoldChange > 0,])
 ```
 
+
+
 ## Visualization
 
 ```{r}
@@ -505,21 +949,44 @@ library(gplots)
 normalized_counts <- counts(dds, normalized = TRUE)
 
 # Subset normalized counts to include only the top differentially expressed genes
-top_genes_ids <- rownames(top_genes)
-normalized_counts_top <- normalized_counts[top_genes_ids, ]
+#top_genes_ids <- rownames(top_genes)
+#normalized_counts_top <- normalized_counts[top_genes_ids, ]
+
+normalized_counts_top <- normalized_counts[row.names(normalized_counts) %in% c("EAVDYEYDY",
+                                                                               "EAVGPADDY",
+                                                                               "EAVGPESDY",
+                                                                               "EAVGYEEDY",
+                                                                               "EAVTPSDDY",
+                                                                               "EFTDHSYDY",
+                                                                               "EFVDYENDY",
+                                                                               "EGVGPDYDY",
+                                                                               "EGVGPTEDY",
+                                                                               "EGVTPNYDY",
+                                                                               "ELVTPTYDY",
+                                                                               "EMVDYEHDY",
+                                                                               "EVVTPDHDY",
+                                                                               "EVVTPNNDF",
+                                                                               "EVVTPRYDY",
+                                                                               "EWVFPKYDY",
+                                                                               "EWVSPEDDY"),]
+
+par(family = "Courier")
+
 
 # Create a heatmap
 heatmap.2(as.matrix(normalized_counts_top), 
+          cellnote = round(as.matrix(normalized_counts_top),2),
+          notecol="black",
           scale = "row",  # Scale rows to z-scores
           trace = "none", # Remove grid lines
           margins = c(10, 15), # Increase margins for row and column dendrogram
-          main = "Heatmap of Top Differentially Expressed Antibodies",
+          main = "Heatmap of VHH Normalized Counts\n (Active Site VHH Competition Experiments)",
           Colv = FALSE,# TRUE, # Do not cluster columns
           dendrogram = "none",#"row", # Add row dendrogram
           key = TRUE, keysize = 0.85, key.title = "Z-score",
           density.info = "none", # Do not show density plot
-          cexRow = 0.8, cexCol = 0.8, #labRow = FALSE, # Adjust font size
-          labRow = row.names(top_genes))#paste0(1:nrow(top_genes),'-', rownames(top_genes))) # Do not show row labels
+          cexRow = 1.2, cexCol = 1.2, srtCol = 45, #labRow = FALSE, # Adjust font size
+          labRow = row.names(normalized_counts_top))#paste0(1:nrow(top_genes),'-', rownames(top_genes))) # Do not show row labels
 
 ```
 
@@ -569,17 +1036,20 @@ log10_normCounts <- log10(normalized_counts + 1)
 # get the values for the selected genes
 values <- log10_normCounts[ select, ]
 
-#par(family = "Courier")
+par(family = "Courier")
 
 pheatmap(values,
-         main = "CDR3 Family Enrichment by p-value (lowest p-value on top, adjusted for multiple hypotheses)\n Scale colors and labels refers to normalized counts (Red Hot, Blue Cold).",
+         main = "CDR3 Family Enrichment\n Scale colors and labels refers to normalized counts (Red Hot, Blue Cold).",
          #font = "Courier",
          scale = "none", 
          cluster_rows = FALSE, 
          cluster_cols = FALSE,
+         fontfamily = "Courier",
          fontsize_row = 8,
+         number_color = "black",
          annotation_names_col = FALSE,
          gaps_col = c(2),
+         angle_col = c("45"),
          display_numbers = TRUE,
          number_format = "%.2f",         
          height=12,
@@ -587,14 +1057,6 @@ pheatmap(values,
 ```
 
 ---
-
-### Simulated Experiments
-
-```{r}
-
-
-```
-
 
 ```{r}
 source("~/VHH/lib/utilities.R")
@@ -920,3 +1382,389 @@ pheatmap(values,
          height=12,
          width=6)
 ```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+---
+
+## Loading From Cluster
+
+```{r}
+res <- read.csv("~/Downloads/GS_abundance_table.csv", header = T, stringsAsFactors = F)
+
+# nm <- "12_S21"
+
+# dat <- res[res$f == nm,]
+
+
+
+```
+
+```{r}
+clonal_statistics <- function(dat){
+  # Hold results in results
+  results <- data.frame()
+  # Iterate over clone ids
+  count <- 0
+  for (nm in unique(dat$clone_id)){
+    if (!is.na(nm)){
+        tmp_frame <- dat[which(dat$clone_id == as.character(nm)),]
+       # cat("[Clonal Statistics] Clone ID:", nm, '\n')
+        # 
+      #  cat("Indices with NA's introduced:")
+       # print(which(is.na(tmp_frame$duplicate_count)))
+      #  cat("Dropping NAs\n")
+        # Unroll
+        # unrolled_VHHs <- unroll_dupes_fast(tmp_frame, "VHH")
+        unrolled_CDR3s <- unroll_dupes_fast(tmp_frame, "junction_aa")
+        # Pull statistics
+        # median_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)][1])
+        median_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
+        abundance <- sum(tmp_frame$duplicate_count)
+        
+        # Keep the integer as the cluster_id
+        clone_id <- nm
+        
+        results <- rbind(results, cbind(clone_id, median_CDR3, abundance))
+    } else {
+      cat('NA\n')
+      count <- count + 1
+    }
+  }
+  cat("There were: ", count, "NA values in the data for some reason.\n")
+  return(results)
+}
+
+unroll_dupes_fast <- function(dat, unroll_column) {
+  # Repeat each element of the unroll column based on duplicate count
+  result_vec <- rep(dat[[unroll_column]], times = dat$duplicate_count)
+  return(result_vec)
+}
+
+
+
+# stats <- clonal_statistics(res)
+```
+
+
+
+```{r}
+## Aggregate to clone level
+dfs <- list()
+
+for (nm in unique(res$f)){
+  cat(nm, '\n')
+  dfs[[nm]] <- clonal_statistics(res[res$f == nm,])
+}
+
+# Remove clone ids
+for (nm in unique(res$f)){
+  dfs[[nm]]$clone_id <- NULL
+  # We don't need clone_id in this case
+}
+
+# Drop global set
+# dfs[["master"]] <- NULL
+
+# Merge order table
+
+merge_order <- data.frame()
+
+for (nm in names(dfs)){
+  cat(nm, '\n')
+  cat(nrow(dfs[[nm]]), '\n')
+  cat(length(unique(dfs[[nm]]$median_CDR3)), '\n')
+    # Look at counts
+  # print(as.numeric(sum(dfs[[nm]]$abundance)))
+
+  merge_order <- rbind(merge_order, cbind(nm, length(unique(dfs[[nm]]$median_CDR3))))
+}
+
+merge_order <- as.data.frame(merge_order)
+colnames(merge_order) <- c("run", "counts")
+merge_order$counts <- as.numeric(as.character(merge_order$counts))
+merge_order <- merge_order[order(merge_order$counts, decreasing = T),]
+
+for (i in 1:nrow(merge_order)){
+  # Rename abundance
+  colnames(dfs[[merge_order$run[i]]])[2] <- paste0("abundance-", merge_order$run[i])
+}
+
+tmp <- merge(dfs[[merge_order$run[1]]],
+             dfs[[merge_order$run[2]]],
+             by = "median_CDR3", all.x = T)
+
+
+for (i in 3:nrow(merge_order)){
+  tmp <- merge(tmp, dfs[[merge_order$run[i]]],
+               all.x = T,
+               by = "median_CDR3")
+}
+
+holder <- tmp
+
+for (nm in colnames(tmp)[2:ncol(tmp)]){
+  tmp[[nm]] <- as.numeric(tmp[[nm]])
+}
+
+# Replace NA's with zero
+tmp[is.na(tmp)] <- 0
+
+# cat("Writing: ", "/cluster/tufts/cowenlab/emosel01/data/GS_d2_25Jun24-Cleaned.csv", '\n')
+
+# write.csv(tmp, file = "/cluster/tufts/cowenlab/emosel01/data/GS_d2_25Jun24-Cleaned.csv", row.names = F)
+
+```
+
+
+
+
+## Create Cluster Dendrogram
+
+We need to load VHH data
+
+```{r}
+holder <- tmp
+```
+
+
+
+```{r}
+
+
+dat <- read.csv("~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/GS_d2_18Jun24-Cleaned19Apr24.csv", header = T, stringsAsFactors = F)
+
+clonal_statistics <- function(dat){
+  # Hold results in results
+  results <- data.frame()
+  # Iterate over clone ids
+  for (nm in unique(dat$clone_id)){
+    tmp_frame <- dat[dat$clone_id == nm,]
+    # Unroll
+    unrolled_VHHs <- unroll_dupes_fast(tmp_frame, "VHH")
+    unrolled_CDR3s <- unroll_dupes_fast(tmp_frame, "junction_aa")
+    # Pull statistics
+    median_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)][1])
+    median_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
+    abundance <- sum(tmp_frame$duplicate_count)
+    
+    # Keep the integer as the cluster_id
+    clone_id <- nm
+    
+    results <- rbind(results, cbind(clone_id, median_CDR3, median_VHH, abundance))
+  }
+  return(results)
+}
+
+tmp <- clonal_statistics(dat)
+```
+
+
+```{r}
+#test <- holder[which(!(holder$median_CDR3 %in% tmp$median_CDR3)),]
+```
+
+```{r}
+tmp <- merge(tmp, holder, by = "median_CDR3")
+```
+
+## Add ranks
+
+```{r}
+# Drop the abundance relic that we got from clonal_statistics
+tmp$abundance <- NULL
+
+# We will begin with the first set of abundances
+results <- tmp[,c(1:4)]
+# Order and add ranks
+results <- results[order(results[,4], decreasing = TRUE),]
+results[[paste0(colnames(results)[4], '.rank')]] <- 1:nrow(results)
+
+# Iterate over all columns after first
+for (nm in colnames(tmp)[5:ncol(tmp)]){
+  # Subset the columns we need
+  tmp_frame <- tmp[,c("median_CDR3", nm)]
+  # Order and add rank statistic
+  tmp_frame <- tmp_frame[order(tmp_frame[[nm]], decreasing = TRUE),]
+  tmp_frame[[paste0(nm, '.rank')]] <- 1:nrow(tmp_frame)
+  # Merge on median_CDR3 
+  results <- merge(results, tmp_frame, by = "median_CDR3")
+}
+```
+
+```{r}
+counts <- 5
+
+# tmp_res <- tmp[seqs$duplicate_count >= counts,]
+
+strings <- results$median_VHH
+
+CDR3s <- results$median_CDR3
+
+# Compute the distance matrix using
+dist_matrix <- stringdistmatrix(strings, method = "lv")
+
+# Perform hierarchical clustering
+cluster_tree <- hclust(as.dist(dist_matrix), method = "complete")
+
+# ordering <- order.dendrogram(as.dendrogram(cluster_tree))
+
+main_title <- paste("Cluster Dendrogram of CDR3 families from Abundance Data\nDemand >= ", counts," VHHs, Distance Metric: Levenshtein", sep = '')
+
+results <- results[cluster_tree$order,]
+
+# write.csv(results, file = paste("~/Downloads/GS-d2-IgRAMFix-Pilot-Abundances-CoV-HCLUST-ORDERED.csv", sep = ''), row.names = F)
+
+par(family = "Courier", cex = 0.5)
+
+# Plot the dendrogram with labels
+plot(cluster_tree, main = main_title, xlab = "VHH Count-Clonal Family-Subfamily-CDR3", sub = NULL, 
+     labels = paste("GS-", tmp$clone_id, '-', tmp$junction_aa, sep = ''), 
+     ylab = "Distance (Levenshtein)", 
+     cex = 0.5)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Dendrogram
+
+```{r}
+tmp <- read.csv("~/Downloads/GS-Spike-Lulu-S09-10-11-12-Abundances-CoV-HCLUST-ORDERED.csv", header = T, stringsAsFactors = F)
+
+
+source("~/VHH/lib/utilities.R")
+library(DESeq2)
+library(stringdist)
+library(gplots)
+
+# Drop ranks
+tmp <- tmp[,!grepl("rank", colnames(tmp))]
+tmp$overall <- rowSums(tmp[,c(2:5)])
+```
+
+
+
+
+```{r}
+strings <- tmp$median_VHH
+
+CDR3s <- tmp$median_CDR3
+
+# Compute the distance matrix
+dist_matrix <- stringdistmatrix(strings, method = "lv")
+```
+
+```{r}
+# Perform hierarchical clustering
+cluster_tree <- hclust(as.dist(dist_matrix), method = "complete")
+
+ordered_strings <- CDR3s[cluster_tree$order]
+
+# Print the ordered strings
+```
+
+```{r}
+main_title <- paste("Cluster Dendrogram of CDR3 families from Abundance Data\nDemand >= ", 1," VHHs, Distance Metric: Levenshtein", sep = '')
+
+# test <- tmp[cluster_tree$order,]
+# test <- tmp[dendro_order,]
+# write.csv(results, file = paste("~/Downloads/GS-d2-IgRAMFix-Pilot-Abundances-CoV-HCLUST-ORDERED.csv", sep = ''), row.names = F)
+```
+
+```{r}
+par(family = "Courier", cex = 1)
+
+# Plot the dendrogram with labels
+plot(cluster_tree, 
+     main = main_title, 
+     xlab = "Overall VHH Count-Mode CDR3", sub = NULL, 
+#     labels = paste(ordered_strings), 
+     ylab = "Distance (Levenshtein)", 
+     cex = 1)
+```
+
+```{r}
+main_title <- paste("Cluster Dendrogram of CDR3 families from Abundance Data\nDemand >= ", 1," VHHs, Distance Metric: Levenshtein", sep = '')
+
+strings <- tmp$median_VHH
+CDR3s <- tmp$median_CDR3
+
+# Calculate the Levenshtein distance matrix
+distance_matrix <- stringdistmatrix(strings, strings, method = "lv")
+
+# Perform hierarchical clustering
+hc <- hclust(as.dist(distance_matrix))
+
+# Get the order of the labels from the dendrogram
+dendrogram_order <- hc$order
+```
+
+```{r}
+par(family = "Courier", cex = 1)
+
+# Plot the dendrogram with the original string labels in dendrogram order
+plot(hc, 
+     main = main_title, 
+     xlab = "", 
+     sub = "", 
+     labels = CDR3s,#[dendrogram_order], 
+     cex = 1)
+```
+

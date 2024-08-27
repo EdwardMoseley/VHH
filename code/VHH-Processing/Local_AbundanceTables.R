@@ -19,7 +19,6 @@ GS <- read.csv(paste0(root_dir,file_name),
 
 ## Strategy:
 
-# 
 # Merge experiment_data to global_data on sequence_id for clone_ids
 
 
@@ -90,6 +89,9 @@ for (nm in names(dat)){
 GS_agg[is.na(GS_agg)] <- 0
 
 tmp <- GS_agg
+
+#tmp <- read.csv("~/Downloads/GS_JGW_d2VHH_21Aug24abundance_table.csv", 
+#                header = T, stringsAsFactors = F)
 
 strings <- tmp$median_VHH
 

@@ -5,8 +5,8 @@
 #SBATCH -N 1 #1 nodes
 #SBATCH -n 1 #1 tasks total (default 1 CPU core per task) = # of cores
 #SBATCH --mem=64g #requesting 2GB of RAM total
-#SBATCH --output=assembly.%j.%N.out #saving standard output to file, %j=JOBID, %N=NodeName
-#SBATCH --error=assembly.%j.%N.err #saving standard error to file, %j=JOBID, %N=NodeName
+#SBATCH --output=8125.assembly.%j.%N.out #saving standard output to file, %j=JOBID, %N=NodeName
+#SBATCH --error=8125.assembly.%j.%N.err #saving standard error to file, %j=JOBID, %N=NodeName
 #SBATCH --mail-type=ALL #email options
 #SBATCH --mail-user=edward.moseley@tufts.edu
 
@@ -19,12 +19,11 @@
 # Define environmental variables
 
 PRESTO_BIN=/cluster/tufts/cowenlab/immcantation_suite/presto/bin
-DATA_BIN=/cluster/tufts/cowenlab/emosel01/data/assembly
-#DATA_BIN=/cluster/tufts/cowenlab/emosel01/data/240124_0629_Charles_Shoemaker_7981/fastq_Lane1
+DATA_BIN=/cluster/tufts/cowenlab/emosel01/data/240520_0044_Charles_Shoemaker-8125/fastq_Lane1
 CHANGEO_BIN=/cluster/tufts/cowenlab/immcantation_suite/changeo/bin
 NCBI_BIN=/cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/bin
-#OUT_BIN=/cluster/tufts/cowenlab/emosel01/data/240124_0629_Charles_Shoemaker_7981/fastq_Lane1
-OUT_BIN=/cluster/tufts/cowenlab/emosel01/data/assembled2
+OUT_BIN=/cluster/tufts/cowenlab/emosel01/data/240520_0044_Charles_Shoemaker-8125/fastq_Lane1
+
 
 # Iterate over each file in the assembly folder
 # Pipe through each unique file name after trimming everyhing after the "_L"

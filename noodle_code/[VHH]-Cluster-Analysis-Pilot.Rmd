@@ -16,23 +16,9 @@ calculate_levenshtein <- function(query_seq, strings) {
 ## Load Data
 
 ```{r}
-# 14_VecF2_R2_S14_min_threshold_clone-pass.tsv
-# 213222
-
-# 14_VecF1_R2_S14_min_threshold_clone-pass.tsv
-# 213225
-
-#db <- read.csv("~/VHH/data/Cluster-DBs/14_VecF1_R2_S14_min_threshold_clone-pass.tsv", header = T, stringsAsFactors = F, sep = '\t')
-
-#df <- read.csv("~/VHH/data/Cluster-DBs/results/V600-Cluster-DB24Feb24.csv",
-#               header = T, stringsAsFactors = F)
-
 df <- read.csv("~/VHH/data/Cluster-DBs/results/V600-Cluster-DB26Feb24.csv",
                header = T, stringsAsFactors = F)
-
-# df <- df[df$f != "14_VecF2_R2_S14_min_threshold_clone-pass.tsv",]
 ```
-
 
 ### Query Aggregate Databases
 
@@ -414,5 +400,5 @@ for (i in 1:50){
 
 
 ```{r}
-write.csv(res_frame, file = "~/Downloads/all_clone_groups06Mar24.csv",row.names = F)
+# write.csv(res_frame, file = "~/Downloads/all_clone_groups06Mar24.csv",row.names = F)
 ```

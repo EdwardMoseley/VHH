@@ -1,0 +1,188 @@
+---
+title: "[VHH]-Scratchpad"
+output: html_document
+date: "2024-04-05"
+---
+
+```{r}
+root_dir <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/"
+list.files(root_dir)[grepl("-Initial-Results", list.files(root_dir))]
+```
+
+
+```
+"18_VecF3_R4_S18-Pooled-Cleaning-Reclustering-Initial-Results-H90.csv"
+"18_VecF3_R4_S18-Pooled-Cleaning-Reclustering-Initial-Results.csv"    
+"19_VecF1_R3_S19-Pooled-Cleaning-Reclustering-Initial-Results-H90.csv"
+"19_VecF1_R3_S19-Pooled-Cleaning-Reclustering-Initial-Results.csv"    
+"20_VecF2_R3_S20-Pooled-Cleaning-Reclustering-Initial-Results-H90.csv"
+"20_VecF2_R3_S20-Pooled-Cleaning-Reclustering-Initial-Results.csv"
+```
+
+```{r}
+input_file <- "18_VecF3_R4_S18-Pooled-Cleaning-Reclustering-Initial-Results.csv"    
+tmp <- read.csv(paste(root_dir, input_file, sep = ''), header = T, stringsAsFactors = F)
+```
+
+## Experiment:
+
+```
+For each subgroup VHH
+  Calculate % Homology from centroid
+Aggregate taking average of all distances
+```
+
+```{r}
+results <- data.frame()
+for (clone_id in unique(tmp$clone_id)){
+  tmp_frame <- tmp[tmp$clone_id == clone_id,]
+  for (centroid_id in unique(tmp_frame$centroid_id)){
+    tmp_cent <- tmp_frame[tmp_frame$centroid_id == centroid_id,]
+    # Homology
+    tmp_cent$avg_homology_to_cent <- 100 - (as.vector(adist(tmp_cent$centroid[1], tmp_cent$VHH))/nchar(tmp_cent$centroid[1]))*100
+    
+    tmp_res <- aggregate(avg_homology_to_cent ~ clone_id + centroid_id, dat = tmp_cent, FUN = mean)
+    results <- rbind(results, tmp_res)
+  }
+}
+
+results <- results[order(results$avg_homology_to_cent, decreasing = F),]
+```
+
+```{r}
+H95_df <- results
+```
+
+
+
+```{r}
+input_file <- "18_VecF3_R4_S18-Pooled-Cleaning-Reclustering-Initial-Results-H90.csv"    
+tmp <- read.csv(paste(root_dir, input_file, sep = ''), header = T, stringsAsFactors = F)
+```
+
+## Experiment:
+
+```
+For each subgroup VHH
+  Calculate % Homology from centroid
+Aggregate taking average of all distances
+```
+
+```{r}
+results <- data.frame()
+for (clone_id in unique(tmp$clone_id)){
+  tmp_frame <- tmp[tmp$clone_id == clone_id,]
+  for (centroid_id in unique(tmp_frame$centroid_id)){
+    tmp_cent <- tmp_frame[tmp_frame$centroid_id == centroid_id,]
+    # Homology
+    tmp_cent$avg_homology_to_cent <- 100 - (as.vector(adist(tmp_cent$centroid[1], tmp_cent$VHH))/nchar(tmp_cent$centroid[1]))*100
+    
+    tmp_res <- aggregate(avg_homology_to_cent ~ clone_id + centroid_id, dat = tmp_cent, FUN = mean)
+    results <- rbind(results, tmp_res)
+  }
+}
+
+results <- results[order(results$avg_homology_to_cent, decreasing = F),]
+```
+
+```{r}
+H90_df <- results
+```
+
+```{r}
+
+
+```
+
+
+
+
+### Merge together for comparison
+
+
+
+
+
+
+
+
+
+
+---
+**Note:**
+
+Begins with `_min_threshold_clone-pass.csv` file, ends with `-pooled-families.csv` file.
+
+## Load clonal database
+
+```{r}
+# Load utilities
+source("~/VHH/lib/utilities.R")
+
+file_path <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/19_VecF1_R3_S19_VHH_database.csv"
+
+dat <- read.csv(file_path, header = T, stringsAsFactors = F)
+```
+
+```{r}
+# Hold results in results
+results <- data.frame()
+# Iterate over clone ids
+for (nm in unique(dat$clone_id)){
+  tmp_frame <- dat[dat$clone_id == nm,]
+  
+  # Unroll
+  unrolled_VHHs <- unroll_dupes_fast(tmp_frame, "VHH")
+  unrolled_CDR3s <- unroll_dupes_fast(tmp_frame, "junction_aa")
+  
+  # Pull statistics
+  median_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)][1])
+  median_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
+  consensus_CDR3 <- strict_consensus(unrolled_CDR3s)
+  
+  # Distance from median
+  tmp_frame$family_median_VHH_homology <- 100 - (as.vector(adist(median_VHH, tmp_frame$VHH))/nchar(median_VHH))*100
+  
+  tmp_frame$family_median_CDR3_homology <- 100 - (as.vector(adist(median_CDR3, tmp_frame$junction_aa))/nchar(median_CDR3))*100
+  
+  tmp_frame$family_consensus_CDR3_homology <- 100 - (as.vector(adist(consensus_CDR3, tmp_frame$junction_aa))/nchar(consensus_CDR3))*100
+  
+  results <- rbind(results, tmp_frame)
+}
+
+#results <- results[order(results$avg_homology_to_cent, decreasing = F),]
+```
+
+## Clone: 207
+
+```{r}
+par(mfrow=c(2,2))
+
+tmp <- results[results$clone_id == 207,]
+tmp <- tmp[order(tmp$family_median_VHH_homology, decreasing = T),]
+plot(tmp$family_median_VHH_homology, main = paste("VHH % Homology to most-frequent VHH with CDR3: ", tmp$junction_aa[1], sep = ''), xlab = "Order Statistic", ylab = "Percent Homology to Most-abundant VHH in Family", ylim = c(70, 100))
+
+tmp <- results[results$clone_id == 4,]
+tmp <- tmp[order(tmp$family_median_VHH_homology, decreasing = T),]
+plot(tmp$family_median_VHH_homology, main = paste("VHH % Homology to most-frequent VHH with CDR3: ", tmp$junction_aa[1], sep = ''), xlab = "Order Statistic", ylab = "Percent Homology to Most-abundant VHH in Family", ylim = c(70, 100))
+
+tmp <- results[results$clone_id == 29,]
+tmp <- tmp[order(tmp$family_median_VHH_homology, decreasing = T),]
+plot(tmp$family_median_VHH_homology, main = paste("VHH % Homology to most-frequent VHH with CDR3: ", tmp$junction_aa[1], sep = ''), xlab = "Order Statistic", ylab = "Percent Homology to Most-abundant VHH in Family", ylim = c(70, 100))
+
+tmp <- results[results$clone_id == 59,]
+tmp <- tmp[order(tmp$family_median_VHH_homology, decreasing = T),]
+plot(tmp$family_median_VHH_homology, main = paste("VHH % Homology to most-frequent VHH with CDR3: ", tmp$junction_aa[1], sep = ''), xlab = "Order Statistic", ylab = "Percent Homology to Most-abundant VHH in Family", ylim = c(70, 100))
+```
+
+```
+49, 12, 220, 31, 39, 79, 41, 13, 40, 226, 70
+```
+
+
+```{r}
+tmp <- results[results$clone_id == 12,]
+tmp <- tmp[order(tmp$family_median_VHH_homology, decreasing = T),]
+plot(tmp$family_median_VHH_homology, main = paste("VHH % Homology to most-frequent VHH with CDR3: ", tmp$junction_aa[1], sep = ''), xlab = "Order Statistic", ylab = "Percent Homology to Most-abundant VHH in Family")
+```
+

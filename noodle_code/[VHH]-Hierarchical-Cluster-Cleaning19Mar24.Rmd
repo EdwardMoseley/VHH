@@ -223,13 +223,6 @@ results <- results[,c("f",
                       "CDR3_entropy",
                       "VHH_entropy")]
 
-#sequences <- Biostrings::AAStringSet(results$VHH)
-# Perform multiple sequence alignment
-#msa_result <- msa::msa(sequences, method = "ClustalOmega")
-# Store aligned results
-# clean_dat$Aligned_VHHs <- as.character(msa_result@unmasked)
-
-# test <- results[order(results$clone_id, results$median_VHH_homology, decreasing = T),]
 ```
 
 

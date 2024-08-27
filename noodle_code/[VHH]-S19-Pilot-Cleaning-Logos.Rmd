@@ -1,14 +1,31 @@
 ---
-title: "[VHH]-S18-Pilot-Homology-Based-Cleaning-Logos"
+title: "[VHH]-S18-Pooled-and-Cleaned-Logos"
+subtitle: "90%-Homology Sub-Clustering"
 output: html_document
-date: "2024-04-02"
+date: "2024-04-04"
 ---
 
 * **Note:** VHH duplicates are *not* well-tracked in the outlier group, which may lead to differences in CDR3 observed in `Most-frequent CDR3` relative to `Most-frequent VHH`.
 
 ```{r, echo = F, eval = T}
-results <- read.csv("~/Downloads/S18-Cleaning-Reclustering-Initial-Results02Apr24.csv", 
-                header = T, stringsAsFactors = F)
+# * **Note:** VHH duplicates are *not* well-tracked in the outlier group, which may lead to differences in CDR3 observed in `Most-frequent CDR3` relative to `Most-frequent VHH`.
+
+# "[VHH]-S19-Unpooled-Pilot-Homology-Based-Cleaning-Logos"
+#results <- read.csv("~/Downloads/S19-Pooled-Cleaning-Reclustering-Initial-Results03Apr24.csv", 
+#                header = T, stringsAsFactors = F)
+#results <- read.csv("~/Downloads/S19-Pooled-Cleaning-Reclustering-Initial-Results03Apr24.csv", 
+#                header = T, stringsAsFactors = F)
+
+# results <- read.csv("~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/19_VecF1_R3_S19_VHH_database.csv", header = T, stringsAsFactors = F)
+
+# results <- read.csv("~/Downloads/S19-Pooled-Cleaning-Reclustering-Initial-Results04Apr24.csv", header = T, stringsAsFactors = F)
+
+#root_dir <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/translated_dbs/culled_databases/"
+#input_file <- "18_VecF3_R4_S18-Pooled-Cleaning-Reclustering-Initial-Results-H90.csv"
+root_dir <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/"
+input_file <- "18_VecF3_R4_S18-H90-Cleaned10Apr24.csv"
+
+results <- read.csv(paste(root_dir, input_file, sep = ''), header = T, stringsAsFactors = F)
 
 # Imports
 source("~/VHH/lib/utilities.R")
@@ -16,12 +33,15 @@ suppressPackageStartupMessages(library(stringdist))
 suppressPackageStartupMessages(library(ggseqlogo))
 ```
 
+## Database Statistics
+
+
 ### Logo Plots (Ordered by Unique VHH Abundance in Clonal Families)
 
 ```{r, echo = F, fig.width=10, fig.height=6, eval = T, warning=F}
 tab <- top_groups(results, "clone_id")
 
-for (nm in head(names(tab), 50)){
+for (nm in head(names(tab), 100)){
   tmp_frame <- results[results$clone_id == as.numeric(nm),]
   
   unrolled_VHHs <- unroll_dupes_fast(tmp_frame, "VHH")

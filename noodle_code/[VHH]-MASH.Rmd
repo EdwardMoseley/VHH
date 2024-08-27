@@ -14,7 +14,8 @@ library(pheatmap)
 # Read the data
 #distances <- read.table("~/Downloads/distances.tsv", header = FALSE, sep = "\t")
 #distances <- read.table("~/Downloads/new_distances.tsv", header = FALSE, sep = "\t")
-distances <- read.table("~/Downloads/Impulse_Lulu_CoV_distances.tsv", header = F, sep = '\t')
+# distances <- read.table("~/Downloads/Impulse_Lulu_CoV_distances.tsv", header = F, sep = '\t')
+distances <- read.table("~/Downloads/MASH_Schisto_7981_distances.tsv", header = F, sep = '\t')
 
 
 # Assign column names for clarity
@@ -22,18 +23,18 @@ colnames(distances) <- c("Genome1", "Genome2", "Mash_Distance", "P_value", "Shar
 
 
 # file_path <- "/cluster/tufts/cowenlab/emosel01/data/assembly/"
-
-file_path <- "/cluster/tufts/cowenlab/emosel01/data/hclust/"
-
+#file_path <- "/cluster/tufts/cowenlab/emosel01/data/hclust/"
+file_path <- "/cluster/tufts/cowenlab/emosel01/data/2024_TUCF_7981/"
 
 distances$Genome1 <- gsub(file_path, "", distances$Genome1)
 distances$Genome2 <- gsub(file_path, "", distances$Genome2)
 
 # _atleast-1.fasta
 # _db-pass.fasta
+suffix <- "_min_threshold_clone-pass.fasta"
 
-distances$Genome1 <- gsub("_db-pass.fasta", "", distances$Genome1)
-distances$Genome2 <- gsub("_db-pass.fasta", "", distances$Genome2)
+distances$Genome1 <- gsub(suffix, "", distances$Genome1)
+distances$Genome2 <- gsub(suffix, "", distances$Genome2)
 
 # Create a matrix of distances
 distance_matrix <- reshape2::acast(distances, Genome1 ~ Genome2, value.var = "Mash_Distance")
@@ -42,9 +43,9 @@ distance_matrix[is.na(distance_matrix)] <- 0  # Replace NAs with 0 for self-comp
 
 
 ```{r}
-distance_matrix <- distance_matrix[,c("9_S18", colnames(distance_matrix)[!(colnames(distance_matrix) %in% "9_S18")])]
+# distance_matrix <- distance_matrix[,c("9_S18", colnames(distance_matrix)[!(colnames(distance_matrix) %in% "9_S18")])]
 
-distance_matrix <- distance_matrix[c("9_S18", row.names(distance_matrix)[!(row.names(distance_matrix) %in% "9_S18")]),]
+# distance_matrix <- distance_matrix[c("9_S18", row.names(distance_matrix)[!(row.names(distance_matrix) %in% "9_S18")]),]
 ```
 
 
@@ -155,4 +156,9 @@ ggplot(mds_df, aes(x = V1, y = V1, label = Genome)) +
   ylab("Coordinate 2") +
   theme_minimal()
 ```
+
+
+
+
+
 

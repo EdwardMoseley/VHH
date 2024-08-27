@@ -1,0 +1,547 @@
+---
+title: "[VHH]-Cleaning-and-Re-Clustering"
+output: html_document
+date: "2024-03-21"
+---
+
+
+
+### Motivation
+
+This workflow is based on cleaning the `antigen-selected` databases (Ex: `S19`, `S20`, `S21`). 
+
+To select the best members of each `antigen-selected` cluster, we need to find and draw information from the clonal family members in the `source databases` (library or cDNA). It is the distinctions between `antigen-selected` members and `source members` of each clonal family that is critical.
+
+Because we cannot expect the highly-enriched and selected VHHs in the antigen-selected databases to always have closely related CDR3 regions, we need a new method to identify clonal families in the source databases from which they originated. 
+
+This will be addressed in subsequent experiments, likely by comparing consensus CDR3s, median CDR3s, and median VHHs in clonal families.
+
+
+```{r, echo = F, eval = T}
+source("~/VHH/lib/utilities.R")
+suppressPackageStartupMessages(library(stringdist))
+```
+
+## Load Antigen-Selected Databases (S19 for now)
+
+We will expand shortly to combine `{S19, S20, S21}` for re-cleaning (as they will have many duplicates and many of the same poorly-formed clusters).
+
+### Load consensus database
+
+```{r, echo = F, eval = T}
+cdb <- read.csv("~/VHH/data/Cluster-DBs/cluster_database/9_L3_sh2_S9_min_threshold_clone-pass-consensuses15Mar24.csv",
+                header = T, stringsAsFactors = F)
+
+# Subset only 19 for now
+ cdb <- cdb[cdb$f == "19_VecF1_R3_S19_min_threshold_clone-pass.tsv",]
+
+# Order by Dup_count
+ cdb <- cdb[order(cdb$Dup_count, decreasing = T),]
+
+# print(head(cdb))
+```
+
+Unsurprisingly, these larger clusters are our "usual suspects!"
+
+### Load individual clonal database
+
+```{r, warning = F, eval = T, echo = F}
+db <- read.csv("~/VHH/data/Cluster-DBs/clean_results/19_VecF1_R3_S19_min_threshold_clone-pass.tsv",
+               header = T, stringsAsFactors = F, sep = '\t')
+
+db$f <- rep("19_VecF1_R3_S19_min_threshold_clone-pass.tsv", each = nrow(db))
+
+# Trim CDR3s
+db$junction_aa <- trim_CDR3(db$junction_aa)
+
+# Translate
+db$VHH <- translate_DNA(db$sequence_alignment)
+
+# Trim
+db$VHH <- substr(db$VHH, 11, nchar(db$VHH))
+
+# Keep productive only
+nrow(db)
+db <- unproductive(db)
+nrow(db)
+```
+
+
+
+## Drop all duplicate VHHs and align
+
+```{r}
+tmp <- db[!duplicated(db$VHH),]
+tmp <- tmp[,c("sequence_id", "duplicate_count", "clone_id","VHH")]
+# rm(db)
+```
+
+
+```{r}
+# Pull sequences
+sequences <- Biostrings::AAStringSet(tmp$VHH)
+# Add names
+names(sequences) <- tmp$sequence_id
+# Perform multiple sequence alignment
+msa_result <- msa::msa(sequences, method = "ClustalOmega")
+# Store aligned results
+# clean_dat$Aligned_VHHs <- as.character(msa_result@unmasked)
+
+# test <- results[order(results$clone_id, results$median_VHH_homology, decreasing = T),]
+```
+
+
+```{r}
+#> msaConsensusSequence(msa_result)
+#[1] "LVQAGGSLRLSCAASG??F????MGWYRQAPGK?RE?VA?I???-?TT?-Y?DSVKGRFTISRDNAKNTVYLQMNSLKPEDTAVYYCN??-------------------?DYWGQGTQVTVSS"
+
+dat <- as.data.frame(msa_result@unmasked)
+dat$sequence_id <- row.names(dat)
+row.names(dat) <- NULL
+dat <- dat[,c("sequence_id", "x")]
+colnames(dat)[2] <- "aligned_VHH"
+
+# IDs are here:
+# head(row.names(dat))
+
+```
+
+```{r}
+# Merge dat (alignments) to VHH (alignments)
+dat <- merge(dat, tmp, by = "sequence_id")
+
+# Drop duplicate count
+dat$duplicate_count <- NULL
+```
+
+
+```{r}
+aa_duplicate_count <- function(dat){
+  dat <- aggregate(duplicate_count ~ VHH, data = dat, FUN = sum)
+  return(dat)
+}
+
+test <- aa_duplicate_count(db)
+```
+
+```{r}
+test_two <- merge(test, dat, by = "VHH")
+```
+
+## Merge to the rest of the data set (we really just need "junction_aa")
+
+```{r}
+test_three <- merge(test_two, db[,c("sequence_id", "junction_aa")], by = "sequence_id")
+
+# barplot(table(test_three$clone_id)[order(table(test_three$clone_id), decreasing = T)])
+```
+
+```{r}
+#
+write.csv(test_three,file="~/Downloads/aligned-unique-S19-VHHs-inc-VHH-Duplicates.csv",row.names=F)
+```
+
+
+```{r}
+
+#colnames(cdb)[which(colnames(cdb) == "cluster_id")] <- "clone_id"
+
+test_four <- merge(test_three, cdb[,c("clone_id", "consensus_sequence")], by = "clone_id")
+
+test_four$aligned_VHH <- factor(test_four$aligned_VHH, levels = dat$aligned_VHH)
+
+test_four <- test_four[order(test_four$aligned_VHH),]
+
+# Percent homolology to consensus
+
+# test_four <- 
+```
+
+```{r}
+test_four$aligned_VHH <- gsub("-", "_", test_four$aligned_VHH)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Initial Data Set
+
+```{r, echo = F, eval = T}
+## Initialize tmp for holding results
+tmp <- data.frame()
+cleaning_run <- "Initial"
+tmp_res <- data.frame()
+
+#for (nm in cdb$cluster_id){
+#  if (nm %in% intersect(cdb$cluster_id, db$clone_id)){
+for (nm in unique(db$clone_id)){
+      tmp_frame <- db[db$clone_id == as.numeric(nm),]
+      
+      ## Note: here we need to ensure that we account for the duplicates
+      unrolled_CDR3s <- unroll_dupes_fast(tmp_frame, "junction_aa")
+      unrolled_VHHs <- unroll_dupes_fast(tmp_frame, "VHH")
+      
+      # Pull most frequent CDR3 and VHH
+      median_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
+      median_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)][1])
+      consensus_CDR3 <- strict_consensus(unrolled_CDR3s)
+      
+      # Pull entropy values
+      CDR3_entropy <- string_entropy(unrolled_CDR3s)
+      VHH_entropy <- string_entropy(unrolled_VHHs)
+      
+      # Count duplicates
+      duplicate_count <- sum(tmp_frame$duplicate_count)
+      
+      tmp_res <- rbind(tmp_res, cbind(tmp_frame$f[1], 
+                                      tmp_frame$clone_id[1],
+                                      duplicate_count,
+                                      consensus_CDR3,
+                                      median_CDR3,
+                                      median_VHH,
+                                      CDR3_entropy,
+                                      VHH_entropy))
+      
+#  }
+}
+
+colnames(tmp_res) <- c("File",
+                       "clone_id",
+                       "duplicate_count",
+                       "consensus_CDR3",
+                       "median_CDR3",
+                       "median_VHH",
+                       "CDR3_entropy",
+                       "VHH_entropy")
+
+tmp_res$id <- rep(cleaning_run, each = nrow(tmp_res))
+
+# tmp <- rbind(tmp, tmp_res)
+```
+
+### Construct Dataset with Initial Statistics for Cleaning
+
+**We want:**
+
+1. `CDR3-entropy`
+
+2. `VHH-entropy`
+
+3. `median-CDR3` 
+
+5. `CDR3-consensus`
+
+4. `median-VHH`
+
+```
+unrolled_VHHs <- unroll_dupes_fast(tmp_frame, "VHH")
+median_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)][1])
+```
+
+
+```{r, eval = T, echo = T}
+results <- data.frame()
+
+system.time(
+for (nm in cdb$cluster_id){
+  if (nm %in% intersect(cdb$cluster_id, db$clone_id)){
+  tmp_frame <- db[db$clone_id == as.numeric(nm),]
+  
+  ## Note: here we need to ensure that we account for the duplicates
+  unrolled_CDR3s <- unroll_dupes_fast(tmp_frame, "junction_aa")
+  unrolled_VHHs <- unroll_dupes_fast(tmp_frame, "VHH")
+  
+  CDR3_entropy <- string_entropy(unrolled_CDR3s)
+  VHH_entropy <- string_entropy(unrolled_VHHs)
+  
+  # Pull most frequent CDR3 and VHH
+  median_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
+  median_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)][1])
+  consensus_CDR3 <- strict_consensus(unrolled_CDR3s)
+  
+  # Pull entropy values
+  CDR3_entropy <- string_entropy(unrolled_CDR3s)
+  VHH_entropy <- string_entropy(unrolled_VHHs)
+  
+  ## Subset variables of interest
+  
+  tmp_frame$median_VHH_homology <- 100 - (as.vector(adist(median_VHH, tmp_frame$VHH))/nchar(median_VHH))*100
+  tmp_frame$median_CDR3_homology <- 100 - (as.vector(adist(median_CDR3, tmp_frame$junction_aa))/nchar(median_CDR3))*100
+  tmp_frame$consensus_CDR3_homology <- 100 - (as.vector(adist(consensus_CDR3, tmp_frame$junction_aa))/nchar(consensus_CDR3))*100
+  
+  tmp_frame$median_CDR3 <- rep(median_CDR3, each = nrow(tmp_frame))
+  tmp_frame$median_VHH <- rep(median_VHH, each = nrow(tmp_frame))
+  tmp_frame$consensus_CDR3 <- rep(consensus_CDR3, each = nrow(tmp_frame))
+  tmp_frame$CDR3_entropy <- rep(CDR3_entropy, each = nrow(tmp_frame))
+  tmp_frame$VHH_entropy <- rep(VHH_entropy, each = nrow(tmp_frame))
+  
+  results <- rbind(results, tmp_frame)
+  }
+}
+)
+rm(tmp_frame, unrolled_CDR3s, unrolled_VHHs)
+```
+
+
+```{r, echo = F, eval = T}
+results <- results[,c("f",
+                      "sequence_id",
+                      "clone_id",
+                      "v_call",
+                      "d_call",
+                      "j_call",
+                      "duplicate_count",
+                      "median_CDR3",
+                      "consensus_CDR3",
+                      "junction_aa",
+                      "median_VHH",
+                      "VHH",
+                      "median_VHH_homology",
+                      "median_CDR3_homology",
+                      "consensus_CDR3_homology",
+                      "CDR3_entropy",
+                      "VHH_entropy")]
+
+```
+
+## Rule-based Cleaning (CDR3 length and Homology)
+
+*	10 aa CDR3, `>60%` homology within databases selected on the same target?
+  
+*	6-9 aa CDR3, `>80%` homology within databases selected on the same target? (or combine CDR1/2/3 together and >60% homology?)
+  
+*	<6 aa CDR3, `100%` homology? (or combine CDR1/2/3 together and >60% homology?) 
+
+```{r, echo = F, eval = T}
+tmp_res <- data.frame()
+cleaning_run <- "Rule-Based"
+
+for (nm in cdb$cluster_id){
+  if (nm %in% intersect(cdb$cluster_id, results$clone_id)){
+      tmp_frame <- results[results$clone_id == as.numeric(nm),]
+
+      
+      # Pull values for constraints
+      consensus_CDR3 <- tmp_frame$consensus_CDR3[1]
+      median_VHH <- tmp_frame$median_VHH[1]
+    
+      ## Enforce Constraints
+      if (nchar(consensus_CDR3) >= 10){
+        tmp_frame <- tmp_frame[tmp_frame$consensus_CDR3_homology >= 60,]
+      } else if ((nchar(consensus_CDR3) > 6) & (nchar(consensus_CDR3) < 10)){
+        tmp_frame <- tmp_frame[tmp_frame$consensus_CDR3_homology >= 80,]
+      } else {
+        tmp_frame <- tmp_frame[(tmp_frame$consensus_CDR3_homology == 100) | 
+                                         (tmp_frame$median_VHH_homology >= 90 & tmp_frame$consensus_CDR3_homology >= 80),]
+      }
+      
+      
+      if (nrow(tmp_frame) >= 1){
+          ## Note: here we need to ensure that we account for the duplicates
+          unrolled_CDR3s <- unroll_dupes_fast(tmp_frame, "junction_aa")
+          unrolled_VHHs <- unroll_dupes_fast(tmp_frame, "VHH")
+          # Pull most frequent CDR3 and VHH
+          median_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
+          median_VHH <- names(table(unrolled_VHHs)[order(table(unrolled_VHHs), decreasing = T)][1])
+          consensus_CDR3 <- strict_consensus(unrolled_CDR3s)
+          # Pull entropy values
+          CDR3_entropy <- string_entropy(unrolled_CDR3s)
+          VHH_entropy <- string_entropy(unrolled_VHHs)
+          # Count duplicates
+          duplicate_count <- sum(tmp_frame$duplicate_count)
+          # Bind together results
+          tmp_res <- rbind(tmp_res, cbind(tmp_frame$f[1], 
+                                          tmp_frame$clone_id[1],
+                                          duplicate_count,
+                                          consensus_CDR3,
+                                          median_CDR3,
+                                          median_VHH,
+                                          CDR3_entropy,
+                                          VHH_entropy))
+          colnames(tmp_res) <- c("File",
+                                 "clone_id",
+                                 "duplicate_count",
+                                 "consensus_CDR3",
+                                 "median_CDR3",
+                                 "median_VHH",
+                                 "CDR3_entropy",
+                                 "VHH_entropy")
+    }
+  }
+}
+
+tmp_res$id <- rep(cleaning_run, each = nrow(tmp_res))
+
+#tmp <- rbind(tmp, tmp_res)
+```
+
+---
+
+
+## Small Sample Data Set
+
+```{r}
+df <- head(db, 25)
+df <- df[,c("sequence_id", "clone_id", "junction_aa", "duplicate_count")]
+
+df <- rbind(df, tail(db[,c("sequence_id", "clone_id", "junction_aa", "duplicate_count")]))
+
+df <- rbind(df, c(32, 3, "NTEEE", "1"))
+
+df$sequence_id <- 1:nrow(df)
+```
+
+## Larger Data Set
+
+```{r}
+df <- db[,c("sequence_id", "clone_id", "junction_aa", "duplicate_count")]
+```
+
+
+
+```{r}
+# Function to find the most frequent string in a clone_id group
+find_most_frequent_string <- function(junction_aa) {
+  frequencies <- table(junction_aa)
+  most_frequent <- names(frequencies)[which.max(frequencies)]
+  return(most_frequent)
+}
+
+# Function to filter and separate strings based on similarity threshold
+filter_strings <- function(df, threshold = 0.8) {
+  filtered_df <- data.frame()
+  retained_df <- data.frame()
+  df$median_CDR3 <- rep("", each = nrow(df))
+  
+  unique_clone_ids <- unique(df$clone_id)
+  
+  # Iterate over all clonal families
+  for (clone_id in unique_clone_ids) {
+    # Look at one clonal family
+    subset_df <- df[df$clone_id == as.numeric(clone_id), ]
+    # Pull the median (while accounting for duplicates)
+    most_frequent_string <- find_most_frequent_string(unroll_dupes_fast(subset_df, "junction_aa"))
+    # Store the medians
+    subset_df$median_CDR3 <- rep(most_frequent_string, each = nrow(subset_df))
+    # Calculate similarities
+    similarity <- 1 - (as.numeric(calculate_levenshtein(most_frequent_string, subset_df$junction_aa))/nchar(most_frequent_string))
+    # Store results based on the threshold
+    retained_df <- rbind(retained_df, subset_df[similarity >= threshold,])
+    filtered_df <- rbind(filtered_df, subset_df[similarity < threshold,])
+  }
+  
+  return(list(retained_df, filtered_df))
+}
+
+# Example usage
+# Assuming 'df' is your data frame containing the provided data
+
+# Cluster and filter strings
+result <- filter_strings(df, threshold = 0.8)
+
+# Separate retained and filtered data frames
+retained_df <- result[[1]]
+filtered_df <- result[[2]]
+
+# Print retained and filtered data frames
+print("Retained Data Frame:")
+print(retained_df)
+print("Filtered Data Frame:")
+print(filtered_df)
+
+rm(result)
+```
+
+This leaves us with a `retained_df` (which obeys all constraints), and a `filtered_df`, whose data needs to be re-clustered.
+
+Our goal, here, is to update `filtered_df` with the correct clonal assignments, and then rbind to retained df.
+
+
+```{r}
+results <- data.frame()
+
+for (i in 1:nrow(filtered_df)){
+  if (i %% 1000 == 0){
+    cat("Currently on row: ", i, '\n', sep = '')
+  }
+  # Pull the junction_aa in question
+  o_junction_aa <- filtered_df$junction_aa[i]
+  # Check if there is an exact match
+  if (any(retained_df$median_CDR3 == o_junction_aa)){
+    # If there is an exact match, pull it
+    tmp_frame <- retained_df[which(retained_df$median_CDR3 == o_junction_aa),]
+    # We only need the first observation
+    tmp_frame <- tmp_frame[1,]
+    # Now we update the filtered value with its clone_id and median CDR3
+    filtered_df$clone_id[i] <- tmp_frame$clone_id[1]
+    filtered_df$median_CDR3[i] <- tmp_frame$median_CDR3[1]
+    # Now add it to the retained df
+    retained_df <- rbind(retained_df, filtered_df[i,])
+    
+    # Drop it from filtered df
+    
+    # filtered_df <- filtered_df[filtered_df$clone_id != tmp_frame$clone_id, ]
+  } else {
+    
+    # Calculate similarities
+    similarity <- 1 - (as.numeric(calculate_levenshtein(o_junction_aa, retained_df$junction_aa))/nchar(retained_df$junction_aa))
+    
+    # Find closest match based on homology, and assign it to the group
+    if (any(similarity >= 0.80)){
+      # Subset the most similar observation
+      tmp_frame <- retained_df[which.max(similarity),]
+      # Assign its data to the filtered df observation
+      filtered_df$clone_id[i] <- tmp_frame$clone_id[1]
+      filtered_df$median_CDR3[i] <- tmp_frame$median_CDR3[1]
+      # Add the observation to retaind df
+      retained_df <- rbind(retained_df, filtered_df[i,])
+      
+      
+      # Drop the observation from filtered_df
+      # filtered_df <- filtered_df[filtered_df$clone_id != tmp_frame$clone_id, ]
+      
+    # If there is no closer match, we make a new group
+    } else {
+      tmp_frame <- rbind(retained_df, filtered_df)
+      new_clone_id <- max(as.numeric(tmp_frame$clone_id))+1
+      # Now we update the filtered value with its clone_id and median CDR3
+      filtered_df$clone_id[i] <- new_clone_id
+      filtered_df$median_CDR3[i] <- o_junction_aa
+      # Add the observation to retained df
+      retained_df <- rbind(retained_df, filtered_df[i,])
+      
+      # Drop the old observation
+      # filtered_df <- filtered_df[filtered_df$clone_id != new_clone_id, ]
+    }
+  }
+  
+}
+```
+
+
+
+
+
+

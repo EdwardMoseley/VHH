@@ -1,0 +1,178 @@
+---
+title: '[VHH] README'
+output:
+  html_document: default
+  pdf_document: default
+date: "2024-08-20"
+---
+
+# From TUCF to Tufts HPC and Tufts Box!
+
+## Connect to FTP to Pull Data
+
+First, we need to connect to the FTP server
+
+```
+ftp://tucf-data.med.tufts.edu
+```
+
+Chuck's Username and Password facilitate access.
+
+MacOS makes this process simple with a user interface that facilitates drag-and-drop.
+
+## Compress data after pulling down, push to Tufts HPC
+
+### Compress
+
+Before we push the data to the Tufts HPC, we will compress it with the following general command.
+
+```
+tar -czvf [output_name.tar.gz] [input_folder]
+```
+
+```
+tar -czvf 240815_0062_Shoemaker_8265.tar.gz 240815_0062_Charles_Shoemaker-8265
+```
+
+### Securely Copy Illumina Data to Cluster
+
+Now, we securely copy the data up to the cluster with the general command:
+
+```
+scp -r [local_path_to_folder] [path_to_cluster_folder]
+```
+
+*Note:* This command must be run from the machine that has the file/folder.
+
+```
+scp -r ~/VHH/data/240815_0062_Shoemaker_8265.tar.gz emosel01@xfer.cluster.tufts.edu:/cluster/tufts/cowenlab/emosel01/data/
+```
+
+Once uploaded, we navigate to the `/cluster/tufts/cowenlab/$USER/data` directory and decrompress the data with the following command:
+
+```
+tar -xzvf 240815_0062_Shoemaker_8265.tar.gz
+```
+
+We ensure there exist folders that are properly populated according to our desired Global Set definitions:
+
+* Global Set: `XLI` - Experiments 1 - 15
+* Global Set: `JPL-1` - Experiments 16 - 20
+* Global Set: `XIV-3` - Experiments 21 - 27
+* Global Set: `JGW-2` - Experiments 28 - 34
+
+We use the commands in the `/data` director:
+
+```
+mkdir XLI
+mkdir JPL
+mkdir XIV
+mkdir JGW
+```
+
+We then move to the `fastq_Lane1` folder, 
+
+```
+cd 240815_0062_Shoemaker_8265/fastq_Lane1/
+```
+
+We then delete the following unnecessary files:
+
+```
+rm *.html
+rm *.zip
+rm Undetermined_S0_L001*
+```
+
+**Note:** `Undetermined` sequences lack a barcode, so we consider them impossible to assign to an experiment.
+
+This leaves the paired-end read files, which need to be decompressed:
+
+```
+gunzip *
+```
+
+We then move experiments to their Global Set directories in the `/data` directory.
+
+**Note:** we can also simply leave the data in this directory, and treat the entire Illumina run as a global set.
+
+```
+[emosel01@login-prod-01 fastq_Lane1]$ mv [1-9]_* ../../XLI
+[emosel01@login-prod-01 fastq_Lane1]$ mv 1[0-5]_* ../../XLI
+
+[emosel01@login-prod-01 fastq_Lane1]$ mv 1[6-9]_* ../../JPL
+[emosel01@login-prod-01 fastq_Lane1]$ mv 20_* ../../JPL
+
+[emosel01@login-prod-01 fastq_Lane1]$ mv 2[1-7]_* ../../XIV
+
+[emosel01@login-prod-01 fastq_Lane1]$ mv 2[8-9]_* ../../JGW
+[emosel01@login-prod-01 fastq_Lane1]$ mv 3[0-4]_* ../../JGW
+```
+
+## Assembly
+
+Now, we ensure that the `VHHAssembly.sh` script points to the correct input_file path:
+
+```
+vim VHHAssembly.sh
+```
+
+Now we ensure that the input data is pointing to the right directory.
+
+```
+INPUT_DATA=
+```
+
+
+To exit `vim`, first `esc`, then write with `:w`, then quit with `:q`.
+
+
+
+
+```
+sbatch VHHAssembly.sh
+```
+
+### Resulting Files
+
+The following files will be created for each set of paired-end reads.
+
+```
+-rw-rw---- 1 emosel01 cowenlab  257958315 Aug 20 18:59 34_S34_assemble-pass.fastq
+-rw-rw---- 1 emosel01 cowenlab   91698889 Aug 20 19:07 34_S34_atleast-1.fasta
+-rw-rw---- 1 emosel01 cowenlab  163815479 Aug 20 19:07 34_S34_atleast-1.fastq
+-rw-rw---- 1 emosel01 cowenlab 1085453416 Aug 21 01:59 34_S34_atleast-1.fmt7
+-rw-rw---- 1 emosel01 cowenlab  163815479 Aug 20 19:07 34_S34_collapse-unique.fastq
+-rw-rw---- 1 emosel01 cowenlab   26574841 Aug 21 02:01 34_S34_db-fail.tsv
+-rw-rw---- 1 emosel01 cowenlab  351509479 Aug 21 02:01 34_S34_db-pass.tsv
+-rwx------ 1 emosel01 cowenlab  218850464 Aug 19 14:58 34_S34_L001_R1_001.fastq
+-rwx------ 1 emosel01 cowenlab  218850464 Aug 19 14:58 34_S34_L001_R2_001.fastq
+-rw-rw---- 1 emosel01 cowenlab  230758403 Aug 20 19:06 34_S34_MPC_primers-pass.fastq
+-rw-rw---- 1 emosel01 cowenlab  236071538 Aug 20 19:03 34_S34_MPV_primers-pass.fastq
+-rw-rw---- 1 emosel01 cowenlab  240748933 Aug 20 19:01 34_S34_quality-pass.fastq
+-rw-rw---- 1 emosel01 cowenlab          0 Aug 20 19:07 34_S34_under-1.fasta
+-rw-rw---- 1 emosel01 cowenlab          0 Aug 20 19:07 34_S34_under-1.fastq
+```
+
+Many of these are unimportant, so can be removed:
+
+```
+rm *MPC*
+rm *MPV*
+rm *quality*
+rm 
+```
+
+
+
+
+
+The following log files will then appear in the `./code` directory (the working directory):
+
+```
+-rw-rw---- 1 emosel01 cowenlab   1274 Aug 20 19:55 assembly.7175749.d1cmp037.err
+-rw-rw---- 1 emosel01 cowenlab 144539 Aug 20 19:55 assembly.7175749.d1cmp037.out
+```
+
+
+

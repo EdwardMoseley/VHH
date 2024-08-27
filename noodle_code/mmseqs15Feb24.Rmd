@@ -1,7 +1,7 @@
 ---
-title: "mmseqs"
+title: "MMseqs2"
 output: html_document
-date: "2024-02-15"
+date: "2024-04-12"
 ---
 
 ### Imports
@@ -29,6 +29,7 @@ df_S20 <- read.csv("~/VHH/data/20_VecF2_R3_S20_min_threshold_clone-pass.tsv", he
 "21_VecF4_R3_S21_min_threshold_clone-pass.tsv"
 ```
 
+## Parse Data
 
 Try:
 
@@ -38,15 +39,16 @@ Try:
 3. Cluster
 
 ```{r}
-write_fasta <- function(df, file_out){
-  seqinr::write.fasta(sequences = as.list(df$junction_aa), names = df$sequence_id, file.out = file_out)
+write_fasta <- function(df, seq_col, id_col,file_out){
+  seqinr::write.fasta(sequences = as.list(df[[seq_col]]), names = df[[id_col]], file.out = file_out)
 }
 
-write_fasta(df_S19, "~/Downloads/S19-VHH-seqs19Feb24.fasta")
-write_fasta(df_S20, "~/Downloads/S20-VHH-seqs19Feb24.fasta")
-write_fasta(df_S21, "~/Downloads/S21-VHH-seqs19Feb24.fasta")
+write_fasta(df_S19, "junction_aa", "sequence_id", "~/Downloads/S19-VHH-seqs19Feb24.fasta")
+write_fasta(df_S20, "junction_aa", "sequence_id", "~/Downloads/S20-VHH-seqs19Feb24.fasta")
+write_fasta(df_S21, "junction_aa", "sequence_id", "~/Downloads/S21-VHH-seqs19Feb24.fasta")
 ```
 
+## Cluster Results
 
 ```{r}
 # Read in clustering results

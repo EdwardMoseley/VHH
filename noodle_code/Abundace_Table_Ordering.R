@@ -7,8 +7,16 @@
 
 library(stringdist)
 
-dat <- read.csv("~/Downloads/GS_NGO1549_d2VHH_09Jul24-Cleaned19Apr24.csv")
-tmp <- read.csv("~/Downloads/NGO1549_Abundance_Table.csv", header = T, stringsAsFactors = F)
+dat <- read.csv("~/Downloads/GS_rp_vs_ch2_d2VHH_24Jul24-Cleaned19Apr24.csv", header = T, stringsAsFactors = F)
+# dat <- read.csv("~/Downloads/GS_TbpA_d2VHH_14Jul24-Cleaned19Apr24.csv", header = T, stringsAsFactors = F)
+# tmp <- read.csv("~/Downloads/Lst_Abundance_Table.csv", header = T, stringsAsFactors = F)
+
+# tmp <- read.csv("~/Downloads/GS_uncoated_17Jul24-Cleaned.csv", header = T, stringsAsFactors = F)
+#tmp <- read.csv("~/Downloads/GS_TbpA_18Jul24-Cleaned.csv", header = T, stringsAsFactors = F)
+#tmp <- read.csv("~/Downloads/GS_background_18Jul24-Cleaned.csv", header = T, stringsAsFactors = F)
+
+tmp <- read.csv("~/Downloads/GS_rp_vs_ch2_24Jul24-Cleaned.csv", header = T, stringsAsFactors = F)
+
 
 ## Rename abundance table according to AIRR-Seq standards
 colnames(tmp)[1] <- "junction_aa"
@@ -33,9 +41,9 @@ cluster_tree <- hclust(as.dist(dist_matrix), method = "complete")
 
 # test <- tmp[cluster_tree$order,]
 
-main_title <- paste("Cluster Dendrogram of CDR3 families from NGO1549 Abundance Data\nDemand >= ", 1," VHHs, Distance Metric: Levenshtein", sep = '')
+main_title <- paste("Cluster Dendrogram of CDR3 families from RP vs. CH2 (Primer) Abundance Data\nDemand >= ", 2," VHHs, Distance Metric: Levenshtein", sep = '')
 
-par(family = "Courier", cex = 1)
+par(family = "Courier", cex = 0.40)#0.55)
 
 # Plot the dendrogram with labels
 plot(cluster_tree, 
@@ -43,7 +51,7 @@ plot(cluster_tree,
      xlab = "Overall VHH Count-Mode CDR3", sub = NULL, 
           labels = tmp$junction_aa,#[cluster_tree$order]), 
      ylab = "Distance (Levenshtein)", 
-     cex = 0.70)
+     cex = 0.40)#0.55)
 
-write.csv(tmp[cluster_tree$order,], file = "~/Downloads/NGO1549_Dendrogram_Ordered_09Jul24.csv", row.names = F)
+# write.csv(tmp[cluster_tree$order,], file = "~/Downloads/rp_vs_ch2_Dendrogram_Ordered_24Jul24.csv", row.names = F)
 

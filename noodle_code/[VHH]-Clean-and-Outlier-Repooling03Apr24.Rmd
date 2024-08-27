@@ -1,0 +1,151 @@
+---
+title: "[VHH]-Clean-and-Outlier-Repooling"
+output: html_document
+date: "2024-04-04"
+---
+
+**Note:**
+
+Begins with `_min_threshold_clone-pass.csv` file, ends with `-pooled-families.csv` file.
+
+## Load clonal database
+
+```{r}
+# Load utilities
+source("~/VHH/lib/utilities.R")
+
+file_path <- "~/VHH/data/Cluster-DBs/phylogenetic_dbs/18_VecF3_R4_S18_min_threshold_clone-pass.csv"
+
+dat <- read.csv(file_path, header = T, stringsAsFactors = F)
+```
+
+Want:
+
+1. `~/VHH/data/Cluster-DBs/phylogenetic_dbs/19_VecF1_R3_S19_min_threshold_clone-pass.csv`
+
+2. `~/VHH/data/Cluster-DBs/phylogenetic_dbs/20_VecF2_R3_S20_min_threshold_clone-pass.csv`
+
+3. `~/VHH/data/Cluster-DBs/phylogenetic_dbs/18_VecF3_R4_S18_min_threshold_clone-pass.csv`
+
+## Derive Statistics
+
+```{r}
+## Data frame for storing all results
+tab <- table(dat$clone_id)
+# Instantiate a counter
+counter <- 0
+# Reinstantiate tmp_res
+
+tmp_res <- data.frame()
+for (nm in names(tab)){
+  # Remind where we are
+  if (counter %% 100 == 0){
+    cat("Progress: ", round(counter/length(tab)*100, 2), "%", '\n', sep = '')
+  }
+  # Increment Counter
+  counter <- counter + 1
+  # Subset the clones of interest
+  tmp_frame <- dat[dat$clone_id == as.numeric(nm),]
+  tmp_frame$junction_aa <- trim_CDR3(tmp_frame$junction_aa)
+  # Keep the integer as the cluster_id
+  clone_id <- nm
+  ## Note: here we need to ensure that we account for the duplicates
+  unrolled_CDR3s <- unroll_dupes_fast(tmp_frame, "junction_aa")
+  # Make consensus sequence
+  consensus_sequence <- strict_consensus(unrolled_CDR3s)
+  # Pull statistics
+  median_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
+  # Bind results
+  tmp_res <- rbind(tmp_res, cbind(clone_id,
+                                  consensus_sequence,
+                                  median_CDR3))
+}
+
+rm(tmp_frame)
+```
+
+## Identify groups with the same median CDR3
+
+```{r}
+df <- tmp_res[duplicated(tmp_res$median_CDR3) | duplicated(tmp_res$median_CDR3, fromLast=TRUE),]
+```
+
+## Combine groups with identical median CDR3s
+
+Strategy:
+
+1. Iterate over unique `df$median_CDR3`
+
+2. Pull the `clone_id` values associated with the duplicate CDR3s from `dat`
+
+3. Subset them, tally members
+
+4. Absorb the smaller families into the larger ones
+
+```{r}
+results <- dat
+
+for (median_CDR3 in unique(df$median_CDR3)){
+  # Subset from the statistics database
+  tmp <- df[df$median_CDR3 == median_CDR3,]
+  # Subset from the clonal database
+  tmp_frame <- results[(results$clone_id %in% tmp$clone_id),]
+  # Tabulate clone_ids to find which family is larger
+  tablet <- table(tmp_frame$clone_id)
+  # Order
+  tablet <- tablet[order(tablet, decreasing = T)]
+  # Iterate over 2..length(tablet), adding other groups to the top group
+  for (nm in as.numeric(names(tablet)[2:length(tablet)])){
+    results[results$clone_id == nm,]$clone_id <- rep(as.numeric(names(tablet[1])), each = nrow(results[results$clone_id == nm,]))
+  }
+}
+```
+
+## Double-check
+
+```{r}
+dat <- results
+
+## Data frame for storing all results
+tab <- table(dat$clone_id)
+# Instantiate a counter
+counter <- 0
+# Reinstantiate tmp_res
+
+tmp_res <- data.frame()
+for (nm in names(tab)){
+  # Remind where we are
+  if (counter %% 100 == 0){
+    cat("Progress: ", round(counter/length(tab)*100, 2), "%", '\n', sep = '')
+  }
+  # Increment Counter
+  counter <- counter + 1
+  # Subset the clones of interest
+  tmp_frame <- dat[dat$clone_id == as.numeric(nm),]
+  tmp_frame$junction_aa <- trim_CDR3(tmp_frame$junction_aa)
+  # Keep the integer as the cluster_id
+  clone_id <- nm
+  ## Note: here we need to ensure that we account for the duplicates
+  unrolled_CDR3s <- unroll_dupes_fast(tmp_frame, "junction_aa")
+  # Make consensus sequence
+  consensus_sequence <- strict_consensus(unrolled_CDR3s)
+  # Pull statistics
+  median_CDR3 <- names(table(unrolled_CDR3s)[order(table(unrolled_CDR3s), decreasing = T)][1])
+  # Bind results
+  tmp_res <- rbind(tmp_res, cbind(clone_id,
+                                  consensus_sequence,
+                                  median_CDR3))
+}
+
+```
+
+```{r}
+df <- tmp_res[duplicated(tmp_res$median_CDR3) | duplicated(tmp_res$median_CDR3, fromLast=TRUE),]
+if (nrow(df) == 0) print("Good!")
+```
+
+```{r}
+file_path <- gsub("_min_threshold_clone-pass.csv", "-pooled-families.csv", file_path)
+
+write.csv(results, file = file_path, row.names = F)
+```
