@@ -6,10 +6,9 @@
 source("/cluster/tufts/cowenlab/emosel01/code/lib/utilities.R")
 
 ## Draw file info from commandArgs
-args <- c("GS_JPL_d2VHH_21Aug24_min_threshold_clone-pass.csv")
-
+args <- c("GS_SmPDE_d2VHH_21Aug24_min_threshold_clone-pass.csv")
 # Define root_path
-root_path <- "/cluster/tufts/cowenlab/emosel01/data/JPL/"
+root_path <- "/cluster/tufts/cowenlab/emosel01/data/SmPDE/"
 
 file_name <- args[1]
 cat("Initial Processing of: ", file_name, '\n', sep = '')
@@ -30,17 +29,13 @@ all_seqs <- nrow(dat)
 dat <- unproductive(dat)
 filtered_seqs <- nrow(dat)
 
-
-
-
 ## --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ##
 
 ## Sample so we can have something small to work with
-#set.seed(31337)
-#dat <- dat[dat$clone_id %in% sample(1:length(unique(dat$clone_id)), 20),]
+#set.seed(4)
+#dat <- dat[dat$clone_id %in% sample(1:length(unique(dat$clone_id)), 25),]
 
 ## --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ##
-
 
 
 # Elevator music
@@ -230,7 +225,7 @@ write.csv(dat, file = paste0(root_path, file_name), row.names = F)
 
 
 # Store directory info
-output_dir <- paste0(root_path, "tmp")
+output_dir <- paste0(root_path, "tmp/")
 
 # Create the directory for mmseqs2 output
 dir.create(output_dir)
@@ -332,8 +327,6 @@ results <- results[order(results$subfamily_median_VHH_homology,
 # Order statistic
 results$order_index <- 1:nrow(results)
 
-
-
 ## ###
 ## REMOVE OUTLIERS
 ## ###
@@ -398,8 +391,6 @@ for (clone_id in unique(dat$clone_id)){
   
 }
 
-
-
 ## Check Results
 cat("Percent VHH outliers: ", round(nrow(outliers)/nrow(dat)*100, 2), '\n', sep = '')
 
@@ -409,146 +400,150 @@ cat("Outliers plus clean sequences equal input data: ", nrow(cleaned) + nrow(out
 
 ## --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ##
 
-dat <- outliers # read.csv(paste(root_dir, outliers_file, sep = ''), header = T, stringsAsFactors = F)
+## Note: It is possible that there are no outliers
 
-# Ensure that, if no sequence_id exists, we create it
-if (!("sequence_id" %in% colnames(dat))){
-  cat("Adding sequence IDs:\n")
-  # Create the sequence_id
-  dat$sequence_id <- paste0(1:nrow(dat), '-',dat$junction_aa)
-  # Reorder column names to place sequence_id first
-  dat <- dat[,c("sequence_id", colnames(dat)[1:(ncol(dat)-1)])]
-}
-
-
-dat$clone_id <- NULL
-dat$dist_nearest <- NULL
-
-## Clonal Inference
-
-cat("Calculating distToNearest...\n")
-
-db <- shazam::distToNearest(dat, model = "ham", 
-                            normalize = "len", 
-                            vCallColumn = "v_call", 
-                            jCallColumn = "j_call",
-                            nproc = 1)
-
-# Determine threshold (based on median)
-thr <- summary(db$dist_nearest)[["Median"]]
-
-## Make the thres
-new_thr <- thr + (thr*0.25)
-cat("25% Higher Threshold:\n")
-cat(round(new_thr, 2), '\n')
-
-cat("Inferring Clones:\n")
-system.time(
-  # Clonal assignment using hierarchical clustering
-  db <- scoper::hierarchicalClones(db, 
-                                   threshold=new_thr, 
-                                   v_call="v_call", 
-                                   j_call = "j_call",
-                                   verbose = T)
-)
-
-db <- as.data.frame(db@db)
-
-# We no longer need centroid info from the outliers data either
-db$centroid_id <- NULL
-db$centroid_sequence_id <- NULL
-
-
-hclusted_outliers <- db
-
-## Since DB is outliers, we need to clean it
-results <- data.frame()
-
-# Iterate over Hierarchically Clustered clone_ids, re-clustering
-for (nm in unique(db$clone_id)){
-  cat('Clone_ID: ', nm, '\n', sep = '')
-  # Subset observations
-  tmp_frame <- db[db$clone_id == nm,]
-  # If the family has more than one member, we will re-cluster
-  if (nrow(tmp_frame) > 1){
-    # write fasta for mmseqs2
-    write_fasta(tmp_frame, "VHH", "sequence_id", paste(output_dir, "tmp.fasta", sep = ''))
-    # Prepare mmseqs command
-    command <- paste("mmseqs ", 
-                     "easy-cluster -v 2 --min-seq-id 0.90 ", 
-                     paste(output_dir, "tmp.fasta", sep = ''), 
-                     paste(output_dir, "tmp-H95", sep = ''),
-                     paste(output_dir, "tmp", sep = ''))
-    
-    ## Call mmseqs to do its job
-    system(command)
-    # Load results
-    dat <- read.csv(paste(output_dir,"tmp-H95_cluster.tsv", sep = ''), header = F, stringsAsFactors = F, sep = '\t')
-    # Assign Variable Names
-    colnames(dat) <- c("centroid", "sequence_id")
-    # Create a centroid id
-    dat$centroid_id <- paste(nm, '-', as.numeric(factor(dat$centroid)), sep = '')
-    
-    # We're going to use the sequence ids as keys, so we want to clean them
-    db$sequence_id <- clean_seq_ids(db$sequence_id)
-    dat$centroid <- clean_seq_ids(dat$centroid)
-    dat$sequence_id <- clean_seq_ids(dat$sequence_id)
-
-    # merge results
-    #dat <- merge_db_to_centroids(dat, db)
-    
-    colnames(dat)[1] <- "centroid_sequence_id"
-    
-    dat <- merge(dat, db, by = c("sequence_id"))#, "centroid_sequence_id"))
-    } else {
-    # otherwise, we'll make up a centroid id and a sequence id, and
-    
-    #tmp_frame$centroid_id <- tmp_frame$sequence_id[1]
-    tmp_frame$centroid_id <- paste(nm, '-', substr(tmp_frame$sequence_id[1], nchar(tmp_frame$sequence_id[1])-10, nchar(tmp_frame$sequence_id[1])), sep = '')
-    
-    tmp_frame$centroid_sequence_id <- tmp_frame$sequence_id[1]
-    tmp_frame$centroid <- tmp_frame$VHH[1]
-    # Now we assign to dat for rbind
-    dat <- tmp_frame
+if (nrow(outliers) >= 1){
+  cat("There were outliers.\n")
+  dat <- outliers
+  
+  # Ensure that, if no sequence_id exists, we create it
+  if (!("sequence_id" %in% colnames(dat))){
+    cat("Adding sequence IDs:\n")
+    # Create the sequence_id
+    dat$sequence_id <- paste0(1:nrow(dat), '-',dat$junction_aa)
+    # Reorder column names to place sequence_id first
+    dat <- dat[,c("sequence_id", colnames(dat)[1:(ncol(dat)-1)])]
   }
-  # Combine results and move on
-  results <- rbind(results, dat)
+  
+  
+  dat$clone_id <- NULL
+  dat$dist_nearest <- NULL
+  
+  ## Clonal Inference
+  
+  cat("Calculating distToNearest...\n")
+  
+  db <- shazam::distToNearest(dat, model = "ham", 
+                              normalize = "len", 
+                              vCallColumn = "v_call", 
+                              jCallColumn = "j_call",
+                              nproc = 1)
+  
+  # Determine threshold (based on median)
+  thr <- summary(db$dist_nearest)[["Median"]]
+  
+  ## Make the thres
+  new_thr <- thr + (thr*0.25)
+  cat("25% Higher Threshold:\n")
+  cat(round(new_thr, 2), '\n')
+  
+  cat("Inferring Clones:\n")
+  system.time(
+    # Clonal assignment using hierarchical clustering
+    db <- scoper::hierarchicalClones(db, 
+                                     threshold=new_thr, 
+                                     v_call="v_call", 
+                                     j_call = "j_call",
+                                     verbose = T)
+  )
+  
+  db <- as.data.frame(db@db)
+  
+  # We no longer need centroid info from the outliers data either
+  db$centroid_id <- NULL
+  db$centroid_sequence_id <- NULL
+  
+  
+  hclusted_outliers <- db
+  
+  ## Since DB is outliers, we need to clean it
+  results <- data.frame()
+  
+  # Iterate over Hierarchically Clustered clone_ids, re-clustering
+  for (nm in unique(db$clone_id)){
+    cat('Clone_ID: ', nm, '\n', sep = '')
+    # Subset observations
+    tmp_frame <- db[db$clone_id == nm,]
+    # If the family has more than one member, we will re-cluster
+    if (nrow(tmp_frame) > 1){
+      # write fasta for mmseqs2
+      write_fasta(tmp_frame, "VHH", "sequence_id", paste(output_dir, "tmp.fasta", sep = ''))
+      # Prepare mmseqs command
+      command <- paste("mmseqs ", 
+                       "easy-cluster -v 2 --min-seq-id 0.90 ", 
+                       paste(output_dir, "tmp.fasta", sep = ''), 
+                       paste(output_dir, "tmp-H95", sep = ''),
+                       paste(output_dir, "tmp", sep = ''))
+      
+      ## Call mmseqs to do its job
+      system(command)
+      # Load results
+      dat <- read.csv(paste(output_dir,"tmp-H95_cluster.tsv", sep = ''), header = F, stringsAsFactors = F, sep = '\t')
+      # Assign Variable Names
+      colnames(dat) <- c("centroid", "sequence_id")
+      # Create a centroid id
+      dat$centroid_id <- paste(nm, '-', as.numeric(factor(dat$centroid)), sep = '')
+      
+      # We're going to use the sequence ids as keys, so we want to clean them
+      db$sequence_id <- clean_seq_ids(db$sequence_id)
+      dat$centroid <- clean_seq_ids(dat$centroid)
+      dat$sequence_id <- clean_seq_ids(dat$sequence_id)
+      
+      # merge results
+      #dat <- merge_db_to_centroids(dat, db)
+      
+      colnames(dat)[1] <- "centroid_sequence_id"
+      
+      dat <- merge(dat, db, by = c("sequence_id"))#, "centroid_sequence_id"))
+    } else {
+      # otherwise, we'll make up a centroid id and a sequence id, and
+      
+      #tmp_frame$centroid_id <- tmp_frame$sequence_id[1]
+      tmp_frame$centroid_id <- paste(nm, '-', substr(tmp_frame$sequence_id[1], nchar(tmp_frame$sequence_id[1])-10, nchar(tmp_frame$sequence_id[1])), sep = '')
+      
+      tmp_frame$centroid_sequence_id <- tmp_frame$sequence_id[1]
+      tmp_frame$centroid <- tmp_frame$VHH[1]
+      # Now we assign to dat for rbind
+      dat <- tmp_frame
+    }
+    # Combine results and move on
+    results <- rbind(results, dat)
+  }
+  
+  ## --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ##
+  
+  file_name <- gsub("-subclustered.csv", "-outliers-subclustered.csv", file_name)
+  cat("Writing: ", paste(root_path,file_name, sep = ''), '\n', sep = '')
+  write.csv(results, file = paste(root_path, file_name, sep = ''), row.names = F)
+  
+  ## --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ##
+  
+  
+  ## Union of Outliers and Cleaned
+  
+  ## Prepend "O-" to indicate outliers
+  outliers$clone_id <- paste("O-", outliers$clone_id, sep = '')
+  outliers$centroid_id <- paste("O-", outliers$centroid_id, sep = '')
+  outliers$centroid_sequence_id <- paste("O-", outliers$centroid_sequence_id, sep = '')
+  
+  cat(file_name, " has ", length(unique(outliers$clone_id)), " clonal families.\n", sep = '')
+  cat(file_name, " has ", length(unique(outliers$centroid_sequence_id)), " clonal subfamilies.\n", sep = '')
+  
+  dat <- rbind(cleaned, outliers)
+  
+  file_name <- gsub("-outliers-subclustered.csv", "-pre-final-pool.csv", file_name)
+  cat("Writing: ", paste(root_path,file_name, sep = ''), '\n', sep = '')
+  write.csv(dat, file = paste(root_path, file_name, sep = ''), row.names = F)
+} else {
+  cat("There were no outliers\n.")
+  dat <- cleaned
+  file_name <-gsub("-subclustered.csv", "-pre-final-pool.csv", file_name)
+  cat("Writing: ", paste(root_path,file_name, sep = ''), '\n', sep = '')
+  write.csv(dat, file = paste(root_path, file_name, sep = ''), row.names = F)
 }
 
-## --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ##
-
-file_name <- gsub("-subclustered.csv", "-outliers-subclustered.csv", file_name)
-cat("Writing: ", paste(root_path,file_name, sep = ''), '\n', sep = '')
-write.csv(results, file = paste(root_path, file_name, sep = ''), row.names = F)
 
 ## --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ##
-
-
-## Union of Outliers and Cleaned
-
-## Prepend "O-" to indicate outliers
-outliers$clone_id <- paste("O-", outliers$clone_id, sep = '')
-outliers$centroid_id <- paste("O-", outliers$centroid_id, sep = '')
-outliers$centroid_sequence_id <- paste("O-", outliers$centroid_sequence_id, sep = '')
-
-cat(file_name, " has ", length(unique(outliers$clone_id)), " clonal families.\n", sep = '')
-cat(file_name, " has ", length(unique(outliers$centroid_sequence_id)), " clonal subfamilies.\n", sep = '')
-
-
-### Stack and Write
-#cleaned$group <- rep("clean", each = nrow(cleaned))
-#outliers$group <- rep("outliers", each = nrow(outliers))
-
-dat <- rbind(cleaned, outliers)
-
-## --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ##
-
-file_name <- gsub("-outliers-subclustered.csv", "-pre-final-pool.csv", file_name)
-cat("Writing: ", paste(root_path,file_name, sep = ''), '\n', sep = '')
-write.csv(dat, file = paste(root_path, file_name, sep = ''), row.names = F)
-
-## --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ##
-
 
 # Print clone counts
 cat(file_name, " has ", length(unique(dat$clone_id)), " clonal families after processing outliers.\n", sep = '')
@@ -724,6 +719,7 @@ cat(file_name, " has ", length(unique(dat$clone_id)), " clonal families after po
 file_name <- gsub("-pre-final-pool.csv", "-cleaned-GS.csv", file_name)
 cat("Writing: ", paste(root_path,file_name, sep = ''), '\n', sep = '')
 write.csv(dat, file = paste(root_path, file_name, sep = ''), row.names = F)
+
 
 
 

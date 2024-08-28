@@ -16,16 +16,16 @@ library("hash")
 
 # Set root dir
 # root_dir <- "/cluster/tufts/cowenlab/emosel01/data/rp_vs_ch2/"
-root_dir <- "~/Downloads/2024_TUCF_7981/"
+root_dir <- "~/Downloads/SmPDE/"
 
 # output_file <- "/cluster/tufts/cowenlab/emosel01/data/GS_Schisto_d2VHH_13Aug24_min_threshold_clone-pass.csv"
-output_file <- "~/Downloads/2024_TUCF_7981/GS_Schisto_d2VHH_14Aug24_min_threshold_clone-pass.csv"
+output_file <- "~/Downloads/SmPDE/GS_SmPDE_d2VHH_min_threshold_clone-pass.csv"
 
-files <- list.files(root_dir)[grepl(".csv", list.files(root_dir))]
+files <- list.files(root_dir)[grepl(".tsv", list.files(root_dir))]
 
 GS_name <- list.files(root_dir)[grepl("GS", list.files(root_dir))]
 
-files <- files[files != GS_name]
+files <- files[!(files %in% GS_name)]
 
 cat("Processing files:\n")
 
@@ -36,7 +36,7 @@ for (f in files){
 dat <- data.frame()
 for (f in files){
   cat("Loading:", f,'\n')
-  tmp <- read.csv(paste0(root_dir, f), header = T, stringsAsFactors = F)#, sep = '\t')
+  tmp <- read.csv(paste0(root_dir, f), header = T, stringsAsFactors = F, sep = '\t')
   tmp$VHH <- fixed_translate_DNA(tmp$sequence_alignment)
   tmp$VHH <- substr(tmp$VHH, 11, nchar(tmp$VHH))
   tmp <- tmp[,c("sequence", "locus", "sequence_alignment", "junction", "junction_aa", "v_call", "d_call", "j_call", "VHH", "duplicate_count")]

@@ -9,9 +9,9 @@ library("hash")
 source("/cluster/tufts/cowenlab/emosel01/code/lib/utilities.R")
 
 # Set root dir
-root_dir <- "/cluster/tufts/cowenlab/emosel01/data/XLI/"
+root_dir <- "/cluster/tufts/cowenlab/emosel01/data/SmPDE/"
 
-output_file <- paste0(root_dir, "GS_XLI_d2VHH_21Aug24_min_threshold_clone-pass.csv")
+output_file <- paste0(root_dir, "GS_SmPDE_d2VHH_21Aug24_min_threshold_clone-pass.csv")
 
 files <- list.files(root_dir)[grepl("db-pass.tsv", list.files(root_dir))]
 

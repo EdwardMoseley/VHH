@@ -3,7 +3,7 @@ title: '[VHH] README'
 output:
   html_document: default
   pdf_document: default
-date: "2024-08-20"
+date: "2024-08-27"
 ---
 
 # From TUCF to Tufts HPC and Tufts Box!
@@ -19,6 +19,23 @@ ftp://tucf-data.med.tufts.edu
 Chuck's Username and Password facilitate access.
 
 MacOS makes this process simple with a user interface that facilitates drag-and-drop.
+
+## Connect to Tufts HPC
+
+To connect to the HPC, we need to be on the Tufts VPN (connect using AnyConnect). Then, we can SSH in:
+
+```
+
+```
+
+Once on the cluster, it can be helpful to activate conda, your virtual environment, and move to the `/code` directory.
+
+```
+module load anaconda/2021.05
+source activate /cluster/tufts/cowenlab/emosel01/condaenv/vhh
+cd /cluster/tufts/cowenlab/$USER/code
+```
+
 
 ## Compress data after pulling down, push to Tufts HPC
 
@@ -61,7 +78,7 @@ We ensure there exist folders that are properly populated according to our desir
 * Global Set: `XIV-3` - Experiments 21 - 27
 * Global Set: `JGW-2` - Experiments 28 - 34
 
-We use the commands in the `/data` director:
+We use the commands in the `/data` directory to make subdirectories which will hold our experiments for global clustering:
 
 ```
 mkdir XLI
@@ -70,13 +87,13 @@ mkdir XIV
 mkdir JGW
 ```
 
-We then move to the `fastq_Lane1` folder, 
+We then move to the `fastq_Lane1` folder in the file containing the Illumina run data, 
 
 ```
 cd 240815_0062_Shoemaker_8265/fastq_Lane1/
 ```
 
-We then delete the following unnecessary files:
+We then delete the following unnecessary files within the `fastq_Lane1` directory:
 
 ```
 rm *.html
@@ -92,9 +109,9 @@ This leaves the paired-end read files, which need to be decompressed:
 gunzip *
 ```
 
-We then move experiments to their Global Set directories in the `/data` directory.
+We then move experiments to their Global Set directories which we made earlier in the `/data` directory.
 
-**Note:** we can also simply leave the data in this directory, and treat the entire Illumina run as a global set.
+**Note:** we can also simply leave the data in this directory, and treat the entire Illumina run as its own global set.
 
 ```
 [emosel01@login-prod-01 fastq_Lane1]$ mv [1-9]_* ../../XLI
@@ -109,33 +126,43 @@ We then move experiments to their Global Set directories in the `/data` director
 [emosel01@login-prod-01 fastq_Lane1]$ mv 3[0-4]_* ../../JGW
 ```
 
+At any point, we can run `ls ../../JGW` to see which files exist in the folder we are moving them to.
+
 ## Assembly
 
-Now, we ensure that the `VHHAssembly.sh` script points to the correct input_file path:
+Now, we ensure that the `VHHAssembly.sh` script points to the correct `DATA_BIN` path:
 
 ```
 vim VHHAssembly.sh
 ```
 
-Now we ensure that the input data is pointing to the right directory.
+Now we ensure that the input data is pointing to the right directory by adjusting the `DATA_BIN` variable near the top of `VHHAssembly.sh`:
 
 ```
-INPUT_DATA=
+# Define environmental variables
+
+PRESTO_BIN=/cluster/tufts/cowenlab/immcantation_suite/presto/bin
+CHANGEO_BIN=/cluster/tufts/cowenlab/immcantation_suite/changeo/bin
+NCBI_BIN=/cluster/tufts/cowenlab/emosel01/ncbi-igblast-1.22.0/bin
+
+OUT_BIN=/cluster/tufts/cowenlab/emosel01/data/240520_0044_Charles_Shoemaker-8125/fastq_Lane1
+DATA_BIN=/cluster/tufts/cowenlab/emosel01/data/240520_0044_Charles_Shoemaker-8125/fastq_Lane1
 ```
 
-
-To exit `vim`, first `esc`, then write with `:w`, then quit with `:q`.
-
+Note that both pRESTO and Change-O are installed in the `/cluster/tufts/cowenlab/` directory, so we are using Prof. Cowen lab's installation to assemble our reads.
 
 
+To exit `vim`, first `esc`, then write with `:w`, then quit with `:q`. If you'd prefer not to write your changes, first `esc`, then enter `:q!`.
+
+Now we send the script as a batch to slurm with:
 
 ```
 sbatch VHHAssembly.sh
 ```
 
-### Resulting Files
+### Output
 
-The following files will be created for each set of paired-end reads.
+The following files will be created for each set of paired-end reads, and they will be deposited in the `DATA_BIN` folder (with their original paired-end read files).
 
 ```
 -rw-rw---- 1 emosel01 cowenlab  257958315 Aug 20 18:59 34_S34_assemble-pass.fastq
@@ -160,19 +187,82 @@ Many of these are unimportant, so can be removed:
 rm *MPC*
 rm *MPV*
 rm *quality*
-rm 
+rm *under*
+rm *collapse*
+rm *quality*
+rm *assemble*
 ```
 
+We proceed with the `[Prefix]_db-pass.tsv` file, in this case `34_S34_db-pass.tsv`.
 
-
-
-
-The following log files will then appear in the `./code` directory (the working directory):
+The following log files will appear in the `./code` directory (the working directory):
 
 ```
 -rw-rw---- 1 emosel01 cowenlab   1274 Aug 20 19:55 assembly.7175749.d1cmp037.err
 -rw-rw---- 1 emosel01 cowenlab 144539 Aug 20 19:55 assembly.7175749.d1cmp037.out
 ```
 
+These data can be parsed, so the losses can be determined at any given assembly operation (quality filtering, primer trimming, IgBLAST, etc.).
 
+## Hierarchical Clustering
 
+We rely on `HierarchicalClustering.R` to perform this operation. We provide the program with information on the location of all `.tsv` files which should be included in the clustering, the program aggregates the sequence information, translates to VHHs, and any VHH with 2 or more observations will be allowed to remain in the Global Set.
+
+Now, we define the root directory, which in this case contains all relevant data, and we name the output file.
+
+**Note:** Naming conventions continue to evolve, but using `GS_` as a prefix for the global set is a convenient heuristic.
+
+```
+# Set root dir
+root_dir <- "/cluster/tufts/cowenlab/emosel01/data/Schisto/"
+
+output_file <- paste0(root_dir, "GS_Schisto_d2VHH_21Aug24_min_threshold_clone-pass.csv")
+```
+
+After clustering, we can look at the `tail` of the log files to see where our file is written:
+
+```
+(/cluster/tufts/cowenlab/emosel01/condaenv/vhh) [emosel01@login-prod-03 code]$ tail -n 1 hclust.7379948.d1cmp004.*
+==> hclust.7379948.d1cmp004.err <==
+Running defineClonesScoper in bulk mode and only keep heavy chains
+
+==> hclust.7379948.d1cmp004.out <==
+Writing:  /cluster/tufts/cowenlab/emosel01/data/Schisto/GS_Schisto_d2VHH_21Aug24_min_threshold_clone-pass.csv 
+```
+
+## CleanCluster
+
+We now populate the `CleanCluster.R` script with the appropriate file paths:
+
+```
+# CleanCluster Algorithm
+
+## Change Library path to ensure we have access
+.libPaths("/cluster/tufts/hpc/tools/R/4.3.0")
+## Load Libraries
+source("/cluster/tufts/cowenlab/emosel01/code/lib/utilities.R")
+
+## Draw file info from commandArgs
+args <- c("GS_Schisto_d2VHH_21Aug24_min_threshold_clone-pass.csv")
+
+# Define root_path
+root_path <- "/cluster/tufts/cowenlab/emosel01/data/Schisto/"
+```
+
+Here, we specifically want to define `args` as the global set file, and the `root_path` should point to the folder that the global set is in. Note that this will be the same folder that all component data sets are in.
+
+**Note:** mmseqs2 will create database files in the `tmp` folder, which is created in the global set directory. These aren't particularly useful to us, and can be removed.
+
+## Abundance tabulation
+
+Abundance tabulation is performed by editing the path and global set information in `Abundance.R`.
+
+```
+root_dir <- "/cluster/tufts/cowenlab/emosel01/data/JGW/"
+
+file_name <- "GS_JGW_d2VHH_21Aug24-cleaned-GS.csv"
+
+files <- list.files(root_dir)[grepl("-pass.tsv", list.files(root_dir))]
+
+GS_name <- list.files(root_dir)[grepl("GS", list.files(root_dir))]
+```

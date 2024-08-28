@@ -20,11 +20,3 @@ module load R/4.3.0
 
 Rscript /cluster/tufts/cowenlab/emosel01/code/CleanCluster.R
 
-#Rscript /cluster/tufts/cowenlab/emosel01/code/CleanClusterPool.R GS_sample_min_threshold_clone-pass.csv
-#Rscript /cluster/tufts/cowenlab/emosel01/code/CleanClustertoAA.R GS_sample_pooled.csv
-#Rscript /cluster/tufts/cowenlab/emosel01/code/CleanClusterMMseqs2.R GS_sample_pooled_VHH_database.csv
-#Rscript /cluster/tufts/cowenlab/emosel01/code/CleanClusterRefining.R GS_sample_pooled_subclustered_database.csv
-#Rscript /cluster/tufts/cowenlab/emosel01/code/CleanClusterRecluster.R GS_sample_pooled_outlier_database.csv
-#Rscript /cluster/tufts/cowenlab/emosel01/code/CleanClusterUnion.R GS_sample_pooled_reclustered_database.csv
-#Rscript /cluster/tufts/cowenlab/emosel01/code/CleanClusterPool.R GS_sample_results.csv
-

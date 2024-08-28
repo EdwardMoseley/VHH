@@ -14,13 +14,13 @@
 source("~/VHH/lib/utilities.R")
 
 ## Draw file info from commandArgs
-args <- c("GS_XLI_d2VHH_21Aug24_min_threshold_clone-pass.csv")
+args <- c("GS_SmPDE_d2VHH_min_threshold_clone-pass.csv")
 #args <- c("GS_JPL_d2VHH_21Aug24_min_threshold_clone-pass.csv")
 
 file_name <- args[1]
 cat("Initial Processing of: ", file_name, '\n', sep = '')
 # Define root_path
-root_path <- "~/Downloads/"
+root_path <- "~/Downloads/SmPDE/"
 # Load data
 dat <- read.csv(paste(root_path, file_name, sep = ''), header = T, stringsAsFactors = F)
 # Trim CDR3s
