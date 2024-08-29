@@ -25,7 +25,7 @@ MacOS makes this process simple with a user interface that facilitates drag-and-
 To connect to the HPC, we need to be on the Tufts VPN (connect using AnyConnect). Then, we can SSH in:
 
 ```
-
+ssh [username]@login.pax.tufts.edu
 ```
 
 Once on the cluster, it can be helpful to activate conda, your virtual environment, and move to the `/code` directory.
@@ -127,6 +127,8 @@ We then move experiments to their Global Set directories which we made earlier i
 ```
 
 At any point, we can run `ls ../../JGW` to see which files exist in the folder we are moving them to.
+
+**Note:** To make data accessible to others in the `cowenlab`, use `chmod g+r *.fastq` on the files (`.tsv` output is already accessible).
 
 ## Assembly
 
