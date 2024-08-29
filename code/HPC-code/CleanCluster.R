@@ -6,9 +6,9 @@
 source("/cluster/tufts/cowenlab/emosel01/code/lib/utilities.R")
 
 ## Draw file info from commandArgs
-args <- c("GS_SmPDE_d2VHH_21Aug24_min_threshold_clone-pass.csv")
+args <- c("GS_JPL_d2VHH_21Aug24_min_threshold_clone-pass.csv")
 # Define root_path
-root_path <- "/cluster/tufts/cowenlab/emosel01/data/SmPDE/"
+root_path <- "/cluster/tufts/cowenlab/emosel01/data/JPL/"
 
 file_name <- args[1]
 cat("Initial Processing of: ", file_name, '\n', sep = '')
@@ -235,6 +235,9 @@ tmp <- dat
 
 # Create a data frame for holding results
 results <- data.frame()
+
+i <- 1
+
 # Iterate over Hierarchically Clustered clone_ids, re-clustering
 for (nm in unique(tmp$clone_id)){
   # Subset observations
@@ -268,6 +271,20 @@ for (nm in unique(tmp$clone_id)){
   dat <- merge_db_to_centroids(dat, tmp)
   # Combine results and move on
   results <- rbind(results, dat)
+
+
+      ## ###
+      ## Here may be a good area to clean up the tmp file
+      ## ###
+      i <- i + 1
+
+      if (i == 100){
+          cat("Cleaning up tmp files from clustering...\n")
+          # Get all files in mmseqs2 output_dir directory, recursively
+          f <- list.files(output_dir, include.dirs = F, full.names = T, recursive = T)
+          # remove the files
+          file.remove(f)
+      }
 }
 
 ## --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ##
@@ -400,6 +417,8 @@ cat("Outliers plus clean sequences equal input data: ", nrow(cleaned) + nrow(out
 
 ## --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ##
 
+cat("Processing outliers...")
+
 ## Note: It is possible that there are no outliers
 
 if (nrow(outliers) >= 1){
@@ -459,6 +478,7 @@ if (nrow(outliers) >= 1){
   ## Since DB is outliers, we need to clean it
   results <- data.frame()
   
+  i <- 1
   # Iterate over Hierarchically Clustered clone_ids, re-clustering
   for (nm in unique(db$clone_id)){
     cat('Clone_ID: ', nm, '\n', sep = '')
@@ -495,6 +515,19 @@ if (nrow(outliers) >= 1){
       colnames(dat)[1] <- "centroid_sequence_id"
       
       dat <- merge(dat, db, by = c("sequence_id"))#, "centroid_sequence_id"))
+
+      ## ###
+      ## Here may be a good area to clean up the tmp file
+      ## ###
+      i <- i + 1
+      
+      if (i == 100){
+	  cat("Cleaning up tmp files from clustering...\n")
+          # Get all files in mmseqs2 output_dir directory, recursively
+	  f <- list.files(file_path, include.dirs = F, full.names = T, recursive = T)
+	  # remove the files
+	  file.remove(f)
+      }
     } else {
       # otherwise, we'll make up a centroid id and a sequence id, and
       
