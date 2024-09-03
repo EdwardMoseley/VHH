@@ -208,6 +208,8 @@ These data can be parsed, so the losses can be determined at any given assembly 
 
 ## Hierarchical Clustering
 
+To facilitate the analysis of clonal families between Illumina runs, we concatenate runs into a "Global Set" which is later used to perform clonal family assignments by way of look-ups for the runs that make up the global set. By creating this global set, we are able to merge clonal families between-runs in terms of a common clonal family "language".
+
 We rely on `HierarchicalClustering.R` to perform this operation. We provide the program with information on the location of all `.tsv` files which should be included in the clustering, the program aggregates the sequence information, translates to VHHs, and any VHH with 2 or more observations will be allowed to remain in the Global Set.
 
 Now, we define the root directory, which in this case contains all relevant data, and we name the output file.
@@ -253,7 +255,9 @@ root_path <- "/cluster/tufts/cowenlab/emosel01/data/Schisto/"
 
 Here, we specifically want to define `args` as the global set file, and the `root_path` should point to the folder that the global set is in. Note that this will be the same folder that all component data sets are in.
 
-**Note:** mmseqs2 will create database files in the `tmp` folder, which is created in the global set directory. These aren't particularly useful to us, and can be removed.
+**Note:** `mmseqs` will create database files in the `tmp` folder, which is created in the global set directory. These aren't particularly useful to us, and can be removed.
+
+After cleaning, we will find the `[prefix]-GS-cleaned.csv` file in the input directory.
 
 ## Abundance tabulation
 
@@ -268,3 +272,12 @@ files <- list.files(root_dir)[grepl("-pass.tsv", list.files(root_dir))]
 
 GS_name <- list.files(root_dir)[grepl("GS", list.files(root_dir))]
 ```
+
+The output is in matrix format, and string variables can be removed to format the data set appropritately for enrichment analyses.
+
+## Query-Back Operations
+
+After identifying a VHH with desirable properties, it is sometimes worthwhile to "Query-Back" across databases for the most closely-related sequences, in an attempt to model a phylogeny of clones and inform the VHH selection process. For such a querying operation, we rely again on `mmseqs` for quick and sensitive searching.
+
+First, we need to convert the data of interest from our input files (usually `[prefix]_db-pass.tsv` and`[prefix]_db-fail.tsv`) into `.fasta` format.
+
